@@ -36,7 +36,7 @@ async def nft_count(wallet: NFTWallet) -> int:
 )
 @pytest.mark.anyio
 async def test_nft_mint_from_did(
-        self_hostname: str, two_wallet_nodes: Any, trusted: Any, seeded_random: random.Random
+    self_hostname: str, two_wallet_nodes: Any, trusted: Any, seeded_random: random.Random
 ) -> None:
     full_nodes, wallets, _ = two_wallet_nodes
     full_node_api: FullNodeSimulator = full_nodes[0]
@@ -102,8 +102,7 @@ async def test_nft_mint_from_did(
     metadata_list = [
         {
             "program": Program.to(
-                [("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]),
-                 ("h", bytes32.random(seeded_random).hex())]
+                [("u", ["https://www.chik.net/img/branding/chik-logo.svg"]), ("h", bytes32.random(seeded_random).hex())]
             ),
             "royalty_pc": royalty_pc,
             "royalty_ph": royalty_addr,
@@ -153,10 +152,10 @@ async def test_nft_mint_from_did(
 )
 @pytest.mark.anyio
 async def test_nft_mint_from_did_rpc(
-        two_wallet_nodes_services: SimulatorsAndWalletsServices,
-        trusted: Any,
-        self_hostname: str,
-        seeded_random: random.Random,
+    two_wallet_nodes_services: SimulatorsAndWalletsServices,
+    trusted: Any,
+    self_hostname: str,
+    seeded_random: random.Random,
 ) -> None:
     [full_node_service], wallet_services, bt = two_wallet_nodes_services
     full_node_api: FullNodeSimulator = full_node_service._api
@@ -282,8 +281,8 @@ async def test_nft_mint_from_did_rpc(
             await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node_maker, timeout=20)
             resp: Dict[str, Any] = await client.nft_mint_bulk(
                 wallet_id=nft_wallet_maker["wallet_id"],
-                metadata_list=metadata_list[i: i + chunk],
-                target_list=target_list[i: i + chunk],
+                metadata_list=metadata_list[i : i + chunk],
+                target_list=target_list[i : i + chunk],
                 royalty_percentage=royalty_percentage,
                 royalty_address=royalty_address,
                 mint_number_start=i + 1,
@@ -347,10 +346,10 @@ async def test_nft_mint_from_did_rpc(
 )
 @pytest.mark.anyio
 async def test_nft_mint_from_did_rpc_no_royalties(
-        two_wallet_nodes_services: SimulatorsAndWalletsServices,
-        trusted: Any,
-        self_hostname: str,
-        seeded_random: random.Random,
+    two_wallet_nodes_services: SimulatorsAndWalletsServices,
+    trusted: Any,
+    self_hostname: str,
+    seeded_random: random.Random,
 ) -> None:
     [full_node_service], wallet_services, bt = two_wallet_nodes_services
     full_node_api: FullNodeSimulator = full_node_service._api
@@ -474,8 +473,8 @@ async def test_nft_mint_from_did_rpc_no_royalties(
             await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node_maker, timeout=20)
             resp: Dict[str, Any] = await client.nft_mint_bulk(
                 wallet_id=nft_wallet_maker["wallet_id"],
-                metadata_list=metadata_list[i: i + chunk],
-                target_list=target_list[i: i + chunk],
+                metadata_list=metadata_list[i : i + chunk],
+                target_list=target_list[i : i + chunk],
                 royalty_percentage=royalty_percentage,
                 royalty_address=royalty_address,
                 mint_number_start=i + 1,
@@ -521,7 +520,7 @@ async def test_nft_mint_from_did_rpc_no_royalties(
 )
 @pytest.mark.anyio
 async def test_nft_mint_from_did_multiple_xck(
-        self_hostname: str, two_wallet_nodes: Any, trusted: Any, seeded_random: random.Random
+    self_hostname: str, two_wallet_nodes: Any, trusted: Any, seeded_random: random.Random
 ) -> None:
     full_nodes, wallets, _ = two_wallet_nodes
     full_node_api: FullNodeSimulator = full_nodes[0]
@@ -637,7 +636,7 @@ async def test_nft_mint_from_did_multiple_xck(
 )
 @pytest.mark.anyio
 async def test_nft_mint_from_xck(
-        self_hostname: str, two_wallet_nodes: Any, trusted: Any, seeded_random: random.Random
+    self_hostname: str, two_wallet_nodes: Any, trusted: Any, seeded_random: random.Random
 ) -> None:
     full_nodes, wallets, _ = two_wallet_nodes
     full_node_api: FullNodeSimulator = full_nodes[0]
@@ -703,8 +702,7 @@ async def test_nft_mint_from_xck(
     metadata_list = [
         {
             "program": Program.to(
-                [("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]),
-                 ("h", bytes32.random(seeded_random).hex())]
+                [("u", ["https://www.chik.net/img/branding/chik-logo.svg"]), ("h", bytes32.random(seeded_random).hex())]
             ),
             "royalty_pc": royalty_pc,
             "royalty_ph": royalty_addr,
@@ -753,10 +751,10 @@ async def test_nft_mint_from_xck(
 )
 @pytest.mark.anyio
 async def test_nft_mint_from_xck_rpc(
-        two_wallet_nodes_services: SimulatorsAndWalletsServices,
-        trusted: Any,
-        self_hostname: str,
-        seeded_random: random.Random,
+    two_wallet_nodes_services: SimulatorsAndWalletsServices,
+    trusted: Any,
+    self_hostname: str,
+    seeded_random: random.Random,
 ) -> None:
     [full_node_service], wallet_services, bt = two_wallet_nodes_services
     full_node_api: FullNodeSimulator = full_node_service._api
@@ -878,8 +876,8 @@ async def test_nft_mint_from_xck_rpc(
             await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node_maker, timeout=20)
             resp: Dict[str, Any] = await client.nft_mint_bulk(
                 wallet_id=nft_wallet_maker["wallet_id"],
-                metadata_list=metadata_list[i: i + chunk],
-                target_list=target_list[i: i + chunk],
+                metadata_list=metadata_list[i : i + chunk],
+                target_list=target_list[i : i + chunk],
                 royalty_percentage=royalty_percentage,
                 royalty_address=royalty_address,
                 mint_number_start=i + 1,
@@ -938,7 +936,7 @@ async def test_nft_mint_from_xck_rpc(
 )
 @pytest.mark.anyio
 async def test_nft_mint_from_xck_multiple_xck(
-        self_hostname: str, two_wallet_nodes: Any, trusted: Any, seeded_random: random.Random
+    self_hostname: str, two_wallet_nodes: Any, trusted: Any, seeded_random: random.Random
 ) -> None:
     full_nodes, wallets, _ = two_wallet_nodes
     full_node_api: FullNodeSimulator = full_nodes[0]
