@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 
-from blspy import G2Element
+from chik_rs import G2Element
 from klvm_tools import binutils
 
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
@@ -45,8 +45,8 @@ async def main() -> None:
         print(farmer_prefarm.amount, farmer_amounts)
         assert farmer_amounts == farmer_prefarm.amount // 2
         assert pool_amounts == pool_prefarm.amount // 2
-        address1 = "xck1rdatypul5c642jkeh4yp933zu3hw8vv8tfup8ta6zfampnyhjnusxdgns6"  # Key 1
-        address2 = "xck1duvy5ur5eyj7lp5geetfg84cj2d7xgpxt7pya3lr2y6ke3696w9qvda66e"  # Key 2
+        address1 = "xck1rdatypul5c642jkeh4yp933zu3hw8vv8tfup8ta6zfampnyhjnusws3u73"  # Key 1
+        address2 = "xck1duvy5ur5eyj7lp5geetfg84cj2d7xgpxt7pya3lr2y6ke3696w9qysy45j"  # Key 2
 
         ph1 = decode_puzzle_hash(address1)
         ph2 = decode_puzzle_hash(address2)

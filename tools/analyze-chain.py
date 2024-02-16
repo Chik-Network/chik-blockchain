@@ -11,8 +11,7 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import click
 import zstd
-from blspy import AugSchemeMPL, G1Element
-from chik_rs import MEMPOOL_MODE, SpendBundleConditions, run_block_generator
+from chik_rs import MEMPOOL_MODE, AugSchemeMPL, G1Element, SpendBundleConditions, run_block_generator
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.block_protocol import BlockInfo

@@ -1,0 +1,16 @@
+[Unit]
+Description=Chik Daemon Service for %i
+StopWhenUnneeded=true
+
+[Service]
+Type=simple
+Environment=CHIK_ROOT=/home/%i/.chik/mainnet
+ExecStart=/opt/chik/daemon
+ExecStartPost=/bin/bash -c '(while ! nc -z -v -w1 localhost 55400 2>/dev/null; do echo "Waiting for the daemon to listen on port 55400..."; sleep 1; done); sleep 1'
+User=%i
+Group=%i
+LimitNOFILE=1048576
+LimitNPROC=1048576
+
+[Install]
+WantedBy=multi-user.target

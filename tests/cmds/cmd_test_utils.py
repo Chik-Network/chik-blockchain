@@ -6,8 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, Iterable, List, Optional, Tuple, Type, Union, cast
 
-from blspy import G2Element
-from chik_rs import Coin
+from chik_rs import Coin, G2Element
 
 import chik.cmds.wallet_funcs
 from chik.cmds.chik import cli as chik_cli
@@ -418,7 +417,7 @@ def create_service_and_wallet_client_generators(test_rpc_clients: TestRpcClients
     # For more information, read the docstring of this function.
     chik.cmds.cmds_util.get_any_service_client = test_get_any_service_client
     chik.cmds.cmds_util.get_wallet_client = test_get_wallet_client  # type: ignore[assignment]
-    chik.cmds.wallet_funcs.get_wallet_client = test_get_wallet_client  # type: ignore[attr-defined]
+    chik.cmds.wallet_funcs.get_wallet_client = test_get_wallet_client  # type: ignore[assignment,attr-defined]
     # Monkey patches the confirm function to not ask for confirmation
     chik.cmds.cmds_util.cli_confirm = cli_confirm
     chik.cmds.wallet_funcs.cli_confirm = cli_confirm  # type: ignore[attr-defined]

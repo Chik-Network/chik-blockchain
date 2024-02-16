@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List, Tuple
 
 import pytest
-from blspy import G1Element
+from chik_rs import G1Element
 from klvm.casts import int_to_bytes
 
 from chik.types.blockchain_format.coin import Coin

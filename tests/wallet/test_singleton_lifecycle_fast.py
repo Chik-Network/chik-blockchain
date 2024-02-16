@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from blspy import G1Element, G2Element
+from chik_rs import G1Element, G2Element
 from klvm_tools import binutils
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
@@ -17,6 +17,7 @@ from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.spend_bundle import SpendBundle
 from chik.util.ints import uint32, uint64
 from chik.wallet.puzzles.load_klvm import load_klvm
+from chik.wallet.util.debug_spend_bundle import debug_spend_bundle
 from tests.klvm.coin_store import BadSpendBundleError, CoinStore, CoinTimestamp
 
 SINGLETON_MOD = load_klvm("singleton_top_layer.clsp")
@@ -358,7 +359,7 @@ def claim_p2_singleton(
         SerializedProgram.from_program(p2_singleton_puzzle),
         p2_singleton_solution,
     )
-    expected_p2_singleton_announcement = Announcement(p2_singleton_coin_name, bytes(b"$")).name()
+    expected_p2_singleton_announcement = Announcement(p2_singleton_coin_name, b"$").name()
     singleton_conditions = [
         Program.to([ConditionOpcode.CREATE_PUZZLE_ANNOUNCEMENT, p2_singleton_coin_name]),
         Program.to([ConditionOpcode.CREATE_COIN, inner_puzzle_hash, 1]),
@@ -633,7 +634,7 @@ def test_lifecycle_with_coinstore_as_wallet():
             pool_reward_height=now.height - 1,
         )
         spend_bundle = SpendBundle([coin_spend, p2_singleton_coin_spend], G2Element())
-        spend_bundle.debug()
+        debug_spend_bundle(spend_bundle)
 
         _, removals = coin_store.update_coin_store_for_spend_bundle(spend_bundle, now, MAX_BLOCK_COST_KLVM)
         now.seconds += 500
@@ -737,7 +738,7 @@ def test_lifecycle_with_coinstore_as_wallet():
         PUZZLE_DB, conditions=[[ConditionOpcode.CREATE_COIN, 0, -113]]
     )
     spend_bundle = SpendBundle([coin_spend], G2Element())
-    spend_bundle.debug()
+    debug_spend_bundle(spend_bundle)
 
     _, removals = coin_store.update_coin_store_for_spend_bundle(spend_bundle, now, MAX_BLOCK_COST_KLVM)
     update_count = SINGLETON_WALLET.update_state(PUZZLE_DB, removals)

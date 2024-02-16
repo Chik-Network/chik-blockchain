@@ -1,7 +1,7 @@
 # flake8: noqa: E501
 from __future__ import annotations
 
-from blspy import AugSchemeMPL, PrivateKey
+from chik_rs import AugSchemeMPL, PrivateKey
 
 from chik.pools.pool_config import PoolWalletConfig
 from chik.util.config import create_default_chik_config, load_config, lock_config, save_config

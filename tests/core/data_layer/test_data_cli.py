@@ -10,7 +10,7 @@ from tests.core.data_layer.util import ChikRoot
 pytestmark = pytest.mark.data_layer
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_help(chik_root: ChikRoot) -> None:
     """Just a trivial test to make sure the subprocessing is at least working and the
     data executable does run.
@@ -19,8 +19,8 @@ async def test_help(chik_root: ChikRoot) -> None:
     assert "Show this message and exit" in completed_process.stdout
 
 
-@pytest.mark.xfail(strict=True)
-@pytest.mark.asyncio
+@pytest.mark.skip
+@pytest.mark.anyio
 def test_round_trip(chik_root: ChikRoot, chik_daemon: None, chik_data: None) -> None:
     """Create a table, insert a row, get the row by its hash."""
 

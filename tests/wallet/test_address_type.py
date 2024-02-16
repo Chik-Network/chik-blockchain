@@ -23,7 +23,7 @@ def test_txck_hrp_for_testnet(config_with_address_prefix: Dict[str, Any]) -> Non
 def test_is_valid_address_xck(config_with_address_prefix: Dict[str, Any]) -> None:
     config = config_with_address_prefix
     valid = is_valid_address(
-        "xck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs8taffd", allowed_types={AddressType.XCK}, config=config
+        "xck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs0kyx8x", allowed_types={AddressType.XCK}, config=config
     )
     assert valid is True
 
@@ -33,7 +33,7 @@ def test_is_valid_address_txck(config_with_address_prefix: Dict[str, Any]) -> No
     config = config_with_address_prefix
     # TXCK address validation requires a config
     valid = is_valid_address(
-        "txck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs2v6lg7",
+        "txck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhsz3rsx4",
         allowed_types={AddressType.XCK},
         config=config,
     )
@@ -44,7 +44,7 @@ def test_is_valid_address_txck(config_with_address_prefix: Dict[str, Any]) -> No
 def test_is_valid_address_xck_bad_address(config_with_address_prefix: Dict[str, Any]) -> None:
     config = config_with_address_prefix
     valid = is_valid_address(
-        "xck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs8xxxxx", allowed_types={AddressType.XCK}, config=config
+        "xck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs0xxxxx", allowed_types={AddressType.XCK}, config=config
     )
     assert valid is False
 
@@ -113,20 +113,20 @@ def test_is_valid_address_did_bad_address(config_with_address_prefix: Dict[str, 
 def test_ensure_valid_address_xck(config_with_address_prefix: Dict[str, Any]) -> None:
     config = config_with_address_prefix
     address = ensure_valid_address(
-        "xck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs8taffd", allowed_types={AddressType.XCK}, config=config
+        "xck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs0kyx8x", allowed_types={AddressType.XCK}, config=config
     )
-    assert address == "xck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs8taffd"
+    assert address == "xck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs0kyx8x"
 
 
 @pytest.mark.parametrize("prefix", ["txck"])
 def test_ensure_valid_address_txck(config_with_address_prefix: Dict[str, Any]) -> None:
     config = config_with_address_prefix
     address = ensure_valid_address(
-        "txck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs2v6lg7",
+        "txck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhsz3rsx4",
         allowed_types={AddressType.XCK},
         config=config,
     )
-    assert address == "txck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs2v6lg7"
+    assert address == "txck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhsz3rsx4"
 
 
 @pytest.mark.parametrize("prefix", [None])
@@ -134,7 +134,7 @@ def test_ensure_valid_address_xck_bad_address(config_with_address_prefix: Dict[s
     config = config_with_address_prefix
     with pytest.raises(ValueError):
         ensure_valid_address(
-            "xck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs8xxxxx",
+            "xck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs0xxxxx",
             allowed_types={AddressType.XCK},
             config=config,
         )

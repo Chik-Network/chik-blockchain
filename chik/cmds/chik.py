@@ -9,6 +9,7 @@ from chik import __version__
 from chik.cmds.beta import beta_cmd
 from chik.cmds.completion import completion
 from chik.cmds.configure import configure_cmd
+from chik.cmds.dao import dao_cmd
 from chik.cmds.data import data_cmd
 from chik.cmds.db import db_cmd
 from chik.cmds.dev import dev_cmd
@@ -128,6 +129,7 @@ cli.add_command(data_cmd)
 cli.add_command(passphrase_cmd)
 cli.add_command(beta_cmd)
 cli.add_command(completion)
+cli.add_command(dao_cmd)
 cli.add_command(dev_cmd)
 
 

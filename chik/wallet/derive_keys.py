@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Set, Tuple
 
-from blspy import AugSchemeMPL, G1Element, PrivateKey
+from chik_rs import AugSchemeMPL, G1Element, PrivateKey
 
 from chik.consensus.coinbase import create_puzzlehash_for_pk
 from chik.types.blockchain_format.sized_bytes import bytes32

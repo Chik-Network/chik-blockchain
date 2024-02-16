@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from blspy import G2Element
+from chik_rs import G2Element
 
 from chik.types.blockchain_format.proof_of_space import ProofOfSpace
 from chik.types.blockchain_format.sized_bytes import bytes32

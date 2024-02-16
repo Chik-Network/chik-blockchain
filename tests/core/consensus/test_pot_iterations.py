@@ -13,9 +13,9 @@ from chik.consensus.pot_iterations import (
     is_overflow_block,
 )
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint64
+from chik.util.ints import uint8, uint32, uint64
 
-test_constants = dataclasses.replace(DEFAULT_CONSTANTS, NUM_SPS_SUB_SLOT=32, SUB_SLOT_TIME_TARGET=300)
+test_constants = dataclasses.replace(DEFAULT_CONSTANTS, NUM_SPS_SUB_SLOT=uint32(32), SUB_SLOT_TIME_TARGET=300)
 
 
 class TestPotIterations:

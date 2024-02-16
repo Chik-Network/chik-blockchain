@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from blspy import AugSchemeMPL, G1Element, G2Element, PrivateKey
+from chik_rs import AugSchemeMPL, G1Element, G2Element, PrivateKey
 from klvm.casts import int_from_bytes, int_to_bytes
 
 from chik.consensus.constants import ConsensusConstants

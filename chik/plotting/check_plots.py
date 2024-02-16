@@ -9,7 +9,7 @@ from threading import Lock
 from time import sleep, time
 from typing import List, Optional
 
-from blspy import G1Element
+from chik_rs import G1Element
 from chikpos import Verifier
 
 from chik.plotting.manager import PlotManager

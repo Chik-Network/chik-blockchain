@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from io import StringIO
 
-from blspy import AugSchemeMPL, PrivateKey
+from chik_rs import AugSchemeMPL, PrivateKey
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program

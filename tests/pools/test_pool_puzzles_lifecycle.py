@@ -5,7 +5,7 @@ from typing import List
 from unittest import TestCase
 
 import pytest
-from blspy import AugSchemeMPL, G1Element, G2Element, PrivateKey
+from chik_rs import AugSchemeMPL, G1Element, G2Element, PrivateKey
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.pools.pool_puzzles import (
@@ -16,7 +16,6 @@ from chik.pools.pool_puzzles import (
     create_travel_spend,
     create_waiting_room_inner_puzzle,
     get_delayed_puz_info_from_launcher_spend,
-    get_most_recent_singleton_coin_from_coin_spend,
     get_pubkey_from_member_inner_puzzle,
     get_seconds_and_delayed_puzhash_from_p2_singleton_puzzle,
     is_pool_singleton_inner_puzzle,
@@ -39,6 +38,7 @@ from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import (
     puzzle_for_pk,
     solution_for_conditions,
 )
+from chik.wallet.singleton import get_most_recent_singleton_coin_from_coin_spend
 from tests.klvm.coin_store import BadSpendBundleError, CoinStore, CoinTimestamp
 from tests.klvm.test_puzzles import public_key_for_index, secret_exponent_for_index
 from tests.util.key_tool import KeyTool

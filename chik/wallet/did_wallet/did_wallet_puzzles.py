@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, Iterator, List, Optional, Tuple
 
-from blspy import G1Element
+from chik_rs import G1Element
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
@@ -191,7 +191,7 @@ def metadata_to_program(metadata: Dict) -> Program:
     return Program.to(kv_list)
 
 
-def program_to_metadata(program: Program) -> Dict:
+def did_program_to_metadata(program: Program) -> Dict:
     """
     Convert a program to a metadata dict
     :param program: Chiklisp program contains the metadata

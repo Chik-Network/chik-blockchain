@@ -4,7 +4,7 @@ from dataclasses import replace
 from typing import Any, Dict, List, Optional
 
 import pytest
-from blspy import G2Element
+from chik_rs import G2Element
 
 from chik.klvm.spend_sim import sim_and_client
 from chik.types.announcement import Announcement
@@ -167,7 +167,7 @@ def generate_secure_bundle(
 
 
 class TestOfferLifecycle:
-    @pytest.mark.asyncio()
+    @pytest.mark.anyio()
     async def test_complex_offer(self, cost_logger):
         async with sim_and_client() as (sim, sim_client):
             coins_needed: Dict[Optional[str], List[int]] = {

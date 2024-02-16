@@ -6,7 +6,7 @@ import unittest
 from typing import List, Tuple
 
 import pytest
-from blspy import G2Element
+from chik_rs import G2Element
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program

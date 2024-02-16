@@ -4,7 +4,7 @@ import logging
 from typing import List
 
 import pytest
-from blspy import G1Element
+from chik_rs import G1Element
 
 from chik.plot_sync.delta import Delta, DeltaType, PathListDelta, PlotListDelta
 from chik.protocols.harvester_protocol import Plot

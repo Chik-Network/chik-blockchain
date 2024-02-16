@@ -4,8 +4,7 @@ import io
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Tuple
 
-from blspy import G1Element, G2Element
-from chik_rs import serialized_length
+from chik_rs import G1Element, G2Element, serialized_length
 from chikbip158 import PyBIP158
 
 from chik.types.blockchain_format.coin import Coin

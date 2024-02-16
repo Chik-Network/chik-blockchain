@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from blspy import G2Element
-from chik_rs import Coin
+from chik_rs import Coin, G2Element
 
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.spend_bundle import SpendBundle

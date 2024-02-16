@@ -5,12 +5,11 @@ After `chik plots create` becomes obsolete, consider removing it from there.
 from __future__ import annotations
 
 import asyncio
+import importlib.metadata
 import logging
 from argparse import Namespace
 from pathlib import Path
 from typing import Any, Dict, Optional
-
-import pkg_resources
 
 from chik.plotting.create_plots import create_plots, resolve_plot_keys
 from chik.plotting.util import Params, add_plot_directory, validate_plot_size
@@ -19,7 +18,7 @@ log = logging.getLogger(__name__)
 
 
 def get_chikpos_install_info() -> Optional[Dict[str, Any]]:
-    chikpos_version: str = pkg_resources.get_distribution("chikpos").version
+    chikpos_version: str = importlib.metadata.version("chikpos")
     return {"display_name": "Chik Proof of Space", "version": chikpos_version, "installed": True}
 
 

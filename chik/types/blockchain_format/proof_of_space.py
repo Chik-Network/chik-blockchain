@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Optional, cast
 
 from bitstring import BitArray
-from blspy import AugSchemeMPL, G1Element, PrivateKey
+from chik_rs import AugSchemeMPL, G1Element, PrivateKey
 from chikpos import Verifier
 
 from chik.consensus.constants import ConsensusConstants

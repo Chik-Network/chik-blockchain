@@ -1,0 +1,16 @@
+[Unit]
+Description=Chik Crawler Service for %i
+Requires=chik-daemon@%i.service
+After=chik-daemon@%i.service
+
+[Service]
+Type=simple
+Environment=CHIK_ROOT=/home/%i/.chik/mainnet
+ExecStart=/opt/chik/start_crawler
+User=%i
+Group=%i
+LimitNOFILE=1048576
+LimitNPROC=1048576
+
+[Install]
+WantedBy=multi-user.target

@@ -16,13 +16,13 @@ from chik.seeder.peer_record import PeerRecord, PeerReliability
 from chik.server.outbound_message import make_msg
 from chik.server.start_service import Service
 from chik.simulator.setup_nodes import SimulatorsAndWalletsServices
-from chik.simulator.time_out_assert import time_out_assert
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
-from chik.util.ints import uint16, uint32, uint64, uint128
+from chik.util.ints import uint32, uint64, uint128
+from tests.util.time_out_assert import time_out_assert
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_unknown_messages(
     self_hostname: str,
     one_node: SimulatorsAndWalletsServices,
@@ -33,7 +33,7 @@ async def test_unknown_messages(
     crawler = crawler_service._node
     full_node = full_node_service._node
     assert await crawler.server.start_client(
-        PeerInfo(self_hostname, uint16(cast(FullNodeAPI, full_node_service._api).server._port)), None
+        PeerInfo(self_hostname, cast(FullNodeAPI, full_node_service._api).server.get_port()), None
     )
     connection = full_node.server.all_connections[crawler.server.node_id]
 
@@ -46,7 +46,7 @@ async def test_unknown_messages(
         await time_out_assert(10, receiving_failed)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_valid_message(
     self_hostname: str,
     one_node: SimulatorsAndWalletsServices,
@@ -57,7 +57,7 @@ async def test_valid_message(
     crawler = crawler_service._node
     full_node = full_node_service._node
     assert await crawler.server.start_client(
-        PeerInfo(self_hostname, uint16(cast(FullNodeAPI, full_node_service._api).server._port)), None
+        PeerInfo(self_hostname, cast(FullNodeAPI, full_node_service._api).server.get_port()), None
     )
     connection = full_node.server.all_connections[crawler.server.node_id]
 
@@ -72,7 +72,7 @@ async def test_valid_message(
     await time_out_assert(10, peer_added)
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_crawler_to_db(
     crawler_service: Service[Crawler, CrawlerAPI], one_node: SimulatorsAndWalletsServices
 ) -> None:

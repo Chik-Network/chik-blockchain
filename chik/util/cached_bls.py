@@ -3,7 +3,7 @@ from __future__ import annotations
 import functools
 from typing import Dict, List, Optional, Sequence
 
-from blspy import AugSchemeMPL, G1Element, G2Element, GTElement
+from chik_rs import AugSchemeMPL, G1Element, G2Element, GTElement
 
 from chik.types.blockchain_format.sized_bytes import bytes32, bytes48
 from chik.util.hash import std_hash

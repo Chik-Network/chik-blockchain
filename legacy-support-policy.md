@@ -1,10 +1,11 @@
-# Legacy Software and Operating System support policy
-It is the official policy of the Chik Blockchain project to end software support (in particular Python versions), as well as operating systems.
+# Legacy Software and Operating System Support Policy
 
-Chik blockchain project intends that if the original maintainer of a software or operating system no longer supports a given version, the Chik Blockchain project does not intend to continue providing support for it.
+It is the official policy of the Chik Blockchain project to end software support when the original maintainer of the software deems it End of Life (EOL) or stops providing support.  The most relevant targets of this policy are Python, Node.js, and operating systems.
 
-## Long-term support conflicts
+## Long-term Support Conflicts
+
 If a long-term support version of an operating system uses a default Python version that has lost official support, we also intend to end support for that operating system version, so as to avoid issues with installing a new Python version via Chik install, which may break crucial operating system components.
 
-## More information
+## More Information
+
 For more information, please contact hello@chiknetwork.com or reach out on the community Discord.

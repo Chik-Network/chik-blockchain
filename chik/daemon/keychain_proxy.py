@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from aiohttp import ClientConnectorError, ClientSession
-from blspy import AugSchemeMPL, PrivateKey
+from chik_rs import AugSchemeMPL, PrivateKey
 
 from chik.cmds.init_funcs import check_keys
 from chik.daemon.client import DaemonProxy

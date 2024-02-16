@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, Optional, Set, Tuple, TypeVar
 
-from blspy import G1Element
+from chik_rs import G1Element
 from typing_extensions import NotRequired, Protocol, TypedDict
 
 from chik.server.ws_connection import WSChikConnection

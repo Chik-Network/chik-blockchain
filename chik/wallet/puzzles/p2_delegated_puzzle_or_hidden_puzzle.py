@@ -60,7 +60,7 @@ from __future__ import annotations
 import hashlib
 from typing import Union
 
-from blspy import G1Element, PrivateKey
+from chik_rs import G1Element, PrivateKey
 from klvm.casts import int_from_bytes
 
 from chik.types.blockchain_format.program import Program

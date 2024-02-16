@@ -9,8 +9,8 @@ from sys import platform
 from time import sleep
 
 from chik.simulator.keyring import TempKeyring
-from chik.simulator.time_out_assert import adjusted_timeout
 from chik.util.keyring_wrapper import KeyringWrapper
+from chik.util.timing import adjusted_timeout
 from tests.core.util.test_lockfile import wait_for_enough_files_in_directory
 
 log = logging.getLogger(__name__)

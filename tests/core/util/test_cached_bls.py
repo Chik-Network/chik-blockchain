@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from blspy import AugSchemeMPL, G1Element
+from chik_rs import AugSchemeMPL, G1Element
 
 from chik.util import cached_bls
 from chik.util.hash import std_hash

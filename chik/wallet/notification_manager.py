@@ -4,7 +4,7 @@ import dataclasses
 import logging
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from blspy import G2Element
+from chik_rs import G2Element
 
 from chik.protocols.wallet_protocol import CoinState
 from chik.types.announcement import Announcement
@@ -105,7 +105,7 @@ class NotificationManager:
             Program.to(None),
         )
         extra_spend_bundle = SpendBundle([notification_spend], G2Element())
-        chik_tx = await self.wallet_state_manager.main_wallet.generate_signed_transaction(
+        [chik_tx] = await self.wallet_state_manager.main_wallet.generate_signed_transaction(
             amount,
             notification_hash,
             tx_config,

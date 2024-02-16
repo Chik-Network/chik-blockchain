@@ -8,7 +8,7 @@ import pytest
 from chik.util.limited_semaphore import LimitedSemaphore, LimitedSemaphoreFullError
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_stuff() -> None:
     active_limit = 2
     waiting_limit = 4

@@ -15,12 +15,12 @@ from chik.harvester.harvester_api import HarvesterAPI
 from chik.server.start_service import Service
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
-from chik.simulator.time_out_assert import time_out_assert
 from chik.wallet.wallet_node import WalletNode
 from chik.wallet.wallet_node_api import WalletNodeAPI
+from tests.util.time_out_assert import time_out_assert
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_farm_summary_command(
     capsys: CaptureFixture[str],
     farmer_one_harvester_simulator_wallet: Tuple[

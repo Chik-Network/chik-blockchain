@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from blspy import AugSchemeMPL, G1Element, G2Element
+from chik_rs import AugSchemeMPL, G1Element, G2Element
 
 from chik.consensus.pot_iterations import calculate_iterations_quality, calculate_sp_interval_iters
 from chik.harvester.harvester import Harvester

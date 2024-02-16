@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from blspy import G1Element
+from chik_rs import G1Element
 
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.ints import uint32

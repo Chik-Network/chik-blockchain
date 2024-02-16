@@ -13,7 +13,7 @@ from chik.simulator.block_tools import BlockTools
 from chik.util.default_root import SIMULATOR_ROOT_PATH
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_enable_private_networks(
     two_nodes: Tuple[FullNodeAPI, FullNodeAPI, ChikServer, ChikServer, BlockTools],
 ) -> None:

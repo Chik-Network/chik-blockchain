@@ -33,7 +33,7 @@ rm -rf dist
 mkdir dist
 
 echo "Create executables with pyinstaller"
-SPEC_FILE=$(python -c 'import chik; print(chik.PYINSTALLER_SPEC_PATH)')
+SPEC_FILE=$(python -c 'import sys; from pathlib import Path; path = Path(sys.argv[1]); print(path.absolute().as_posix())' "pyinstaller.spec")
 pyinstaller --log-level=INFO "$SPEC_FILE"
 LAST_EXIT_CODE=$?
 if [ "$LAST_EXIT_CODE" -ne 0 ]; then
@@ -50,7 +50,9 @@ bash ./build_license_directory.sh
 CLI_RPM_BASE="chik-blockchain-cli-$CHIK_INSTALLER_VERSION-1.$REDHAT_PLATFORM"
 mkdir -p "dist/$CLI_RPM_BASE/opt/chik"
 mkdir -p "dist/$CLI_RPM_BASE/usr/bin"
+mkdir -p "dist/$CLI_RPM_BASE/etc/systemd/system"
 cp -r dist/daemon/* "dist/$CLI_RPM_BASE/opt/chik/"
+cp assets/systemd/*.service "dist/$CLI_RPM_BASE/etc/systemd/system/"
 
 ln -s ../../opt/chik/chik "dist/$CLI_RPM_BASE/usr/bin/chik"
 # This is built into the base build image
@@ -62,6 +64,7 @@ rvm use ruby-3
 # Marking as a dependency allows yum/dnf to automatically install the libxcrypt-compat package as well
 fpm -s dir -t rpm \
   -C "dist/$CLI_RPM_BASE" \
+  --directories "/opt/chik" \
   -p "dist/$CLI_RPM_BASE.rpm" \
   --name chik-blockchain-cli \
   --license Apache-2.0 \
@@ -71,6 +74,8 @@ fpm -s dir -t rpm \
   --rpm-tag 'Recommends: libxcrypt-compat' \
   --rpm-tag '%define _build_id_links none' \
   --rpm-tag '%undefine _missing_build_ids_terminate_build' \
+  --before-install=assets/rpm/before-install.sh \
+  --rpm-tag 'Requires(pre): findutils' \
   .
 # CLI only rpm done
 cp -r dist/daemon ../chik-blockchain-gui/packages/gui

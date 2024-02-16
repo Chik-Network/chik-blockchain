@@ -12,9 +12,8 @@ from chik.server.outbound_message import NodeType
 from chik.server.start_service import RpcInfo, Service, async_run
 from chik.timelord.timelord import Timelord
 from chik.timelord.timelord_api import TimelordAPI
-from chik.types.peer_info import UnresolvedPeerInfo
 from chik.util.chik_logging import initialize_service_logging
-from chik.util.config import load_config, load_config_cli
+from chik.util.config import get_unresolved_peer_infos, load_config, load_config_cli
 from chik.util.default_root import DEFAULT_ROOT_PATH
 from chik.util.misc import SignalHandlers
 
@@ -34,10 +33,6 @@ def create_timelord_service(
     connect_to_daemon: bool = True,
 ) -> Service[Timelord, TimelordAPI]:
     service_config = config[SERVICE_NAME]
-
-    connect_peers = {
-        UnresolvedPeerInfo(service_config["full_node_peer"]["host"], service_config["full_node_peer"]["port"])
-    }
     overrides = service_config["network_overrides"]["constants"][service_config["selected_network"]]
     updated_constants = constants.replace_str_to_bytes(**overrides)
 
@@ -55,13 +50,12 @@ def create_timelord_service(
         peer_api=peer_api,
         node=node,
         node_type=NodeType.TIMELORD,
-        advertised_port=service_config["port"],
+        advertised_port=None,
         service_name=SERVICE_NAME,
-        connect_peers=connect_peers,
+        connect_peers=get_unresolved_peer_infos(service_config, NodeType.FULL_NODE),
         network_id=network_id,
         rpc_info=rpc_info,
         connect_to_daemon=connect_to_daemon,
-        listen=False,
     )
 
 

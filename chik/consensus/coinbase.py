@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from blspy import G1Element
+from chik_rs import G1Element
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.sized_bytes import bytes32

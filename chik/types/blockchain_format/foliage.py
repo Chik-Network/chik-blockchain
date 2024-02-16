@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
-from blspy import G2Element
+from chik_rs import G2Element
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.pool_target import PoolTarget

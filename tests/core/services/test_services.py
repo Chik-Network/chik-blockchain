@@ -19,10 +19,10 @@ from chik.rpc.harvester_rpc_client import HarvesterRpcClient
 from chik.rpc.rpc_client import RpcClient
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.socket import find_available_listen_port
-from chik.simulator.time_out_assert import adjusted_timeout
 from chik.util.config import lock_and_load_config, save_config
 from chik.util.ints import uint16
 from chik.util.misc import sendable_termination_signals
+from chik.util.timing import adjusted_timeout
 from tests.core.data_layer.util import ChikRoot
 from tests.util.misc import closing_chik_root_popen
 
@@ -53,7 +53,7 @@ async def wait_for_daemon_connection(root_path: Path, config: Dict[str, Any], ti
 
 
 @pytest.mark.parametrize(argnames="signal_number", argvalues=sendable_termination_signals)
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_daemon_terminates(signal_number: signal.Signals, chik_root: ChikRoot) -> None:
     port = find_available_listen_port()
     with lock_and_load_config(root_path=chik_root.path, filename="config.yaml") as config:
@@ -91,7 +91,7 @@ async def test_daemon_terminates(signal_number: signal.Signals, chik_root: ChikR
         # [, "chik.data_layer.data_layer_server", "data_layer"],
     ],
 )
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_services_terminate(
     signal_number: signal.Signals,
     chik_root: ChikRoot,
@@ -138,7 +138,10 @@ async def test_services_terminate(
 
                     try:
                         result = await client.healthz()
-                    except aiohttp.client_exceptions.ClientConnectorError:
+                    except (
+                        aiohttp.client_exceptions.ClientConnectorError,
+                        aiohttp.client_exceptions.ClientResponseError,
+                    ):
                         pass
                     else:
                         if result.get("success", False):
