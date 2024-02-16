@@ -88,18 +88,18 @@ class GetUnresolvedPeerInfosCase(DataCase):
             "full_node_peers": [
                 {
                     "host": "127.0.0.1",
-                    "port": 8444,
+                    "port": 9678,
                 },
                 {
                     "host": "my.full-node.tld",
-                    "port": 18444,
+                    "port": 19678,
                 },
             ],
         },
         requested_node_type=NodeType.FULL_NODE,
         expected_peer_infos={
-            UnresolvedPeerInfo(host="127.0.0.1", port=uint16(8444)),
-            UnresolvedPeerInfo(host="my.full-node.tld", port=uint16(18444)),
+            UnresolvedPeerInfo(host="127.0.0.1", port=uint16(9678)),
+            UnresolvedPeerInfo(host="my.full-node.tld", port=uint16(19678)),
         },
     ),
     GetUnresolvedPeerInfosCase(
@@ -107,12 +107,12 @@ class GetUnresolvedPeerInfosCase(DataCase):
         service_config={
             "full_node_peer": {
                 "host": "my.full-node.tld",
-                "port": 18444,
+                "port": 19678,
             },
         },
         requested_node_type=NodeType.FULL_NODE,
         expected_peer_infos={
-            UnresolvedPeerInfo(host="my.full-node.tld", port=uint16(18444)),
+            UnresolvedPeerInfo(host="my.full-node.tld", port=uint16(19678)),
         },
     ),
     GetUnresolvedPeerInfosCase(
@@ -120,24 +120,24 @@ class GetUnresolvedPeerInfosCase(DataCase):
         service_config={
             "full_node_peer": {
                 "host": "my.full-node.tld",
-                "port": 18444,
+                "port": 19678,
             },
             "full_node_peers": [
                 {
                     "host": "127.0.0.1",
-                    "port": 8444,
+                    "port": 9678,
                 },
                 {
                     "host": "my.other.full-node.tld",
-                    "port": 18444,
+                    "port": 19678,
                 },
             ],
         },
         requested_node_type=NodeType.FULL_NODE,
         expected_peer_infos={
-            UnresolvedPeerInfo(host="my.full-node.tld", port=uint16(18444)),
-            UnresolvedPeerInfo(host="127.0.0.1", port=uint16(8444)),
-            UnresolvedPeerInfo(host="my.other.full-node.tld", port=uint16(18444)),
+            UnresolvedPeerInfo(host="my.full-node.tld", port=uint16(19678)),
+            UnresolvedPeerInfo(host="127.0.0.1", port=uint16(9678)),
+            UnresolvedPeerInfo(host="my.other.full-node.tld", port=uint16(19678)),
         },
     ),
     GetUnresolvedPeerInfosCase(

@@ -128,20 +128,20 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
     env_1 = wallet_environments.environments[1]
     wallet_node_0 = wallet_environments.environments[0].wallet_node
     wallet_node_1 = wallet_environments.environments[1].wallet_node
-    wallet_0 = wallet_environments.environments[0].xch_wallet
-    wallet_1 = wallet_environments.environments[1].xch_wallet
+    wallet_0 = wallet_environments.environments[0].xck_wallet
+    wallet_1 = wallet_environments.environments[1].xck_wallet
     client_0 = wallet_environments.environments[0].rpc_client
     client_1 = wallet_environments.environments[1].rpc_client
 
     # Define wallet aliases
     env_0.wallet_aliases = {
-        "xch": 1,
+        "xck": 1,
         "did": 2,
         "vc": 3,
         "crcat": 4,
     }
     env_1.wallet_aliases = {
-        "xch": 1,
+        "xck": 1,
         "crcat": 2,
         "vc": 3,
     }
@@ -160,7 +160,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
         [
             WalletStateTransition(
                 pre_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "unconfirmed_wallet_balance": -202,  # 200 for VC mint fee, 1 for VC singleton, 1 for DID mint
                         # I'm not sure incrementing pending_coin_removal_count here by 3 is the spirit of this number
                         # One existing coin has been removed and two ephemeral coins have been removed
@@ -184,7 +184,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
                     },
                 },
                 post_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "confirmed_wallet_balance": -202,  # 200 for VC mint fee, 1 for VC singleton, 1 for DID mint
                         "pending_coin_removal_count": -4,  # 3 for VC mint, 1 for DID mint
                         "set_remainder": True,
@@ -216,7 +216,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
         [
             WalletStateTransition(
                 pre_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "unconfirmed_wallet_balance": -100,
                         "pending_coin_removal_count": 1,
                         "<=#spendable_balance": -100,
@@ -233,7 +233,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
                     },
                 },
                 post_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "confirmed_wallet_balance": -100,
                         "pending_coin_removal_count": -1,
                         "set_remainder": True,
@@ -289,7 +289,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
         [
             WalletStateTransition(
                 pre_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "unconfirmed_wallet_balance": -100,
                         "<=#spendable_balance": -100,
                         "<=#max_send_amount": -100,
@@ -297,7 +297,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
                     },
                 },
                 post_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "confirmed_wallet_balance": -100,
                         "set_remainder": True,
                     },
@@ -334,7 +334,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
     } == (await client_0.get_wallets(wallet_type=cr_cat_wallet_0.type()))[0]
     assert await wallet_node_0.wallet_state_manager.get_wallet_for_asset_id(cr_cat_wallet_0.get_asset_id()) is not None
     wallet_1_ph = await wallet_1.get_new_puzzlehash()
-    wallet_1_addr = encode_puzzle_hash(wallet_1_ph, "txch")
+    wallet_1_addr = encode_puzzle_hash(wallet_1_ph, "txck")
     tx = await client_0.cat_spend(
         cr_cat_wallet_0.id(),
         wallet_environments.tx_config,
@@ -348,7 +348,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
         [
             WalletStateTransition(
                 pre_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "unconfirmed_wallet_balance": -2000000000,
                         "pending_coin_removal_count": 1,
                         "<=#spendable_balance": -2000000000,
@@ -366,7 +366,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
                     },
                 },
                 post_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "confirmed_wallet_balance": -2000000000,
                         "pending_coin_removal_count": -1,
                         "set_remainder": True,
@@ -455,7 +455,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
             WalletStateTransition(),
             WalletStateTransition(
                 pre_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "unconfirmed_wallet_balance": -90,
                         "pending_coin_removal_count": 1,
                         "<=#spendable_balance": -90,
@@ -471,7 +471,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
                     },
                 },
                 post_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "confirmed_wallet_balance": -90,
                         "pending_coin_removal_count": -1,
                         "set_remainder": True,
@@ -520,7 +520,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
             WalletStateTransition(),
             WalletStateTransition(
                 pre_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "unconfirmed_wallet_balance": 20,
                         "pending_coin_removal_count": 1,
                         "<=#spendable_balance": 20,
@@ -538,7 +538,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
                     },
                 },
                 post_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "confirmed_wallet_balance": 20,
                         "pending_coin_removal_count": -1,
                         "set_remainder": True,
@@ -566,7 +566,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
         [
             WalletStateTransition(
                 pre_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "unconfirmed_wallet_balance": -1,
                         "pending_coin_removal_count": 1,
                         "<=#spendable_balance": -1,
@@ -580,7 +580,7 @@ async def test_vc_lifecycle(wallet_environments: WalletTestFramework) -> None:
                     },
                 },
                 post_block_balance_updates={
-                    "xch": {
+                    "xck": {
                         "confirmed_wallet_balance": -1,
                         "pending_coin_removal_count": -1,
                         "set_remainder": True,
@@ -621,12 +621,12 @@ async def test_self_revoke(wallet_environments: WalletTestFramework) -> None:
     # Setup
     env_0: WalletEnvironment = wallet_environments.environments[0]
     wallet_node_0 = env_0.wallet_node
-    wallet_0 = env_0.xch_wallet
+    wallet_0 = env_0.xck_wallet
     client_0 = env_0.rpc_client
 
     # Aliases
     env_0.wallet_aliases = {
-        "xch": 1,
+        "xck": 1,
         "did": 2,
         "vc": 3,
     }
@@ -645,12 +645,12 @@ async def test_self_revoke(wallet_environments: WalletTestFramework) -> None:
             WalletStateTransition(
                 # Balance checking for this spend covered in test_vc_lifecycle
                 pre_block_balance_updates={
-                    "xch": {"set_remainder": True},
+                    "xck": {"set_remainder": True},
                     "did": {"init": True, "set_remainder": True},
                     "vc": {"init": True, "set_remainder": True},
                 },
                 post_block_balance_updates={
-                    "xch": {"set_remainder": True},
+                    "xck": {"set_remainder": True},
                     "did": {"set_remainder": True},
                     "vc": {"set_remainder": True},
                 },

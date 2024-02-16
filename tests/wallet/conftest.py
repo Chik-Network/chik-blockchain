@@ -54,7 +54,7 @@ class WalletStateTransition:
 class WalletEnvironment:
     wallet_node: WalletNode
     wallet_state_manager: WalletStateManager
-    xch_wallet: Wallet
+    xck_wallet: Wallet
     rpc_client: WalletRpcClient
     wallet_states: Dict[uint32, WalletState]
     wallet_aliases: Dict[str, int] = field(default_factory=dict)

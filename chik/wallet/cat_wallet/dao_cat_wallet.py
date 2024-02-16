@@ -455,7 +455,7 @@ class DAOCATWallet:
         spend_bundle: SpendBundle = await self.wallet_state_manager.sign_transaction(cat_spend_bundle.coin_spends)
 
         if fee > 0:  # pragma: no cover
-            chik_tx = await self.standard_wallet.create_tandem_xch_tx(
+            chik_tx = await self.standard_wallet.create_tandem_xck_tx(
                 fee,
                 tx_config,
             )
@@ -561,7 +561,7 @@ class DAOCATWallet:
         spend_bundle = await self.wallet_state_manager.sign_transaction(cat_spend_bundle.coin_spends)
 
         if fee > 0:  # pragma: no cover
-            chik_tx = await self.standard_wallet.create_tandem_xch_tx(fee, tx_config=tx_config)
+            chik_tx = await self.standard_wallet.create_tandem_xck_tx(fee, tx_config=tx_config)
             assert chik_tx.spend_bundle is not None
             full_spend = SpendBundle.aggregate([spend_bundle, chik_tx.spend_bundle])
         else:

@@ -82,7 +82,7 @@ from chik.wallet.wallet_info import WalletInfo
 class DAOWallet:
     """
     This is a wallet in the sense that it conforms to the interface needed by WalletStateManager.
-    It is not a user-facing wallet. A user cannot spend or receive XCH though a wallet of this type.
+    It is not a user-facing wallet. A user cannot spend or receive XCK though a wallet of this type.
 
     Wallets of type CAT and DAO_CAT are the user-facing wallets which hold the voting tokens a user
     owns. The DAO Wallet is used for state-tracking of the Treasury Singleton and its associated
@@ -383,13 +383,13 @@ class DAOWallet:
         # No spendable or receivable value
         return uint128(1)
 
-    # if asset_id == None: then we get normal XCH
+    # if asset_id == None: then we get normal XCK
     async def get_balance_by_asset_type(self, asset_id: Optional[bytes32] = None) -> uint128:
         puzhash = get_p2_singleton_puzhash(self.dao_info.treasury_id, asset_id=asset_id)
         records = await self.wallet_state_manager.coin_store.get_coin_records_by_puzzle_hash(puzhash)
         return uint128(sum([cr.coin.amount for cr in records if not cr.spent]))
 
-    # if asset_id == None: then we get normal XCH
+    # if asset_id == None: then we get normal XCK
     async def select_coins_for_asset_type(self, amount: uint64, asset_id: Optional[bytes32] = None) -> List[Coin]:
         puzhash = get_p2_singleton_puzhash(self.dao_info.treasury_id, asset_id=asset_id)
         records = await self.wallet_state_manager.coin_store.get_coin_records_by_puzzle_hash(puzhash)
@@ -427,8 +427,8 @@ class DAOWallet:
             matched_funding_puz = match_funding_puzzle(uncurried, solution, coin, [self.dao_info.treasury_id])
             if matched_funding_puz:
                 # funding coin
-                xch_funds_puzhash = get_p2_singleton_puzhash(self.dao_info.treasury_id, asset_id=None)
-                if coin.puzzle_hash == xch_funds_puzhash:
+                xck_funds_puzhash = get_p2_singleton_puzhash(self.dao_info.treasury_id, asset_id=None)
+                if coin.puzzle_hash == xck_funds_puzhash:
                     asset_id = None
                 else:
                     asset_id = get_asset_id_from_puzzle(parent_spend.puzzle_reveal.to_program())
@@ -586,9 +586,9 @@ class DAOWallet:
         await self.add_parent(child_coin.name(), future_parent)
         assert self.dao_info.parent_info is not None
 
-        # get existing xch funds for treasury
-        xch_funds_puzhash = get_p2_singleton_puzhash(self.dao_info.treasury_id, asset_id=None)
-        await self.wallet_state_manager.add_interested_puzzle_hashes([xch_funds_puzhash], [self.id()])
+        # get existing xck funds for treasury
+        xck_funds_puzhash = get_p2_singleton_puzhash(self.dao_info.treasury_id, asset_id=None)
+        await self.wallet_state_manager.add_interested_puzzle_hashes([xck_funds_puzhash], [self.id()])
         await self.wallet_state_manager.add_interested_puzzle_hashes([self.dao_info.treasury_id], [self.id()])
         await self.wallet_state_manager.add_interested_puzzle_hashes(
             [self.dao_info.current_treasury_coin.puzzle_hash], [self.id()]
@@ -1115,7 +1115,7 @@ class DAOWallet:
         list_of_coinspends = [CoinSpend(proposal_info.current_coin, full_proposal_puzzle, fullsol)]
         unsigned_spend_bundle = SpendBundle(list_of_coinspends, G2Element())
         if fee > 0:
-            chik_tx = await self.standard_wallet.create_tandem_xch_tx(
+            chik_tx = await self.standard_wallet.create_tandem_xck_tx(
                 fee,
                 tx_config,
             )
@@ -1273,7 +1273,7 @@ class DAOWallet:
 
                 sum = 0
                 coin_spends = []
-                xch_parent_amount_list = []
+                xck_parent_amount_list = []
                 tailhash_parent_amount_list = []
                 treasury_inner_puzhash = self.dao_info.current_treasury_innerpuz.get_tree_hash()
                 p2_singleton_puzzle = get_p2_singleton_puzzle(self.dao_info.treasury_id)
@@ -1334,19 +1334,19 @@ class DAOWallet:
                     if condition_statement.first().as_int() == 51:
                         sum += condition_statement.rest().rest().first().as_int()
                 if sum > 0:
-                    xch_coins = await self.select_coins_for_asset_type(uint64(sum))
-                    for xch_coin in xch_coins:
-                        xch_parent_amount_list.append([xch_coin.parent_coin_info, xch_coin.amount])
+                    xck_coins = await self.select_coins_for_asset_type(uint64(sum))
+                    for xck_coin in xck_coins:
+                        xck_parent_amount_list.append([xck_coin.parent_coin_info, xck_coin.amount])
                         solution = Program.to(
                             [
                                 0,
                                 treasury_inner_puzhash,
                                 0,
                                 0,
-                                xch_coin.name(),
+                                xck_coin.name(),
                             ]
                         )
-                        coin_spends.append(CoinSpend(xch_coin, p2_singleton_puzzle, solution))
+                        coin_spends.append(CoinSpend(xck_coin, p2_singleton_puzzle, solution))
                     delegated_puzzle_sb = SpendBundle(coin_spends, AugSchemeMPL.aggregate([]))
                 for tail_hash_conditions_pair in LIST_OF_TAILHASH_CONDITIONS.as_iter():
                     tail_hash: bytes32 = tail_hash_conditions_pair.first().as_atom()
@@ -1416,7 +1416,7 @@ class DAOWallet:
 
                 delegated_solution = Program.to(
                     [
-                        xch_parent_amount_list,
+                        xck_parent_amount_list,
                         tailhash_parent_amount_list,
                         treasury_inner_puzhash,
                     ]
@@ -1474,7 +1474,7 @@ class DAOWallet:
         else:
             spend_bundle = SpendBundle([proposal_cs, timer_cs, treasury_cs], AugSchemeMPL.aggregate([]))
         if fee > 0:
-            chik_tx = await self.standard_wallet.create_tandem_xch_tx(fee, tx_config)
+            chik_tx = await self.standard_wallet.create_tandem_xck_tx(fee, tx_config)
             assert chik_tx.spend_bundle is not None
             full_spend = SpendBundle.aggregate([spend_bundle, chik_tx.spend_bundle])
         else:
@@ -1626,7 +1626,7 @@ class DAOWallet:
 
         full_spend = SpendBundle.aggregate(spends)
         if fee > 0:
-            chik_tx = await self.standard_wallet.create_tandem_xch_tx(fee, tx_config)
+            chik_tx = await self.standard_wallet.create_tandem_xck_tx(fee, tx_config)
             assert chik_tx.spend_bundle is not None
             full_spend = full_spend.aggregate([full_spend, chik_tx.spend_bundle])
 
@@ -1669,7 +1669,7 @@ class DAOWallet:
                     ) = curried_args.as_iter()
                     mint_amount = None
                     new_cat_puzhash = None
-                    xch_created_coins = []
+                    xck_created_coins = []
                     for cond in CONDITIONS.as_iter():
                         if cond.first().as_int() == 51:
                             if cond.rest().first().as_atom() == cat_launcher.get_tree_hash():
@@ -1677,7 +1677,7 @@ class DAOWallet:
                                 new_cat_puzhash = cond.rest().rest().rest().first().first().as_atom()
                             else:
                                 cc = {"puzzle_hash": cond.at("rf").as_atom(), "amount": cond.at("rrf").as_int()}
-                                xch_created_coins.append(cc)
+                                xck_created_coins.append(cc)
 
                     asset_create_coins: List[Dict[Any, Any]] = []
                     for asset in LIST_OF_TAILHASH_CONDITIONS.as_iter():
@@ -1699,7 +1699,7 @@ class DAOWallet:
                         "state": state,
                         "proposal_type": proposal_type.value,
                         "proposed_puzzle_reveal": proposed_puzzle_reveal,
-                        "xch_conditions": xch_created_coins,
+                        "xck_conditions": xck_created_coins,
                         "asset_conditions": asset_create_coins,
                     }
                     if mint_amount is not None and new_cat_puzhash is not None:

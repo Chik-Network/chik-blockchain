@@ -76,7 +76,7 @@ async def create_dao_wallet(args: Dict[str, Any], wallet_rpc_port: Optional[int]
             wallet_id=1, coin_selection_config=DEFAULT_COIN_SELECTION_CONFIG
         )
         if len(conf_coins) < 2:  # pragma: no cover
-            raise ValueError("DAO creation requires at least 2 xch coins in your wallet.")
+            raise ValueError("DAO creation requires at least 2 xck coins in your wallet.")
         res = await wallet_client.create_new_dao_wallet(
             mode="new",
             dao_rules=dao_rules,
@@ -180,11 +180,11 @@ async def get_treasury_balance(args: Dict[str, Any], wallet_rpc_port: Optional[i
             print("The DAO treasury currently has no funds")
             return None
 
-        xch_mojos = get_mojo_per_unit(WalletType.STANDARD_WALLET)
+        xck_mojos = get_mojo_per_unit(WalletType.STANDARD_WALLET)
         cat_mojos = get_mojo_per_unit(WalletType.CAT)
         for asset_id, balance in balances.items():
-            if asset_id == "xch":
-                print(f"XCH: {balance / xch_mojos}")
+            if asset_id == "xck":
+                print(f"XCK: {balance / xck_mojos}")
             else:
                 print(f"{asset_id}: {balance / cat_mojos}")
 
@@ -250,12 +250,12 @@ async def show_proposal(args: Dict[str, Any], wallet_rpc_port: Optional[int], fp
 
         prefix = selected_network_address_prefix(config)
         if ptype == "spend":
-            xch_conds = pd["xch_conditions"]
+            xck_conds = pd["xck_conditions"]
             asset_conds = pd["asset_conditions"]
             print("")
-            if xch_conds:
-                print("Proposal XCH Conditions")
-                for pmt in xch_conds:
+            if xck_conds:
+                print("Proposal XCK Conditions")
+                for pmt in xck_conds:
                     puzzle_hash = encode_puzzle_hash(bytes32.from_hexstr(pmt["puzzle_hash"]), prefix)
                     amount = pmt["amount"]
                     print(f"Address: {puzzle_hash}\nAmount: {amount}\n")
@@ -497,7 +497,7 @@ async def create_spend_proposal(args: Dict[str, Any], wallet_rpc_port: Optional[
             ).to_tx_config(units["chik"], config, fingerprint),
         )
         if res["success"]:
-            asset_id_name = asset_id if asset_id else "XCH"
+            asset_id_name = asset_id if asset_id else "XCK"
             print(f"Created spend proposal for asset: {asset_id_name}")
             print("Successfully created proposal.")
             print("Proposal ID: {}".format(res["proposal_id"]))

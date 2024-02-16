@@ -259,7 +259,7 @@ async def test_nft_mint_from_did_rpc(
             for i in range(n)
         ]
         target_list = [encode_puzzle_hash((ph_taker), "xck") for x in range(n)]
-        royalty_address = encode_puzzle_hash(bytes32.random(seeded_random), "xch")
+        royalty_address = encode_puzzle_hash(bytes32.random(seeded_random), "xck")
         royalty_percentage = 300
         fee = 100
         required_amount = n + (fee * n)
@@ -519,7 +519,7 @@ async def test_nft_mint_from_did_rpc_no_royalties(
     [True, False],
 )
 @pytest.mark.anyio
-async def test_nft_mint_from_did_multiple_xch(
+async def test_nft_mint_from_did_multiple_xck(
     self_hostname: str, two_wallet_nodes: Any, trusted: Any, seeded_random: random.Random
 ) -> None:
     full_nodes, wallets, _ = two_wallet_nodes
@@ -635,7 +635,7 @@ async def test_nft_mint_from_did_multiple_xch(
     [True, False],
 )
 @pytest.mark.anyio
-async def test_nft_mint_from_xch(
+async def test_nft_mint_from_xck(
     self_hostname: str, two_wallet_nodes: Any, trusted: Any, seeded_random: random.Random
 ) -> None:
     full_nodes, wallets, _ = two_wallet_nodes
@@ -712,7 +712,7 @@ async def test_nft_mint_from_xch(
 
     target_list = [(await wallet_1.get_new_puzzlehash()) for x in range(mint_total)]
 
-    tx_records = await nft_wallet_maker.mint_from_xch(
+    tx_records = await nft_wallet_maker.mint_from_xck(
         metadata_list, DEFAULT_TX_CONFIG, target_list=target_list, mint_number_start=1, mint_total=mint_total, fee=fee
     )
     sb = tx_records[0].spend_bundle
@@ -858,7 +858,7 @@ async def test_nft_mint_from_xck_rpc(
             for i in range(n)
         ]
         target_list = [encode_puzzle_hash((ph_taker), "xck") for x in range(n)]
-        royalty_address = encode_puzzle_hash(bytes32.random(seeded_random), "xch")
+        royalty_address = encode_puzzle_hash(bytes32.random(seeded_random), "xck")
         royalty_percentage = 300
         fee = 100
         required_amount = n + (fee * n)
@@ -935,7 +935,7 @@ async def test_nft_mint_from_xck_rpc(
     [True, False],
 )
 @pytest.mark.anyio
-async def test_nft_mint_from_xch_multiple_xch(
+async def test_nft_mint_from_xck_multiple_xck(
     self_hostname: str, two_wallet_nodes: Any, trusted: Any, seeded_random: random.Random
 ) -> None:
     full_nodes, wallets, _ = two_wallet_nodes
@@ -1021,7 +1021,7 @@ async def test_nft_mint_from_xch_multiple_xch(
 
     target_list = [ph_taker for x in range(mint_total)]
 
-    tx_records = await nft_wallet_maker.mint_from_xch(
+    tx_records = await nft_wallet_maker.mint_from_xck(
         metadata_list,
         DEFAULT_TX_CONFIG,
         target_list=target_list,

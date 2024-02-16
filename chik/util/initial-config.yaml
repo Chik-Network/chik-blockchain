@@ -125,7 +125,7 @@ network_overrides: &network_overrides
       address_prefix: "txck"
       default_full_node_port: 59678
     testnet11:
-      address_prefix: "txch"
+      address_prefix: "txck"
       default_full_node_port: 59678
 
 selected_network: &selected_network "mainnet"

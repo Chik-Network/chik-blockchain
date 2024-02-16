@@ -1659,7 +1659,7 @@ class TestWalletSimulator:
         # Test informal input
         message = "0123456789ABCDEF"
         response = await api_0.sign_message_by_address(
-            {"address": encode_puzzle_hash(ph, "xch"), "message": message, "is_hex": "true", "safe_mode": "true"}
+            {"address": encode_puzzle_hash(ph, "xck"), "message": message, "is_hex": "true", "safe_mode": "true"}
         )
         puzzle = Program.to((CHIP_0002_SIGN_MESSAGE_PREFIX, bytes.fromhex(message)))
 
@@ -1671,7 +1671,7 @@ class TestWalletSimulator:
         # Test BLS sign string
         message = "Hello World"
         response = await api_0.sign_message_by_address(
-            {"address": encode_puzzle_hash(ph, "xch"), "message": message, "is_hex": False, "safe_mode": False}
+            {"address": encode_puzzle_hash(ph, "xck"), "message": message, "is_hex": False, "safe_mode": False}
         )
 
         assert AugSchemeMPL.verify(
@@ -1682,7 +1682,7 @@ class TestWalletSimulator:
         # Test BLS sign hex
         message = "0123456789ABCDEF"
         response = await api_0.sign_message_by_address(
-            {"address": encode_puzzle_hash(ph, "xch"), "message": message, "is_hex": True, "safe_mode": False}
+            {"address": encode_puzzle_hash(ph, "xck"), "message": message, "is_hex": True, "safe_mode": False}
         )
 
         assert AugSchemeMPL.verify(

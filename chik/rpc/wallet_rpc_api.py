@@ -2640,7 +2640,7 @@ class WalletRpcApi:
         for asset_id in asset_list:
             balance = await dao_wallet.get_balance_by_asset_type(asset_id=asset_id)
             if asset_id is None:
-                balances["xch"] = balance
+                balances["xck"] = balance
             else:
                 balances[asset_id.hex()] = balance
         return {"success": True, "balances": balances}
@@ -3533,7 +3533,7 @@ class WalletRpcApi:
         xck_coin_list = request.get("xck_coins", None)
         xck_coins = None
         if xck_coin_list:
-            xch_coins = {Coin.from_json_dict(xch_coin) for xch_coin in xch_coin_list}
+            xck_coins = {Coin.from_json_dict(xck_coin) for xck_coin in xck_coin_list}
         xck_change_target = request.get("xck_change_target", None)
         if xck_change_target is not None:
             if xck_change_target[:2] == "xck":
@@ -3574,7 +3574,7 @@ class WalletRpcApi:
                 extra_conditions=extra_conditions,
             )
         else:
-            txs = await nft_wallet.mint_from_xch(
+            txs = await nft_wallet.mint_from_xck(
                 metadata_list,
                 mint_number_start=mint_number_start,
                 mint_total=mint_total,

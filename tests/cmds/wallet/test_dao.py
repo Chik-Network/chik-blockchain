@@ -113,7 +113,7 @@ def test_dao_treasury(capsys: object, get_test_cli_clients: Tuple[TestRpcClients
 
         async def dao_get_treasury_balance(self, wallet_id: int) -> Dict[str, Union[str, bool, Dict[str, int]]]:
             if wallet_id == 2:
-                return {"success": True, "balances": {"xch": 1000000000000, "0xCAFEF00D": 10000000}}
+                return {"success": True, "balances": {"xck": 1000000000000, "0xCAFEF00D": 10000000}}
             else:
                 return {"success": True, "balances": {}}
 
@@ -163,7 +163,7 @@ def test_dao_treasury(capsys: object, get_test_cli_clients: Tuple[TestRpcClients
     run_cli_command_and_assert(capsys, root_dir, get_id_args, get_id_asserts)
 
     get_balance_args = ["dao", "balance", FINGERPRINT_ARG, "-i 2"]
-    get_balance_asserts = ["XCH: 1.0", "0xCAFEF00D: 10000.0"]
+    get_balance_asserts = ["XCK: 1.0", "0xCAFEF00D: 10000.0"]
     run_cli_command_and_assert(capsys, root_dir, get_balance_args, get_balance_asserts)
 
     no_balance_args = ["dao", "balance", FINGERPRINT_ARG, "-i 3"]
@@ -222,7 +222,7 @@ def test_dao_proposals(capsys: object, get_test_cli_clients: Tuple[TestRpcClient
                 asset_id = bytes32(b"2" * 32).hex()
                 proposal_details: Dict[str, Any] = {
                     "proposal_type": "s",
-                    "xch_conditions": [{"puzzle_hash": puzhash, "amount": 100}],
+                    "xck_conditions": [{"puzzle_hash": puzhash, "amount": 100}],
                     "asset_conditions": [
                         {"asset_id": asset_id, "conditions": [{"puzzle_hash": puzhash, "amount": 123}]}
                     ],
@@ -337,7 +337,7 @@ def test_dao_proposals(capsys: object, get_test_cli_clients: Tuple[TestRpcClient
 
     # Show details of specific proposal
     parse_spend_args = ["dao", "show_proposal", FINGERPRINT_ARG, "-i 2", "-p", "0xCAFEF00D"]
-    address = encode_puzzle_hash(bytes32(b"1" * 32), "xch")
+    address = encode_puzzle_hash(bytes32(b"1" * 32), "xck")
     asset_id = bytes32(b"2" * 32).hex()
     parse_spend_asserts = [
         "Type: SPEND",
@@ -347,7 +347,7 @@ def test_dao_proposals(capsys: object, get_test_cli_clients: Tuple[TestRpcClient
         "Total votes needed: 10",
         "Yes votes needed: 20",
         "Blocks remaining: 30",
-        "Proposal XCH Conditions",
+        "Proposal XCK Conditions",
         f"Address: {address}",
         "Amount: 100",
         "Proposal asset Conditions",
@@ -369,7 +369,7 @@ def test_dao_proposals(capsys: object, get_test_cli_clients: Tuple[TestRpcClient
     parse_mint_asserts = [
         "Type: MINT",
         "Amount of CAT to mint: 1000",
-        "Address: {}".format(encode_puzzle_hash(bytes32(b"x" * 32), "xch")),
+        "Address: {}".format(encode_puzzle_hash(bytes32(b"x" * 32), "xck")),
     ]
     run_cli_command_and_assert(capsys, root_dir, parse_mint_args, parse_mint_asserts)
 
@@ -384,7 +384,7 @@ def test_dao_proposals(capsys: object, get_test_cli_clients: Tuple[TestRpcClient
     run_cli_command_and_assert(capsys, root_dir, close_args, close_asserts)
 
     # Create a spend proposal
-    address = encode_puzzle_hash(bytes32(b"x" * 32), "xch")
+    address = encode_puzzle_hash(bytes32(b"x" * 32), "xck")
     spend_args = [
         "dao",
         "create_proposal",
