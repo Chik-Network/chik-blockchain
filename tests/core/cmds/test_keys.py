@@ -827,7 +827,7 @@ class TestKeysCommands:
         assert (
             result.output.find(
                 "Found wallet address: "
-                "xch1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs8taffd (HD path: m/12381/8444/2/30)"
+                "xck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs0kyx8x (HD path: m/12381/8444/2/30)"
             )
             != -1
         )
@@ -878,7 +878,7 @@ class TestKeysCommands:
         assert (
             result.output.find(
                 "Found wallet address: "
-                "txch1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhs2v6lg7 (HD path: m/12381/8444/2/30)"
+                "txck1mnr0ygu7lvmk3nfgzmncfk39fwu0dv933yrcv97nd6pmrt7fzmhsz3rsx4 (HD path: m/12381/8444/2/30)"
             )
             != -1
         )
@@ -1021,14 +1021,14 @@ class TestKeysCommands:
         assert (
             result.output.find(
                 "Wallet address 50 (m/12381n/8444n/2n/50n): "
-                "xch1jp2u7an0mn9hdlw2x05nmje49gwgzmqyvh0qmh6008yksetuvkfs6wrfdq"
+                "xck1jp2u7an0mn9hdlw2x05nmje49gwgzmqyvh0qmh6008yksetuvkfsjn6xrt"
             )
             != -1
         )
         assert (
             result.output.find(
                 "Wallet address 51 (m/12381n/8444n/2n/51n): "
-                "xch1006n6l3x5e8exar8mlj004znjl5pq0tq73h76kz0yergswnjzn8sumvfmt"
+                "xck1006n6l3x5e8exar8mlj004znjl5pq0tq73h76kz0yergswnjzn8s5x4x4q"
             )
             != -1
         )
@@ -1080,14 +1080,14 @@ class TestKeysCommands:
         assert (
             result.output.find(
                 "Wallet address 50 (m/12381n/8444n/2n/50n): "
-                "txch1jp2u7an0mn9hdlw2x05nmje49gwgzmqyvh0qmh6008yksetuvkfshfylvn"
+                "txck1jp2u7an0mn9hdlw2x05nmje49gwgzmqyvh0qmh6008yksetuvkfsl5aszc"
             )
             != -1
         )
         assert (
             result.output.find(
                 "Wallet address 51 (m/12381n/8444n/2n/51n): "
-                "txch1006n6l3x5e8exar8mlj004znjl5pq0tq73h76kz0yergswnjzn8s3utl6c"
+                "txck1006n6l3x5e8exar8mlj004znjl5pq0tq73h76kz0yergswnjzn8sepjs5n"
             )
             != -1
         )

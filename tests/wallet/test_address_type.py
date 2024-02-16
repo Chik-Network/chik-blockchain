@@ -186,4 +186,4 @@ def test_ensure_valid_address_did_bad_address(config_with_address_prefix: Dict[s
 def test_ensure_valid_address_bad_length(config_with_address_prefix: Dict[str, Any]) -> None:
     config = config_with_address_prefix
     with pytest.raises(ValueError):
-        ensure_valid_address("xck1qqqqqqqqqqqqqqqqwygzk5", allowed_types={AddressType.XCK}, config=config)
+        ensure_valid_address("xck1qqqqqqqqqqqqqqqq4w6405", allowed_types={AddressType.XCK}, config=config)
