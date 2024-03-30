@@ -260,10 +260,10 @@ jobs:
             name: intel
             file-suffix: ""
             glue-name: "build-macos"
-          - runs-on: [MacOS, ARM64]
-            name: m1
-            file-suffix: "-arm64"
-            glue-name: "build-mac-m1"
+#          - runs-on: [MacOS, ARM64]
+#            name: m1
+#            file-suffix: "-arm64"
+#            glue-name: "build-mac-m1"
 
     env:
       CHIK_INSTALLER_VERSION: ${{ needs.build.outputs.chik-installer-version }}
