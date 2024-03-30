@@ -10,7 +10,6 @@ from chik.rpc.full_node_rpc_client import FullNodeRpcClient
 from chik.rpc.wallet_rpc_api import WalletRpcApi
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.full_node_simulator import FullNodeSimulator
-from chik.simulator.setup_nodes import SimulatorsAndWalletsServices
 from chik.simulator.simulator_protocol import FarmNewBlockProtocol
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.sized_bytes import bytes32
@@ -23,6 +22,7 @@ from chik.wallet.nft_wallet.nft_wallet import NFTWallet
 from chik.wallet.nft_wallet.uncurry_nft import UncurriedNFT
 from chik.wallet.util.address_type import AddressType
 from chik.wallet.util.tx_config import DEFAULT_COIN_SELECTION_CONFIG, DEFAULT_TX_CONFIG
+from tests.util.setup_nodes import SimulatorsAndWalletsServices
 from tests.util.time_out_assert import time_out_assert, time_out_assert_not_none
 
 
@@ -102,7 +102,7 @@ async def test_nft_mint_from_did(
     metadata_list = [
         {
             "program": Program.to(
-                [("u", ["https://www.chik.net/img/branding/chik-logo.svg"]), ("h", bytes32.random(seeded_random).hex())]
+                [("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]), ("h", bytes32.random(seeded_random).hex())]
             ),
             "royalty_pc": royalty_pc,
             "royalty_ph": royalty_addr,
@@ -232,6 +232,8 @@ async def test_nft_mint_from_did_rpc(
 
     hex_did_id = did_wallet_maker.get_my_DID()
     hmr_did_id = encode_puzzle_hash(bytes32.from_hexstr(hex_did_id), AddressType.DID.hrp(config))
+
+    await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node_maker, timeout=20)
 
     nft_wallet_maker = await api_maker.create_new_wallet(
         dict(wallet_type="nft_wallet", name="NFT WALLET 1", did_id=hmr_did_id)
@@ -426,6 +428,8 @@ async def test_nft_mint_from_did_rpc_no_royalties(
 
     hex_did_id = did_wallet_maker.get_my_DID()
     hmr_did_id = encode_puzzle_hash(bytes32.from_hexstr(hex_did_id), AddressType.DID.hrp(config))
+
+    await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node_maker, timeout=20)
 
     nft_wallet_maker = await api_maker.create_new_wallet(
         dict(wallet_type="nft_wallet", name="NFT WALLET 1", did_id=hmr_did_id)
@@ -702,7 +706,7 @@ async def test_nft_mint_from_xck(
     metadata_list = [
         {
             "program": Program.to(
-                [("u", ["https://www.chik.net/img/branding/chik-logo.svg"]), ("h", bytes32.random(seeded_random).hex())]
+                [("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]), ("h", bytes32.random(seeded_random).hex())]
             ),
             "royalty_pc": royalty_pc,
             "royalty_ph": royalty_addr,
@@ -831,6 +835,8 @@ async def test_nft_mint_from_xck_rpc(
 
     hex_did_id = did_wallet_maker.get_my_DID()
     hmr_did_id = encode_puzzle_hash(bytes32.from_hexstr(hex_did_id), AddressType.DID.hrp(config))
+
+    await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node_maker, timeout=20)
 
     nft_wallet_maker = await api_maker.create_new_wallet(
         dict(wallet_type="nft_wallet", name="NFT WALLET 1", did_id=hmr_did_id)

@@ -4,7 +4,7 @@ import logging
 from typing import List, Optional, Tuple
 
 from chik_rs import G1Element
-from klvm.casts import int_from_bytes, int_to_bytes
+from klvm.casts import int_from_bytes
 
 from chik.klvm.singleton import SINGLETON_LAUNCHER
 from chik.consensus.block_rewards import calculate_pool_reward
@@ -93,7 +93,7 @@ def create_p2_singleton_puzzle(
 
 def launcher_id_to_p2_puzzle_hash(launcher_id: bytes32, seconds_delay: uint64, delayed_puzzle_hash: bytes32) -> bytes32:
     return create_p2_singleton_puzzle(
-        SINGLETON_MOD_HASH, launcher_id, int_to_bytes(seconds_delay), delayed_puzzle_hash
+        SINGLETON_MOD_HASH, launcher_id, seconds_delay, delayed_puzzle_hash
     ).get_tree_hash()
 
 

@@ -7,7 +7,7 @@ from typing import List, Optional, Tuple
 from chik.util.ints import int16, uint8, uint16
 from chik.util.streamable import Streamable, streamable
 
-protocol_version = "0.0.35"
+protocol_version = "0.0.36"
 
 
 """

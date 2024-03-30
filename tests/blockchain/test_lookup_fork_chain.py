@@ -5,12 +5,12 @@ from typing import Dict, List
 
 import pytest
 
-from benchmarks.utils import rand_hash
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockchainInterface
 from chik.consensus.find_fork_point import find_fork_point_in_chain, lookup_fork_chain
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.ints import uint32
+from tests.util.benchmarks import rand_hash
 
 
 class DummyChain:

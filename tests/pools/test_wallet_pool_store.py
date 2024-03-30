@@ -11,7 +11,7 @@ from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.types.coin_spend import CoinSpend, compute_additions
+from chik.types.coin_spend import CoinSpend, compute_additions, make_spend
 from chik.util.ints import uint32, uint64
 from chik.wallet.wallet_pool_store import WalletPoolStore
 from tests.util.db_connection import DBConnection
@@ -28,7 +28,7 @@ def make_child_solution(
     if new_coin is None:
         assert coin_spend is not None
         new_coin = compute_additions(coin_spend)[0]
-    sol: CoinSpend = CoinSpend(
+    sol: CoinSpend = make_spend(
         new_coin,
         SerializedProgram.from_program(puzzle_prog),
         SerializedProgram.from_program(solution_prog),

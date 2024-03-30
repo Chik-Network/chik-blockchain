@@ -13,13 +13,12 @@ from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.server.outbound_message import NodeType
 from chik.server.start_service import RpcInfo, Service, async_run
 from chik.ssl.create_ssl import create_all_ssl
+from chik.types.aliases import DataLayerService, WalletService
 from chik.util.chik_logging import initialize_logging
 from chik.util.config import load_config, load_config_cli
 from chik.util.default_root import DEFAULT_ROOT_PATH
 from chik.util.ints import uint16
 from chik.util.misc import SignalHandlers
-from chik.wallet.wallet_node import WalletNode
-from chik.wallet.wallet_node_api import WalletNodeAPI
 
 # See: https://bugs.python.org/issue29288
 "".encode("idna")
@@ -34,9 +33,9 @@ def create_data_layer_service(
     config: Dict[str, Any],
     downloaders: List[PluginRemote],
     uploaders: List[PluginRemote],  # dont add FilesystemUploader to this, it is the default uploader
-    wallet_service: Optional[Service[WalletNode, WalletNodeAPI]] = None,
+    wallet_service: Optional[WalletService] = None,
     connect_to_daemon: bool = True,
-) -> Service[DataLayer, DataLayerAPI]:
+) -> DataLayerService:
     if uploaders is None:
         uploaders = []
     if downloaders is None:
@@ -62,7 +61,7 @@ def create_data_layer_service(
     api = DataLayerAPI(data_layer)
     network_id = service_config["selected_network"]
     rpc_port = service_config.get("rpc_port")
-    rpc_info: Optional[RpcInfo] = None
+    rpc_info: Optional[RpcInfo[DataLayerRpcApi]] = None
     if rpc_port is not None:
         rpc_info = (DataLayerRpcApi, cast(int, service_config["rpc_port"]))
 

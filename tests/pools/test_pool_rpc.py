@@ -16,15 +16,13 @@ from _pytest.fixtures import SubRequest
 from chik_rs import G1Element
 
 from chik.consensus.constants import ConsensusConstants
-from chik.full_node.full_node import FullNode
 from chik.pools.pool_puzzles import SINGLETON_LAUNCHER_HASH
 from chik.pools.pool_wallet_info import PoolSingletonState, PoolWalletInfo
 from chik.rpc.wallet_rpc_client import WalletRpcClient
-from chik.server.start_service import Service
 from chik.simulator.block_tools import BlockTools, get_plot_dir
 from chik.simulator.full_node_simulator import FullNodeSimulator
-from chik.simulator.setup_nodes import setup_simulators_and_wallets_service
 from chik.simulator.simulator_protocol import ReorgProtocol
+from chik.types.aliases import SimulatorFullNodeService, WalletService
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
 from chik.util.bech32m import encode_puzzle_hash
@@ -36,7 +34,7 @@ from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 from chik.wallet.util.wallet_types import WalletType
 from chik.wallet.wallet_node import WalletNode
-from chik.wallet.wallet_node_api import WalletNodeAPI
+from tests.util.setup_nodes import setup_simulators_and_wallets_service
 from tests.util.time_out_assert import time_out_assert
 
 # TODO: Compare deducted fees in all tests against reported total_fee
@@ -135,9 +133,7 @@ Setup = Tuple[FullNodeSimulator, WalletNode, bytes32, int, WalletRpcClient]
 
 @pytest.fixture(scope="function")
 async def setup(
-    one_wallet_and_one_simulator_services: Tuple[
-        List[Service[FullNode, FullNodeSimulator]], List[Service[WalletNode, WalletNodeAPI]], BlockTools
-    ],
+    one_wallet_and_one_simulator_services: Tuple[List[SimulatorFullNodeService], List[WalletService], BlockTools],
     trusted: bool,
     self_hostname: str,
 ) -> AsyncIterator[Setup]:

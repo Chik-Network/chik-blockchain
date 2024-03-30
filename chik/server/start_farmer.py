@@ -11,6 +11,7 @@ from chik.farmer.farmer_api import FarmerAPI
 from chik.rpc.farmer_rpc_api import FarmerRpcApi
 from chik.server.outbound_message import NodeType
 from chik.server.start_service import RpcInfo, Service, async_run
+from chik.types.aliases import FarmerService
 from chik.util.chik_logging import initialize_service_logging
 from chik.util.config import get_unresolved_peer_infos, load_config, load_config_cli
 from chik.util.default_root import DEFAULT_ROOT_PATH
@@ -30,7 +31,7 @@ def create_farmer_service(
     consensus_constants: ConsensusConstants,
     keychain: Optional[Keychain] = None,
     connect_to_daemon: bool = True,
-) -> Service[Farmer, FarmerAPI]:
+) -> FarmerService:
     service_config = config[SERVICE_NAME]
 
     network_id = service_config["selected_network"]
@@ -42,7 +43,7 @@ def create_farmer_service(
         root_path, service_config, config_pool, consensus_constants=updated_constants, local_keychain=keychain
     )
     peer_api = FarmerAPI(farmer)
-    rpc_info: Optional[RpcInfo] = None
+    rpc_info: Optional[RpcInfo[FarmerRpcApi]] = None
     if service_config["start_rpc_server"]:
         rpc_info = (FarmerRpcApi, service_config["rpc_port"])
     return Service(

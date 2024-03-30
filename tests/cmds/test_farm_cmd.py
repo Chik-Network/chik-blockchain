@@ -8,15 +8,9 @@ from _pytest.capture import CaptureFixture
 
 from chik.cmds.farm_funcs import summary
 from chik.farmer.farmer import Farmer
-from chik.farmer.farmer_api import FarmerAPI
-from chik.full_node.full_node import FullNode
 from chik.harvester.harvester import Harvester
-from chik.harvester.harvester_api import HarvesterAPI
-from chik.server.start_service import Service
 from chik.simulator.block_tools import BlockTools
-from chik.simulator.full_node_simulator import FullNodeSimulator
-from chik.wallet.wallet_node import WalletNode
-from chik.wallet.wallet_node_api import WalletNodeAPI
+from chik.types.aliases import FarmerService, HarvesterService, SimulatorFullNodeService, WalletService
 from tests.util.time_out_assert import time_out_assert
 
 
@@ -24,10 +18,10 @@ from tests.util.time_out_assert import time_out_assert
 async def test_farm_summary_command(
     capsys: CaptureFixture[str],
     farmer_one_harvester_simulator_wallet: Tuple[
-        Service[Harvester, HarvesterAPI],
-        Service[Farmer, FarmerAPI],
-        Service[FullNode, FullNodeSimulator],
-        Service[WalletNode, WalletNodeAPI],
+        HarvesterService,
+        FarmerService,
+        SimulatorFullNodeService,
+        WalletService,
         BlockTools,
     ],
 ) -> None:

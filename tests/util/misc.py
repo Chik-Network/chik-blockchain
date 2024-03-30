@@ -27,8 +27,9 @@ from chik.full_node.mempool import Mempool
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.util.hash import std_hash
-from chik.util.ints import uint64
+from chik.util.ints import uint32, uint64
 from chik.wallet.util.compute_hints import HintedCoin
+from chik.wallet.wallet_node import WalletNode
 from tests.core.data_layer.util import ChikRoot
 
 
@@ -424,3 +425,8 @@ def invariant_check_mempool(mempool: Mempool) -> None:
         if val is None:
             val = 0
     assert mempool._total_fee == val
+
+
+async def wallet_height_at_least(wallet_node: WalletNode, h: uint32) -> bool:
+    height = await wallet_node.wallet_state_manager.blockchain.get_finished_sync_up_to()
+    return height == h

@@ -31,7 +31,6 @@ from chik.plotters.plotters import get_available_plotters
 from chik.plotting.util import add_plot_directory
 from chik.server.server import ssl_context_for_server
 from chik.util.bech32m import encode_puzzle_hash
-from chik.util.beta_metrics import BetaMetricsLogger
 from chik.util.chik_logging import initialize_service_logging
 from chik.util.config import load_config
 from chik.util.errors import KeychainCurrentPassphraseIsInvalid
@@ -1534,8 +1533,10 @@ async def async_run_daemon(root_path: Path, wait_for_unlock: bool = False) -> in
         with Lockfile.create(daemon_launch_lock_path(root_path), timeout=1):
             log.info(f"chik-blockchain version: {chik_full_version_str()}")
 
-            beta_metrics: Optional[BetaMetricsLogger] = None
+            beta_metrics = None
             if config.get("beta", {}).get("enabled", False):
+                from chik.util.beta_metrics import BetaMetricsLogger
+
                 beta_metrics = BetaMetricsLogger(root_path)
                 beta_metrics.start_logging()
 

@@ -10,11 +10,12 @@ from typing import Any, Callable, Dict, List, Optional, TextIO, Tuple, Type, Uni
 
 import click
 
-from benchmarks.utils import EnumType, get_commit_hash, rand_bytes, rand_full_block, rand_hash
+from benchmarks.utils import EnumType, get_commit_hash
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.full_block import FullBlock
 from chik.util.ints import uint8, uint64
 from chik.util.streamable import Streamable, streamable
+from tests.util.benchmarks import rand_bytes, rand_full_block, rand_hash
 
 # to run this benchmark:
 # python -m benchmarks.streamable

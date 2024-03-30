@@ -353,6 +353,8 @@ timelord:
 full_node:
   # The full node server (if run) will run on this port
   port: 9678
+  # The full node will attempt to connect to these full nodes
+  full_node_peers: []
 
   # controls the sync-to-disk behavior of the database connection. Can be one of:
   # "on"    enables syncing to disk, minimizes risk of corrupting the DB in
@@ -378,6 +380,14 @@ full_node:
   peers_file_path: db/peers.dat
 
   multiprocessing_start_method: default
+
+  # The maximum number of UnfinishedBlocks we accept (and forward) with the
+  # same reward hash (but different foliage hashes). Traditionally this was
+  # effectively 1, meaning whichever UnfinishedBlock we saw first was the only
+  # one we forwarded. In 2.2.0 we relaxed the protocol to allow some
+  # duplicates be forwarded, in order to allow the timelords to,
+  # deterministically, pick which one to infuse
+  max_duplicate_unfinished_blocks: 3
 
   # If True, starts an RPC server at the following port
   start_rpc_server: True
@@ -440,6 +450,11 @@ full_node:
   # analyze with chik/utils/profiler.py
   enable_profiler: False
 
+  # when enabled, each time a block is validated, the python profiler is
+  # engaged. If the validation takes more than 2 seconds, the profile is saved
+  # to disk, in the chik root/block-validation-profile
+  profile_block_validation: False
+
   enable_memory_profiler: False
 
   # this is a debug and profiling facility that logs all SQLite commands to a
@@ -464,6 +479,11 @@ full_node:
   # If you modify this, please change the hardcode as well from FullNode.set_server()
   dns_servers: &dns_servers
     - "dns-introducer.chiknetwork.com"
+    - "chik.ctrlaltdel.ch"
+    - "seeder.dexie.space"
+    - "chik-seeder.h9.com"
+    - "chik.hoffmang.com"
+    - "seeder.xckpool.org"
   introducer_peer:
     host: introducer.chiknetwork.com # Chik AWS introducer IPv4/IPv6
     port: 9678

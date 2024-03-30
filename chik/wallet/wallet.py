@@ -12,7 +12,7 @@ from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.types.coin_spend import CoinSpend
+from chik.types.coin_spend import CoinSpend, make_spend
 from chik.types.signing_mode import CHIP_0002_SIGN_MESSAGE_PREFIX, SigningMode
 from chik.types.spend_bundle import SpendBundle
 from chik.util.hash import std_hash
@@ -378,7 +378,7 @@ class Wallet:
                 primary_announcement_hash = Announcement(coin.name(), message).name()
 
                 spends.append(
-                    CoinSpend(
+                    make_spend(
                         coin, SerializedProgram.from_bytes(bytes(puzzle)), SerializedProgram.from_bytes(bytes(solution))
                     )
                 )
@@ -394,7 +394,7 @@ class Wallet:
             solution = self.make_solution(primaries=[], coin_announcements_to_assert={primary_announcement_hash})
             solution = decorator_manager.solve(puzzle, [], solution)
             spends.append(
-                CoinSpend(
+                make_spend(
                     coin, SerializedProgram.from_bytes(bytes(puzzle)), SerializedProgram.from_bytes(bytes(solution))
                 )
             )

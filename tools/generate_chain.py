@@ -18,7 +18,7 @@ from chik.types.blockchain_format.coin import Coin
 from chik.types.spend_bundle import SpendBundle
 from chik.util.chik_logging import initialize_logging
 from chik.util.ints import uint32, uint64
-from tools.test_constants import test_constants
+from tests.util.constants import test_constants
 
 
 @contextmanager

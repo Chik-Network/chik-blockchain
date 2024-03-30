@@ -30,18 +30,18 @@ class GetUnresolvedPeerInfosCase(DataCase):
             "farmer_peers": [
                 {
                     "host": "127.0.0.1",
-                    "port": 8447,
+                    "port": 9681,
                 },
                 {
                     "host": "my.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },
         requested_node_type=NodeType.FARMER,
         expected_peer_infos={
-            UnresolvedPeerInfo(host="127.0.0.1", port=uint16(8447)),
-            UnresolvedPeerInfo(host="my.farmer.tld", port=uint16(18447)),
+            UnresolvedPeerInfo(host="127.0.0.1", port=uint16(9681)),
+            UnresolvedPeerInfo(host="my.farmer.tld", port=uint16(19681)),
         },
     ),
     GetUnresolvedPeerInfosCase(
@@ -49,12 +49,12 @@ class GetUnresolvedPeerInfosCase(DataCase):
         service_config={
             "farmer_peer": {
                 "host": "my.farmer.tld",
-                "port": 18447,
+                "port": 19681,
             },
         },
         requested_node_type=NodeType.FARMER,
         expected_peer_infos={
-            UnresolvedPeerInfo(host="my.farmer.tld", port=uint16(18447)),
+            UnresolvedPeerInfo(host="my.farmer.tld", port=uint16(19681)),
         },
     ),
     GetUnresolvedPeerInfosCase(
@@ -62,24 +62,24 @@ class GetUnresolvedPeerInfosCase(DataCase):
         service_config={
             "farmer_peer": {
                 "host": "my.farmer.tld",
-                "port": 18447,
+                "port": 19681,
             },
             "farmer_peers": [
                 {
                     "host": "127.0.0.1",
-                    "port": 8447,
+                    "port": 9681,
                 },
                 {
                     "host": "my.other.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },
         requested_node_type=NodeType.FARMER,
         expected_peer_infos={
-            UnresolvedPeerInfo(host="my.farmer.tld", port=uint16(18447)),
-            UnresolvedPeerInfo(host="127.0.0.1", port=uint16(8447)),
-            UnresolvedPeerInfo(host="my.other.farmer.tld", port=uint16(18447)),
+            UnresolvedPeerInfo(host="my.farmer.tld", port=uint16(19681)),
+            UnresolvedPeerInfo(host="127.0.0.1", port=uint16(9681)),
+            UnresolvedPeerInfo(host="my.other.farmer.tld", port=uint16(19681)),
         },
     ),
     GetUnresolvedPeerInfosCase(
@@ -173,11 +173,11 @@ class SetPeerInfoCase(DataCase):
             "farmer_peers": [
                 {
                     "host": "127.0.0.1",
-                    "port": 8447,
+                    "port": 9681,
                 },
                 {
                     "host": "my.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },
@@ -192,7 +192,7 @@ class SetPeerInfoCase(DataCase):
                 },
                 {
                     "host": "my.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },
@@ -203,11 +203,11 @@ class SetPeerInfoCase(DataCase):
             "farmer_peers": [
                 {
                     "host": "127.0.0.1",
-                    "port": 8447,
+                    "port": 9681,
                 },
                 {
                     "host": "my.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },
@@ -217,11 +217,11 @@ class SetPeerInfoCase(DataCase):
             "farmer_peers": [
                 {
                     "host": "localhost",
-                    "port": 8447,
+                    "port": 9681,
                 },
                 {
                     "host": "my.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },
@@ -232,11 +232,11 @@ class SetPeerInfoCase(DataCase):
             "farmer_peers": [
                 {
                     "host": "127.0.0.1",
-                    "port": 8447,
+                    "port": 9681,
                 },
                 {
                     "host": "my.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },
@@ -250,7 +250,7 @@ class SetPeerInfoCase(DataCase):
                 },
                 {
                     "host": "my.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },
@@ -260,7 +260,7 @@ class SetPeerInfoCase(DataCase):
         service_config={
             "farmer_peer": {
                 "host": "127.0.0.1",
-                "port": 8447,
+                "port": 9681,
             },
         },
         requested_node_type=NodeType.FARMER,
@@ -278,7 +278,7 @@ class SetPeerInfoCase(DataCase):
         service_config={
             "farmer_peer": {
                 "host": "127.0.0.1",
-                "port": 8447,
+                "port": 9681,
             },
         },
         requested_node_type=NodeType.FARMER,
@@ -286,7 +286,7 @@ class SetPeerInfoCase(DataCase):
         expected_service_config={
             "farmer_peer": {
                 "host": "localhost",
-                "port": 8447,
+                "port": 9681,
             },
         },
     ),
@@ -295,7 +295,7 @@ class SetPeerInfoCase(DataCase):
         service_config={
             "farmer_peer": {
                 "host": "127.0.0.1",
-                "port": 8447,
+                "port": 9681,
             },
         },
         requested_node_type=NodeType.FARMER,
@@ -312,16 +312,16 @@ class SetPeerInfoCase(DataCase):
         service_config={
             "farmer_peer": {
                 "host": "127.0.0.1",
-                "port": 28447,
+                "port": 29681,
             },
             "farmer_peers": [
                 {
                     "host": "127.0.0.1",
-                    "port": 8447,
+                    "port": 9681,
                 },
                 {
                     "host": "my.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },
@@ -336,11 +336,11 @@ class SetPeerInfoCase(DataCase):
             "farmer_peers": [
                 {
                     "host": "127.0.0.1",
-                    "port": 8447,
+                    "port": 9681,
                 },
                 {
                     "host": "my.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },
@@ -350,16 +350,16 @@ class SetPeerInfoCase(DataCase):
         service_config={
             "farmer_peer": {
                 "host": "127.0.0.1",
-                "port": 28447,
+                "port": 29681,
             },
             "farmer_peers": [
                 {
                     "host": "127.0.0.1",
-                    "port": 8447,
+                    "port": 9681,
                 },
                 {
                     "host": "my.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },
@@ -368,16 +368,16 @@ class SetPeerInfoCase(DataCase):
         expected_service_config={
             "farmer_peer": {
                 "host": "localhost",
-                "port": 28447,
+                "port": 29681,
             },
             "farmer_peers": [
                 {
                     "host": "127.0.0.1",
-                    "port": 8447,
+                    "port": 9681,
                 },
                 {
                     "host": "my.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },
@@ -387,16 +387,16 @@ class SetPeerInfoCase(DataCase):
         service_config={
             "farmer_peer": {
                 "host": "127.0.0.1",
-                "port": 28447,
+                "port": 29681,
             },
             "farmer_peers": [
                 {
                     "host": "127.0.0.1",
-                    "port": 8447,
+                    "port": 9681,
                 },
                 {
                     "host": "my.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },
@@ -410,11 +410,11 @@ class SetPeerInfoCase(DataCase):
             "farmer_peers": [
                 {
                     "host": "127.0.0.1",
-                    "port": 8447,
+                    "port": 9681,
                 },
                 {
                     "host": "my.farmer.tld",
-                    "port": 18447,
+                    "port": 19681,
                 },
             ],
         },

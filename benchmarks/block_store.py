@@ -8,18 +8,7 @@ from pathlib import Path
 from time import monotonic
 from typing import List
 
-from benchmarks.utils import (
-    klvm_generator,
-    rand_bytes,
-    rand_class_group_element,
-    rand_g1,
-    rand_g2,
-    rand_hash,
-    rand_vdf,
-    rand_vdf_proof,
-    rewards,
-    setup_db,
-)
+from benchmarks.utils import setup_db
 from chik.consensus.block_record import BlockRecord
 from chik.full_node.block_store import BlockStore
 from chik.types.blockchain_format.foliage import Foliage, FoliageBlockData, FoliageTransactionBlock, TransactionsInfo
@@ -31,6 +20,17 @@ from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.full_block import FullBlock
 from chik.util.ints import uint8, uint32, uint64, uint128
+from tests.util.benchmarks import (
+    klvm_generator,
+    rand_bytes,
+    rand_class_group_element,
+    rand_g1,
+    rand_g2,
+    rand_hash,
+    rand_vdf,
+    rand_vdf_proof,
+    rewards,
+)
 
 # to run this benchmark:
 # python -m benchmarks.coin_store

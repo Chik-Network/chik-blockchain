@@ -9,15 +9,19 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 import aiosqlite as aiosqlite
 from typing_extensions import final
 
+from chik.data_layer.data_layer_errors import ProofIntegrityError
+from chik.server.ws_connection import WSChikConnection
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.db_wrapper import DBWrapper2
-from chik.util.ints import uint64
+from chik.util.ints import uint8, uint64
 from chik.util.streamable import Streamable, streamable
+from chik.wallet.db_wallet.db_wallet_puzzles import create_host_fullpuz
 
 if TYPE_CHECKING:
     from chik.data_layer.data_store import DataStore
+    from chik.wallet.wallet_node import WalletNode
 
 
 def internal_hash(left_hash: bytes32, right_hash: bytes32) -> bytes32:
@@ -41,6 +45,10 @@ def leaf_hash(key: bytes, value: bytes) -> bytes32:
     # https://github.com/Chik-Network/klvm/pull/102
     # https://github.com/Chik-Network/klvm/pull/106
     return Program.to((key, value)).get_tree_hash()  # type: ignore[no-any-return]
+
+
+def key_hash(key: bytes) -> bytes32:
+    return Program.to(key).get_tree_hash()  # type: ignore[no-any-return]
 
 
 async def _debug_dump(db: DBWrapper2, description: str = "") -> None:
@@ -725,3 +733,163 @@ class PluginStatus:
 class InsertResult:
     node_hash: bytes32
     root: Root
+
+
+@dataclasses.dataclass(frozen=True)
+class UnsubscribeData:
+    tree_id: bytes32
+    retain_data: bool
+
+
+#
+# GetProof and VerifyProof support classes
+#
+@streamable
+@dataclasses.dataclass(frozen=True)
+class ProofLayer(Streamable):
+    # This class is basically Layer but streamable
+    other_hash_side: uint8
+    other_hash: bytes32
+    combined_hash: bytes32
+
+
+@streamable
+@dataclasses.dataclass(frozen=True)
+class HashOnlyProof(Streamable):
+    key_klvm_hash: bytes32
+    value_klvm_hash: bytes32
+    node_hash: bytes32
+    layers: List[ProofLayer]
+
+    def root(self) -> bytes32:
+        if len(self.layers) == 0:
+            return self.node_hash
+        return self.layers[-1].combined_hash
+
+    @classmethod
+    def from_key_value(cls, key: bytes, value: bytes, node_hash: bytes32, layers: List[ProofLayer]) -> HashOnlyProof:
+        return cls(
+            key_klvm_hash=Program.to(key).get_tree_hash(),
+            value_klvm_hash=Program.to(value).get_tree_hash(),
+            node_hash=node_hash,
+            layers=layers,
+        )
+
+
+@streamable
+@dataclasses.dataclass(frozen=True)
+class KeyValueHashes(Streamable):
+    key_klvm_hash: bytes32
+    value_klvm_hash: bytes32
+
+
+@streamable
+@dataclasses.dataclass(frozen=True)
+class ProofResultInclusions(Streamable):
+    store_id: bytes32
+    inclusions: List[KeyValueHashes]
+
+
+@streamable
+@dataclasses.dataclass(frozen=True)
+class GetProofRequest(Streamable):
+    store_id: bytes32
+    keys: List[bytes]
+
+
+@streamable
+@dataclasses.dataclass(frozen=True)
+class StoreProofsHashes(Streamable):
+    store_id: bytes32
+    proofs: List[HashOnlyProof]
+
+
+@streamable
+@dataclasses.dataclass(frozen=True)
+class DLProof(Streamable):
+    store_proofs: StoreProofsHashes
+    coin_id: bytes32
+    inner_puzzle_hash: bytes32
+
+
+@streamable
+@dataclasses.dataclass(frozen=True)
+class GetProofResponse(Streamable):
+    proof: DLProof
+    success: bool
+
+
+@streamable
+@dataclasses.dataclass(frozen=True)
+class VerifyProofResponse(Streamable):
+    verified_klvm_hashes: ProofResultInclusions
+    current_root: bool
+    success: bool
+
+
+def dl_verify_proof_internal(dl_proof: DLProof, puzzle_hash: bytes32) -> List[KeyValueHashes]:
+    """Verify a proof of inclusion for a DL singleton"""
+
+    verified_keys: List[KeyValueHashes] = []
+
+    for reference_proof in dl_proof.store_proofs.proofs:
+        inner_puz_hash = dl_proof.inner_puzzle_hash
+        host_fullpuz_program = create_host_fullpuz(
+            inner_puz_hash, reference_proof.root(), dl_proof.store_proofs.store_id
+        )
+        expected_puzzle_hash = host_fullpuz_program.get_tree_hash_precalc(inner_puz_hash)
+
+        if puzzle_hash != expected_puzzle_hash:
+            raise ProofIntegrityError(
+                "Invalid Proof: incorrect puzzle hash: expected:"
+                f"{expected_puzzle_hash.hex()} received: {puzzle_hash.hex()}"
+            )
+
+        proof = ProofOfInclusion(
+            node_hash=reference_proof.node_hash,
+            layers=[
+                ProofOfInclusionLayer(
+                    other_hash_side=Side(layer.other_hash_side),
+                    other_hash=layer.other_hash,
+                    combined_hash=layer.combined_hash,
+                )
+                for layer in reference_proof.layers
+            ],
+        )
+
+        leaf_hash = internal_hash(left_hash=reference_proof.key_klvm_hash, right_hash=reference_proof.value_klvm_hash)
+        if leaf_hash != proof.node_hash:
+            raise ProofIntegrityError("Invalid Proof: node hash does not match key and value")
+
+        if not proof.valid():
+            raise ProofIntegrityError("Invalid Proof: invalid proof of inclusion found")
+
+        verified_keys.append(
+            KeyValueHashes(key_klvm_hash=reference_proof.key_klvm_hash, value_klvm_hash=reference_proof.value_klvm_hash)
+        )
+
+    return verified_keys
+
+
+async def dl_verify_proof(
+    request: Dict[str, Any],
+    wallet_node: WalletNode,
+    peer: WSChikConnection,
+) -> Dict[str, Any]:
+    """Verify a proof of inclusion for a DL singleton"""
+
+    dlproof = DLProof.from_json_dict(request)
+
+    coin_id = dlproof.coin_id
+    coin_states = await wallet_node.get_coin_state([coin_id], peer=peer)
+    if len(coin_states) == 0:
+        raise ProofIntegrityError(f"Invalid Proof: No DL singleton found at coin id: {coin_id.hex()}")
+
+    verified_keys = dl_verify_proof_internal(dlproof, coin_states[0].coin.puzzle_hash)
+
+    response = VerifyProofResponse(
+        verified_klvm_hashes=ProofResultInclusions(dlproof.store_proofs.store_id, verified_keys),
+        success=True,
+        current_root=coin_states[0].spent_height is None,
+    )
+    return response.to_json_dict()

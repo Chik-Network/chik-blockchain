@@ -27,7 +27,7 @@ from chik.pools.pool_wallet_info import PoolState
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.types.coin_spend import CoinSpend
+from chik.types.coin_spend import CoinSpend, make_spend
 from chik.types.spend_bundle import SpendBundle
 from chik.util.ints import uint32, uint64
 from chik.wallet.puzzles import singleton_top_layer
@@ -145,7 +145,7 @@ class TestPoolPuzzles(TestCase):
         # Creating solution for standard transaction
         delegated_puzzle: Program = puzzle_for_conditions(conditions)
         full_solution: Program = solution_for_conditions(conditions)
-        starting_coinsol = CoinSpend(
+        starting_coinsol = make_spend(
             starting_coin,
             starting_puzzle,
             full_solution,
@@ -252,7 +252,7 @@ class TestPoolPuzzles(TestCase):
         )
         coin_db._add_coin_entry(non_reward_p2_singleton, time)
         # construct coin solution for the p2_singleton coin
-        bad_coinsol = CoinSpend(
+        bad_coinsol = make_spend(
             non_reward_p2_singleton,
             p2_singleton_puz,
             Program.to(

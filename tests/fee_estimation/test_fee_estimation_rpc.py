@@ -5,27 +5,23 @@ from typing import Any, List, Tuple
 
 import pytest
 
-from chik.full_node.full_node import FullNode
 from chik.rpc.full_node_rpc_api import FullNodeRpcApi
 from chik.rpc.full_node_rpc_client import FullNodeRpcClient
-from chik.server.start_service import Service
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.simulator_protocol import FarmNewBlockProtocol
 from chik.simulator.wallet_tools import WalletTool
+from chik.types.aliases import SimulatorFullNodeService, WalletService
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.spend_bundle import SpendBundle
 from chik.util.ints import uint64
-from chik.wallet.wallet_node import WalletNode
-from chik.wallet.wallet_node_api import WalletNodeAPI
+from chik.util.streamable import InvalidTypeError
 
 
 @pytest.fixture(scope="function")
 async def setup_node_and_rpc(
-    two_wallet_nodes_services: Tuple[
-        List[Service[FullNode, FullNodeSimulator]], List[Service[WalletNode, WalletNodeAPI]], BlockTools
-    ],
+    two_wallet_nodes_services: Tuple[List[SimulatorFullNodeService], List[WalletService], BlockTools],
 ) -> Tuple[FullNodeRpcClient, FullNodeRpcApi]:
     full_nodes, wallets, bt = two_wallet_nodes_services
     wallet = wallets[0]._node.wallet_state_manager.main_wallet
@@ -51,7 +47,7 @@ async def setup_node_and_rpc(
 
 @pytest.fixture(scope="function")
 async def one_node_no_blocks(
-    one_node: Tuple[List[Service[FullNode, FullNodeSimulator]], List[Service[WalletNode, WalletNodeAPI]], BlockTools]
+    one_node: Tuple[List[SimulatorFullNodeService], List[WalletService], BlockTools]
 ) -> Tuple[FullNodeRpcClient, FullNodeRpcApi]:
     full_nodes, wallets, bt = one_node
     full_node_apis = [full_node_service._api for full_node_service in full_nodes]
@@ -160,8 +156,8 @@ async def test_cost_invalid_type(setup_node_and_rpc: Tuple[FullNodeRpcClient, Fu
 @pytest.mark.anyio
 async def test_tx_invalid_type(setup_node_and_rpc: Tuple[FullNodeRpcClient, FullNodeRpcApi]) -> None:
     client, full_node_rpc_api = setup_node_and_rpc
-    with pytest.raises(TypeError):
-        await full_node_rpc_api.get_fee_estimate({"target_times": [], "spend_bundle": 1})
+    with pytest.raises(InvalidTypeError):
+        await full_node_rpc_api.get_fee_estimate({"target_times": [], "spend_bundle": {"coin_spends": 1}})
 
 
 #####################

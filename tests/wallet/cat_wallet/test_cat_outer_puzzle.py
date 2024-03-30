@@ -9,7 +9,7 @@ from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.types.coin_spend import CoinSpend
+from chik.types.coin_spend import make_spend
 from chik.util.ints import uint64
 from chik.wallet.cat_wallet.cat_utils import CAT_MOD, construct_cat_puzzle
 from chik.wallet.outer_puzzles import construct_puzzle, get_inner_puzzle, get_inner_solution, match_puzzle, solve_puzzle
@@ -38,7 +38,7 @@ def test_cat_outer_puzzle() -> None:
     # Set up for solve
     parent_coin = Coin(tail, double_cat_puzzle.get_tree_hash(), uint64(100))
     child_coin = Coin(parent_coin.name(), double_cat_puzzle.get_tree_hash(), uint64(100))
-    parent_spend = CoinSpend(parent_coin, SerializedProgram.from_program(double_cat_puzzle), Program.to([]))
+    parent_spend = make_spend(parent_coin, SerializedProgram.from_program(double_cat_puzzle), Program.to([]))
     child_coin_as_hex: str = (
         "0x"
         + child_coin.parent_coin_info.hex()

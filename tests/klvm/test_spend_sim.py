@@ -6,7 +6,7 @@ from chik_rs import G2Element
 from chik.klvm.spend_sim import sim_and_client
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.types.coin_spend import CoinSpend
+from chik.types.coin_spend import make_spend
 from chik.types.spend_bundle import SpendBundle
 
 
@@ -93,7 +93,7 @@ async def test_all_endpoints():
         spendable_coin = spendable_coin[0].coin
         bundle = SpendBundle(
             [
-                CoinSpend(
+                make_spend(
                     spendable_coin,
                     Program.to(1),
                     Program.to([[51, puzzle_hash, 1]]),

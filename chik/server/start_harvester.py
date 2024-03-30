@@ -11,6 +11,7 @@ from chik.harvester.harvester_api import HarvesterAPI
 from chik.rpc.harvester_rpc_api import HarvesterRpcApi
 from chik.server.outbound_message import NodeType
 from chik.server.start_service import RpcInfo, Service, async_run
+from chik.types.aliases import HarvesterService
 from chik.types.peer_info import UnresolvedPeerInfo
 from chik.util.chik_logging import initialize_service_logging
 from chik.util.config import get_unresolved_peer_infos, load_config, load_config_cli
@@ -29,7 +30,7 @@ def create_harvester_service(
     consensus_constants: ConsensusConstants,
     farmer_peers: Set[UnresolvedPeerInfo],
     connect_to_daemon: bool = True,
-) -> Service[Harvester, HarvesterAPI]:
+) -> HarvesterService:
     service_config = config[SERVICE_NAME]
 
     overrides = service_config["network_overrides"]["constants"][service_config["selected_network"]]
@@ -38,7 +39,7 @@ def create_harvester_service(
     harvester = Harvester(root_path, service_config, updated_constants)
     peer_api = HarvesterAPI(harvester)
     network_id = service_config["selected_network"]
-    rpc_info: Optional[RpcInfo] = None
+    rpc_info: Optional[RpcInfo[HarvesterRpcApi]] = None
     if service_config["start_rpc_server"]:
         rpc_info = (HarvesterRpcApi, service_config["rpc_port"])
     return Service(

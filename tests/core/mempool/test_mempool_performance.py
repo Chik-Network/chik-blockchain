@@ -4,20 +4,15 @@ from typing import List
 
 import pytest
 
-from chik.simulator.setup_nodes import SimulatorsAndWallets
 from chik.types.full_block import FullBlock
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.types.peer_info import PeerInfo
-from chik.util.ints import uint32, uint64, uint128
+from chik.util.ints import uint64, uint128
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 from chik.wallet.wallet_node import WalletNode
-from tests.util.misc import BenchmarkRunner
+from tests.util.misc import BenchmarkRunner, wallet_height_at_least
+from tests.util.setup_nodes import OldSimulatorsAndWallets
 from tests.util.time_out_assert import time_out_assert
-
-
-async def wallet_height_at_least(wallet_node: WalletNode, h: uint32) -> bool:
-    height = await wallet_node.wallet_state_manager.blockchain.get_finished_sync_up_to()
-    return height == h
 
 
 async def wallet_balance_at_least(wallet_node: WalletNode, balance: uint128) -> bool:
@@ -28,7 +23,7 @@ async def wallet_balance_at_least(wallet_node: WalletNode, balance: uint128) -> 
 @pytest.mark.limit_consensus_modes(reason="benchmark")
 @pytest.mark.anyio
 async def test_mempool_update_performance(
-    wallet_nodes_mempool_perf: SimulatorsAndWallets,
+    wallet_nodes_mempool_perf: OldSimulatorsAndWallets,
     default_400_blocks: List[FullBlock],
     self_hostname: str,
     benchmark_runner: BenchmarkRunner,

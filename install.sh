@@ -210,7 +210,9 @@ elif [ "$(uname)" = "Linux" ]; then
     echo "Installing on Arch Linux."
     case $(uname -m) in
       x86_64|aarch64)
-        sudo pacman ${PACMAN_AUTOMATED} -S --needed git openssl
+        if ! pacman -Qs "^git$" > /dev/null || ! pacman -Qs "^openssl$" > /dev/null ; then
+          sudo pacman ${PACMAN_AUTOMATED} -S --needed git openssl
+        fi
         ;;
       *)
         echo "Incompatible CPU architecture. Must be x86_64 or aarch64."
@@ -331,8 +333,8 @@ python -m pip install --upgrade pip
 python -m pip install wheel
 #if [ "$INSTALL_PYTHON_VERSION" = "3.8" ]; then
 # This remains in case there is a diversion of binary wheels
-python -m pip install --extra-index-url https://pypi.chia.net/simple/ miniupnpc==2.2.2
-python -m pip install ${EDITABLE} ."${EXTRAS}" --extra-index-url https://pypi.chia.net/simple/
+python -m pip install --extra-index-url https://pypi.chiknetwork.com/simple/ miniupnpc==2.2.2
+python -m pip install ${EDITABLE} ."${EXTRAS}" --extra-index-url https://pypi.chiknetwork.com/simple/
 
 if [ -n "$PLOTTER_INSTALL" ]; then
   set +e

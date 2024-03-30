@@ -14,8 +14,9 @@ from chik.full_node.full_node_api import FullNodeAPI
 from chik.rpc.full_node_rpc_api import FullNodeRpcApi
 from chik.server.outbound_message import NodeType
 from chik.server.start_service import RpcInfo, Service, async_run
+from chik.types.aliases import FullNodeService
 from chik.util.chik_logging import initialize_service_logging
-from chik.util.config import load_config, load_config_cli
+from chik.util.config import get_unresolved_peer_infos, load_config, load_config_cli
 from chik.util.default_root import DEFAULT_ROOT_PATH
 from chik.util.ints import uint16
 from chik.util.misc import SignalHandlers
@@ -34,7 +35,7 @@ async def create_full_node_service(
     consensus_constants: ConsensusConstants,
     connect_to_daemon: bool = True,
     override_capabilities: Optional[List[Tuple[uint16, str]]] = None,
-) -> Service[FullNode, FullNodeAPI]:
+) -> FullNodeService:
     service_config = config[SERVICE_NAME]
 
     full_node = await FullNode.create(
@@ -48,7 +49,7 @@ async def create_full_node_service(
     if service_config["enable_upnp"]:
         upnp_list = [service_config["port"]]
     network_id = service_config["selected_network"]
-    rpc_info: Optional[RpcInfo] = None
+    rpc_info: Optional[RpcInfo[FullNodeRpcApi]] = None
     if service_config["start_rpc_server"]:
         rpc_info = (FullNodeRpcApi, service_config["rpc_port"])
     return Service(
@@ -60,6 +61,7 @@ async def create_full_node_service(
         advertised_port=service_config["port"],
         service_name=SERVICE_NAME,
         upnp_ports=upnp_list,
+        connect_peers=get_unresolved_peer_infos(service_config, NodeType.FULL_NODE),
         on_connect_callback=full_node.on_connect,
         network_id=network_id,
         rpc_info=rpc_info,

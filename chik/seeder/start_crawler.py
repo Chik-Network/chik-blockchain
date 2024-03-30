@@ -13,6 +13,7 @@ from chik.seeder.crawler import Crawler
 from chik.seeder.crawler_api import CrawlerAPI
 from chik.server.outbound_message import NodeType
 from chik.server.start_service import RpcInfo, Service, async_run
+from chik.types.aliases import CrawlerService
 from chik.util.chik_logging import initialize_service_logging
 from chik.util.config import load_config, load_config_cli
 from chik.util.default_root import DEFAULT_ROOT_PATH
@@ -30,7 +31,7 @@ def create_full_node_crawler_service(
     config: Dict[str, Any],
     consensus_constants: ConsensusConstants,
     connect_to_daemon: bool = True,
-) -> Service[Crawler, CrawlerAPI]:
+) -> CrawlerService:
     service_config = config[SERVICE_NAME]
     crawler_config = service_config["crawler"]
 
@@ -43,7 +44,7 @@ def create_full_node_crawler_service(
 
     network_id = service_config["selected_network"]
 
-    rpc_info: Optional[RpcInfo] = None
+    rpc_info: Optional[RpcInfo[CrawlerRpcApi]] = None
     if crawler_config.get("start_rpc_server", True):
         rpc_info = (CrawlerRpcApi, crawler_config.get("rpc_port", 9795))
 

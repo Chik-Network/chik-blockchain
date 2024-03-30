@@ -13,6 +13,7 @@ from chik.server.start_service import Service, async_run
 from chik.simulator.block_tools import BlockTools, test_constants
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.simulator_full_node_rpc_api import SimulatorFullNodeRpcApi
+from chik.types.aliases import SimulatorFullNodeService
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.bech32m import decode_puzzle_hash
 from chik.util.chik_logging import initialize_logging
@@ -36,7 +37,7 @@ async def create_full_node_simulator_service(
     bt: BlockTools,
     connect_to_daemon: bool = True,
     override_capabilities: Optional[List[Tuple[uint16, str]]] = None,
-) -> Service[FullNode, FullNodeSimulator]:
+) -> SimulatorFullNodeService:
     service_config = config[SERVICE_NAME]
     constants = bt.constants
 
@@ -66,7 +67,7 @@ async def create_full_node_simulator_service(
 
 @dataclass
 class StartedSimulator:
-    service: Service[FullNode, FullNodeSimulator]
+    service: SimulatorFullNodeService
     exit_code: int
 
 

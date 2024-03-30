@@ -51,12 +51,20 @@ bash ./build_license_directory.sh
 
 # Builds CLI only .deb
 # need j2 for templating the control file
+format_deb_version_string() {
+  version_str=$1
+  # Use sed to conform to expected apt versioning conventions:
+  # - conditionally insert a hyphen before 'rc' or 'beta' if not already present
+  # - replace '.dev' with '-dev'
+  echo "$version_str" | sed -E 's/([0-9])(rc|beta)/\1-\2/g; s/\.dev/-dev/g'
+}
 pip install j2cli
 CLI_DEB_BASE="chik-blockchain-cli_$CHIK_INSTALLER_VERSION-1_$PLATFORM"
 mkdir -p "dist/$CLI_DEB_BASE/opt/chik"
 mkdir -p "dist/$CLI_DEB_BASE/usr/bin"
 mkdir -p "dist/$CLI_DEB_BASE/DEBIAN"
 mkdir -p "dist/$CLI_DEB_BASE/etc/systemd/system"
+CHIK_DEB_CONTROL_VERSION=$(format_deb_version_string "$CHIK_INSTALLER_VERSION"); export CHIK_DEB_CONTROL_VERSION
 j2 -o "dist/$CLI_DEB_BASE/DEBIAN/control" assets/deb/control.j2
 cp assets/systemd/*.service "dist/$CLI_DEB_BASE/etc/systemd/system/"
 cp -r dist/daemon/* "dist/$CLI_DEB_BASE/opt/chik/"
@@ -98,21 +106,25 @@ if [ "$PLATFORM" = "arm64" ]; then
   echo USE_SYSTEM_FPM=true npx electron-builder build --linux deb --arm64 \
     --config.extraMetadata.name=chik-blockchain \
     --config.productName="$PRODUCT_NAME" --config.linux.desktop.Name="Chik Blockchain" \
-    --config.deb.packageName="chik-blockchain"
+    --config.deb.packageName="chik-blockchain" \
+    --config ../../../build_scripts/electron-builder.json
   USE_SYSTEM_FPM=true npx electron-builder build --linux deb --arm64 \
     --config.extraMetadata.name=chik-blockchain \
     --config.productName="$PRODUCT_NAME" --config.linux.desktop.Name="Chik Blockchain" \
-    --config.deb.packageName="chik-blockchain"
+    --config.deb.packageName="chik-blockchain" \
+    --config ../../../build_scripts/electron-builder.json
   LAST_EXIT_CODE=$?
 else
   echo electron-builder build --linux deb --x64 \
     --config.extraMetadata.name=chik-blockchain \
     --config.productName="$PRODUCT_NAME" --config.linux.desktop.Name="Chik Blockchain" \
-    --config.deb.packageName="chik-blockchain"
+    --config.deb.packageName="chik-blockchain" \
+    --config ../../../build_scripts/electron-builder.json
   npx electron-builder build --linux deb --x64 \
     --config.extraMetadata.name=chik-blockchain \
     --config.productName="$PRODUCT_NAME" --config.linux.desktop.Name="Chik Blockchain" \
-    --config.deb.packageName="chik-blockchain"
+    --config.deb.packageName="chik-blockchain" \
+    --config ../../../build_scripts/electron-builder.json
   LAST_EXIT_CODE=$?
 fi
 ls -l dist/linux*-unpacked/resources

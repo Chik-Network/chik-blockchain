@@ -5,14 +5,11 @@ import time
 from dataclasses import dataclass
 from typing import AsyncIterator, Optional
 
-from chik.farmer.farmer import Farmer
-from chik.farmer.farmer_api import FarmerAPI
 from chik.harvester.harvester import Harvester
-from chik.harvester.harvester_api import HarvesterAPI
 from chik.plot_sync.sender import Sender
 from chik.protocols.harvester_protocol import PlotSyncIdentifier
 from chik.server.outbound_message import Message, NodeType
-from chik.server.start_service import Service
+from chik.types.aliases import FarmerService, HarvesterService
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo, UnresolvedPeerInfo
 from chik.util.ints import uint16, uint64
@@ -44,7 +41,7 @@ def plot_sync_identifier(current_sync_id: uint64, message_id: uint64) -> PlotSyn
 
 @contextlib.asynccontextmanager
 async def start_harvester_service(
-    harvester_service: Service[Harvester, HarvesterAPI], farmer_service: Service[Farmer, FarmerAPI]
+    harvester_service: HarvesterService, farmer_service: FarmerService
 ) -> AsyncIterator[SplitAsyncManager[Harvester]]:
     # Set the `last_refresh_time` of the plot manager to avoid initial plot loading
     harvester: Harvester = harvester_service._node

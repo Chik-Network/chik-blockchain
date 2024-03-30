@@ -33,7 +33,7 @@ from chik.protocols.wallet_protocol import (
 from chik.server.ws_connection import WSChikConnection
 from chik.types.blockchain_format.coin import Coin, hash_coin_ids
 from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.types.coin_spend import CoinSpend
+from chik.types.coin_spend import CoinSpend, make_spend
 from chik.types.header_block import HeaderBlock
 from chik.util.ints import uint32
 from chik.util.merkle_set import MerkleSet, confirm_included_already_hashed, confirm_not_included_already_hashed
@@ -341,7 +341,7 @@ async def fetch_coin_spend(height: uint32, coin: Coin, peer: WSChikConnection) -
     assert solution_response.response.puzzle.get_tree_hash() == coin.puzzle_hash
     assert solution_response.response.coin_name == coin.name()
 
-    return CoinSpend(
+    return make_spend(
         coin,
         solution_response.response.puzzle,
         solution_response.response.solution,

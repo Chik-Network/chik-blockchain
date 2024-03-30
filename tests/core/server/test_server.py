@@ -19,13 +19,13 @@ from chik.server.start_full_node import create_full_node_service
 from chik.server.start_wallet import create_wallet_service
 from chik.server.ws_connection import WSChikConnection, error_response_version
 from chik.simulator.block_tools import BlockTools
-from chik.simulator.setup_nodes import SimulatorsAndWalletsServices
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
 from chik.util.api_decorators import api_request
 from chik.util.errors import ApiError, Err
 from chik.util.ints import int16, uint32
 from tests.connection_utils import connect_and_get_peer
+from tests.util.setup_nodes import SimulatorsAndWalletsServices
 from tests.util.time_out_assert import time_out_assert
 
 

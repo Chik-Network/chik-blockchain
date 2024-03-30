@@ -10,16 +10,13 @@ from chik_rs import G1Element
 
 from chik.cmds.cmds_util import get_any_service_client
 from chik.farmer.farmer import Farmer
-from chik.farmer.farmer_api import FarmerAPI
-from chik.harvester.harvester import Harvester
-from chik.harvester.harvester_api import HarvesterAPI
 from chik.plotting.util import PlotsRefreshParameter
 from chik.protocols import farmer_protocol, harvester_protocol
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.rpc.harvester_rpc_client import HarvesterRpcClient
 from chik.server.outbound_message import NodeType, make_msg
-from chik.server.start_service import Service
 from chik.simulator.block_tools import BlockTools
+from chik.types.aliases import FarmerService, HarvesterService
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import UnresolvedPeerInfo
 from chik.util.config import load_config
@@ -47,9 +44,7 @@ async def update_harvester_config(harvester_rpc_port: Optional[int], root_path: 
 
 @pytest.mark.anyio
 async def test_start_with_empty_keychain(
-    farmer_one_harvester_not_started: Tuple[
-        List[Service[Harvester, HarvesterAPI]], Service[Farmer, FarmerAPI], BlockTools
-    ]
+    farmer_one_harvester_not_started: Tuple[List[HarvesterService], FarmerService, BlockTools]
 ) -> None:
     _, farmer_service, bt = farmer_one_harvester_not_started
     farmer: Farmer = farmer_service._node
@@ -72,9 +67,7 @@ async def test_start_with_empty_keychain(
 
 @pytest.mark.anyio
 async def test_harvester_handshake(
-    farmer_one_harvester_not_started: Tuple[
-        List[Service[Harvester, HarvesterAPI]], Service[Farmer, FarmerAPI], BlockTools
-    ]
+    farmer_one_harvester_not_started: Tuple[List[HarvesterService], FarmerService, BlockTools]
 ) -> None:
     harvesters, farmer_service, bt = farmer_one_harvester_not_started
     harvester_service = harvesters[0]
@@ -164,6 +157,8 @@ async def test_farmer_respond_signatures(
         local_pk=G1Element(),
         farmer_pk=G1Element(),
         message_signatures=[],
+        include_source_signature_data=False,
+        farmer_reward_address_override=None,
     )
     msg = make_msg(ProtocolMessageTypes.respond_signatures, response)
     await harvester_service._node.server.send_to_all([msg], NodeType.FARMER)
@@ -174,9 +169,7 @@ async def test_farmer_respond_signatures(
 
 
 @pytest.mark.anyio
-async def test_harvester_config(
-    farmer_one_harvester: Tuple[List[Service[Harvester, HarvesterAPI]], Service[Farmer, FarmerAPI], BlockTools]
-) -> None:
+async def test_harvester_config(farmer_one_harvester: Tuple[List[HarvesterService], FarmerService, BlockTools]) -> None:
     harvester_services, farmer_service, bt = farmer_one_harvester
     harvester_service = harvester_services[0]
 
@@ -219,7 +212,7 @@ async def test_harvester_config(
 
 @pytest.mark.anyio
 async def test_missing_signage_point(
-    farmer_one_harvester: Tuple[List[Service[Harvester, HarvesterAPI]], Service[Farmer, FarmerAPI], BlockTools]
+    farmer_one_harvester: Tuple[List[HarvesterService], FarmerService, BlockTools]
 ) -> None:
     _, farmer_service, bt = farmer_one_harvester
     farmer_api = farmer_service._api
@@ -291,7 +284,7 @@ async def test_missing_signage_point(
 
 @pytest.mark.anyio
 async def test_harvester_has_no_server(
-    farmer_one_harvester: Tuple[List[Service[Farmer, FarmerAPI]], Service[Harvester, HarvesterAPI], BlockTools],
+    farmer_one_harvester: Tuple[List[FarmerService], HarvesterService, BlockTools],
 ) -> None:
     harvesters, _, bt = farmer_one_harvester
     harvester_server = harvesters[0]._server

@@ -10,7 +10,7 @@ from chik.types.spend_bundle import SpendBundle
 from chik.util.ints import uint32
 
 
-@dataclass(frozen=True)
+@dataclass
 class InternalMempoolItem:
     spend_bundle: SpendBundle
     npc_result: NPCResult
