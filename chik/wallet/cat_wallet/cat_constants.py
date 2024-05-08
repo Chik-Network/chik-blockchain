@@ -1,9 +1,15 @@
 from __future__ import annotations
 
-CHIK_CAT = {
-    "asset_id": "5ceb7442d9168f0fc0d459011f39129d8fd137f1900e9895fd791351cb105030",
-    "name": "Tiny Chik Token",
-    "symbol": "TCT",
+SPACEBUCKS = {
+    "asset_id": "a628c1c2c6fcb74d53746157e438e108eab5c0bb3e5c80ff9b1910b3e4832913",
+    "name": "Spacebucks",
+    "symbol": "SBX",
+}
+
+MARMOT = {
+    "asset_id": "8ebf855de6eb146db5602f0456d2f0cbe750d57f821b6f91a8592ee9f1d4cf31",
+    "name": "Marmot",
+    "symbol": "MRMT",
 }
 
 STABLY_USDS = {
@@ -12,7 +18,15 @@ STABLY_USDS = {
     "symbol": "USDSC",
 }
 
+CHIK_HOLIDAY_TOKEN = {
+    "asset_id": "509deafe3cd8bbfbb9ccce1d930e3d7b57b40c964fa33379b18d628175eb7a8f",
+    "name": "Chik Holiday 2023 Token",
+    "symbol": "CK23",
+}
+
 DEFAULT_CATS = {
-    CHIK_CAT["asset_id"]: CHIK_CAT,
+    SPACEBUCKS["asset_id"]: SPACEBUCKS,
+    MARMOT["asset_id"]: MARMOT,
     STABLY_USDS["asset_id"]: STABLY_USDS,
+    CHIK_HOLIDAY_TOKEN["asset_id"]: CHIK_HOLIDAY_TOKEN,
 }

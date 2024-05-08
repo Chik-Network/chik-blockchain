@@ -42,10 +42,10 @@ from pathlib import Path
 
 import click
 
+from chik._tests.util.run_block import run_json_block
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.util.config import load_config
 from chik.util.default_root import DEFAULT_ROOT_PATH
-from tests.util.run_block import run_json_block
 
 
 @click.command()

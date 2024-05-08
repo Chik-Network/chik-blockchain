@@ -11,13 +11,13 @@ import aiosqlite
 import click
 import zstd
 
+from chik._tests.util.full_sync import FakePeer, FakeServer, run_sync_test
 from chik.cmds.init_funcs import chik_init
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.full_node.full_node import FullNode
 from chik.server.ws_connection import WSChikConnection
 from chik.types.full_block import FullBlock
 from chik.util.config import load_config
-from tests.util.full_sync import FakePeer, FakeServer, run_sync_test
 
 
 @click.group()
@@ -146,7 +146,7 @@ async def run_sync_checkpoint(
             block_batch = []
             peer_info = peer.get_peer_logging()
             async for r in rows:
-                block = FullBlock.from_bytes(zstd.decompress(r[0]))
+                block = FullBlock.from_bytes_unchecked(zstd.decompress(r[0]))
                 block_batch.append(block)
 
                 if len(block_batch) < 32:

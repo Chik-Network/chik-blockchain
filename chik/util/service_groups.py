@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Generator, Iterable, KeysView
+from typing import Dict, Generator, Iterable, KeysView
 
-SERVICES_FOR_GROUP = {
+SERVICES_FOR_GROUP: Dict[str, list[str]] = {
     "all": [
         "chik_harvester",
         "chik_timelord_launcher",
@@ -13,6 +13,7 @@ SERVICES_FOR_GROUP = {
         "chik_data_layer",
         "chik_data_layer_http",
     ],
+    "daemon": [],
     # TODO: should this be `data_layer`?
     "data": ["chik_wallet", "chik_data_layer"],
     "data_layer_http": ["chik_data_layer_http"],

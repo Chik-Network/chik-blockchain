@@ -25,7 +25,6 @@ from typing import (
     cast,
 )
 
-from chik.cmds.init_funcs import chik_full_version_str
 from chik.daemon.server import service_launch_lock_path
 from chik.rpc.rpc_server import RpcApiProtocol, RpcServer, RpcServiceProtocol, start_rpc_server
 from chik.server.api_protocol import ApiProtocol
@@ -44,6 +43,7 @@ from chik.util.network import resolve
 from chik.util.setproctitle import setproctitle
 
 from ..protocols.shared_protocol import capabilities
+from ..util.chik_version import chik_short_version
 
 # this is used to detect whether we are running in the main process or not, in
 # signal handlers. We need to ignore signals in the sub processes.
@@ -105,7 +105,7 @@ class Service(Generic[_T_RpcServiceProtocol, _T_ApiProtocol, _T_RpcApiProtocol])
 
         self._log = logging.getLogger(service_name)
         self._log.info(f"Starting service {self._service_name} ...")
-        self._log.info(f"chik-blockchain version: {chik_full_version_str()}")
+        self._log.info(f"chik-blockchain version: {chik_short_version()}")
 
         self.service_config = self.config[service_name]
 

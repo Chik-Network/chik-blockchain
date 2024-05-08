@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from chik_rs import G2Element
 
 from chik.protocols.wallet_protocol import CoinState
-from chik.types.announcement import Announcement
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.sized_bytes import bytes32
@@ -15,7 +14,7 @@ from chik.types.coin_spend import CoinSpend, make_spend
 from chik.types.spend_bundle import SpendBundle
 from chik.util.db_wrapper import DBWrapper2
 from chik.util.ints import uint32, uint64
-from chik.wallet.conditions import Condition
+from chik.wallet.conditions import AssertCoinAnnouncement, Condition
 from chik.wallet.notification_store import Notification, NotificationStore
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.compute_memos import compute_memos_for_spend
@@ -112,9 +111,11 @@ class NotificationManager:
             fee,
             coins=coins,
             origin_id=origin_coin,
-            coin_announcements_to_consume={Announcement(notification_coin.name(), b"")},
             memos=[target, msg],
-            extra_conditions=extra_conditions,
+            extra_conditions=(
+                *extra_conditions,
+                AssertCoinAnnouncement(asserted_id=notification_coin.name(), asserted_msg=b""),
+            ),
         )
         full_tx: TransactionRecord = dataclasses.replace(
             chik_tx, spend_bundle=SpendBundle.aggregate([chik_tx.spend_bundle, extra_spend_bundle])

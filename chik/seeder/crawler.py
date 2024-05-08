@@ -37,6 +37,7 @@ from chik.server.outbound_message import NodeType
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 from chik.types.peer_info import PeerInfo
+from chik.util.chik_version import chik_short_version
 from chik.util.ints import uint32, uint64
 from chik.util.network import resolve
 from chik.util.path import path_from_root
@@ -140,7 +141,7 @@ class Crawler:
 
         async def peer_action(peer: WSChikConnection) -> None:
             peer_info = peer.get_peer_info()
-            version = peer.get_version()
+            version = chik_short_version(peer.get_version())
             if peer_info is not None and version is not None:
                 self.version_cache.append((peer_info.host, version))
             # Ask peer for peers

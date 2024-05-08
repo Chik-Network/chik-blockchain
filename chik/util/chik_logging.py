@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, cast
 import colorlog
 from concurrent_log_handler import ConcurrentRotatingFileHandler
 
-from chik.cmds.init_funcs import chik_full_version_str
+from chik.util.chik_version import chik_short_version
 from chik.util.default_root import DEFAULT_ROOT_PATH
 from chik.util.path import path_from_root
 
@@ -18,7 +18,7 @@ default_log_level = "WARNING"
 
 def get_beta_logging_config() -> Dict[str, Any]:
     return {
-        "log_filename": f"{chik_full_version_str()}/chik-blockchain/beta.log",
+        "log_filename": f"{chik_short_version()}/chik-blockchain/beta.log",
         "log_level": "DEBUG",
         "log_stdout": False,
         "log_maxfilesrotation": 100,

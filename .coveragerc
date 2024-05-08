@@ -5,9 +5,8 @@ disable_warnings=
 relative_files=True
 source_pkgs=
   chik
-  tests
 omit=
-  tests/**/config.py
+  chik/_tests/**/config.py
 concurrency=multiprocessing, thread
 parallel=True
 

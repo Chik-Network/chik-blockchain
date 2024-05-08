@@ -7,10 +7,10 @@ from contextlib import contextmanager
 from subprocess import check_call
 from typing import Iterator
 
+from chik._tests.util.blockchain import persistent_blocks
 from chik.simulator.block_tools import create_block_tools_async, test_constants
 from chik.simulator.keyring import TempKeyring
 from chik.util.keyring_wrapper import KeyringWrapper
-from tests.util.blockchain import persistent_blocks
 
 
 @contextmanager

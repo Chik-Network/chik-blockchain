@@ -7,7 +7,6 @@ from chik_rs import G2Element
 from klvm_tools.binutils import disassemble
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
-from chik.types.announcement import Announcement
 from chik.types.blockchain_format.coin import Coin, coin_as_list
 from chik.types.blockchain_format.program import INFINITE_COST, Program
 from chik.types.blockchain_format.sized_bytes import bytes32
@@ -16,7 +15,14 @@ from chik.types.spend_bundle import SpendBundle
 from chik.util.bech32m import bech32_decode, bech32_encode, convertbits
 from chik.util.errors import Err, ValidationError
 from chik.util.ints import uint64
-from chik.wallet.conditions import Condition, ConditionValidTimes, parse_conditions_non_consensus, parse_timelock_info
+from chik.wallet.conditions import (
+    AssertCoinAnnouncement,
+    AssertPuzzleAnnouncement,
+    Condition,
+    ConditionValidTimes,
+    parse_conditions_non_consensus,
+    parse_timelock_info,
+)
 from chik.wallet.outer_puzzles import (
     construct_puzzle,
     create_asset_id,
@@ -110,8 +116,8 @@ class Offer:
     def calculate_announcements(
         notarized_payments: Dict[Optional[bytes32], List[NotarizedPayment]],
         driver_dict: Dict[bytes32, PuzzleInfo],
-    ) -> List[Announcement]:
-        announcements: List[Announcement] = []
+    ) -> List[AssertPuzzleAnnouncement]:
+        announcements: List[AssertPuzzleAnnouncement] = []
         for asset_id, payments in notarized_payments.items():
             if asset_id is not None:
                 if asset_id not in driver_dict:
@@ -121,7 +127,7 @@ class Offer:
                 settlement_ph = OFFER_MOD_HASH
 
             msg: bytes32 = Program.to((payments[0].nonce, [p.as_condition_args() for p in payments])).get_tree_hash()
-            announcements.append(Announcement(settlement_ph, msg))
+            announcements.append(AssertPuzzleAnnouncement(asserted_ph=settlement_ph, asserted_msg=msg))
 
         return announcements
 
@@ -408,7 +414,9 @@ class Offer:
             conditions: Program = spend.puzzle_reveal.run_with_cost(INFINITE_COST, spend.solution)[1]
             for condition in conditions.as_iter():
                 if condition.first() == 60:  # create coin announcement
-                    announcements[name].append(Announcement(name, condition.at("rf").as_python()).name())
+                    announcements[name].append(
+                        AssertCoinAnnouncement(asserted_id=name, asserted_msg=condition.at("rf").as_python()).msg_calc
+                    )
                 elif condition.first() == 61:  # assert coin announcement
                     dependencies[name].append(bytes32(condition.at("rf").as_python()))
 
@@ -618,8 +626,8 @@ class Offer:
             if coin_spend.coin.parent_coin_info == ZERO_32:
                 notarized_payments: List[NotarizedPayment] = []
                 for payment_group in coin_spend.solution.to_program().as_iter():
-                    nonce = bytes32(payment_group.first().as_python())
-                    payment_args_list: List[Program] = payment_group.rest().as_iter()
+                    nonce = bytes32(payment_group.first().as_atom())
+                    payment_args_list = payment_group.rest().as_iter()
                     notarized_payments.extend(
                         [NotarizedPayment.from_condition_and_nonce(condition, nonce) for condition in payment_args_list]
                     )

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
-from chik_rs import ELIGIBLE_FOR_DEDUP, Spend, SpendBundleConditions
+import chik_rs
 
-__all__ = ["Spend", "SpendBundleConditions", "ELIGIBLE_FOR_DEDUP"]
+ELIGIBLE_FOR_DEDUP = chik_rs.ELIGIBLE_FOR_DEDUP
+Spend = chik_rs.Spend
+SpendBundleConditions = chik_rs.SpendBundleConditions

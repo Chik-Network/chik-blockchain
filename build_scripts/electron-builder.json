@@ -4,25 +4,15 @@
   "asar": true,
   "asarUnpack": "**/daemon/**",
   "npmRebuild": false,
-  "files": [
-    "build",
-    "daemon",
-    "!node_modules",
-    "!src",
-    "!public"
-  ],
+  "files": ["build", "daemon", "!node_modules", "!src", "!public"],
   "protocols": [
     {
       "name": "Chik URL",
-      "schemes": [
-        "chik"
-      ]
+      "schemes": ["chik"]
     },
     {
       "name": "Chik XCK Address",
-      "schemes": [
-        "xck"
-      ]
+      "schemes": ["xck"]
     }
   ],
   "win": {

@@ -6,6 +6,7 @@ from typing import Any, List, Optional, Set, Union
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
+from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, make_spend
 from chik.types.condition_opcodes import ConditionOpcode
@@ -121,17 +122,15 @@ def create_merkle_solution(
 
 
 def match_clawback_puzzle(
-    uncurried: UncurriedPuzzle, inner_puzzle: Program, inner_solution: Program
+    uncurried: UncurriedPuzzle,
+    inner_puzzle: Union[Program, SerializedProgram],
+    inner_solution: Union[Program, SerializedProgram],
 ) -> Optional[ClawbackMetadata]:
     # Check if the inner puzzle is a P2 puzzle
     if MOD != uncurried.mod:
         return None
     # Fetch Remark condition
-    conditions = conditions_for_solution(
-        inner_puzzle,
-        inner_solution,
-        DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM // 8,
-    )
+    conditions = conditions_for_solution(inner_puzzle, inner_solution, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM // 8)
     metadata: Optional[ClawbackMetadata] = None
     new_puzhash: Set[bytes32] = set()
     if conditions is not None:
