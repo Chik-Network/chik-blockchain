@@ -105,7 +105,7 @@ jobs:
         run: |
           python3 -m venv ../venv
           . ../venv/bin/activate
-          pip install setuptools_scm
+          pip install setuptools_scm==8.0.4
           echo "CHIK_INSTALLER_VERSION=$(python3 ./build_scripts/installer-version.py)" >> "$GITHUB_OUTPUT"
           deactivate
 
