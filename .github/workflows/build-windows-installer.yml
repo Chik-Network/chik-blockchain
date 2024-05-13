@@ -152,7 +152,7 @@ jobs:
         run: |
           python -m venv ../venv
           source ../venv/Scripts/activate
-          pip3 install setuptools_scm==8.0.4
+          pip3 install setuptools_scm
           CHIK_INSTALLER_VERSION=$(python ./build_scripts/installer-version.py)
           echo "$CHIK_INSTALLER_VERSION"
           echo "CHIK_INSTALLER_VERSION=$CHIK_INSTALLER_VERSION" >> "$GITHUB_OUTPUT"
