@@ -2,6 +2,9 @@
 
 **Chik** is a modern community-centric green cryptocurrency based on a proof-of-space-and-time consensus algorithm. 
 
+All premined coins(21000000XCK) haved been send to burn address(2024-05-10):
+xck1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqm6ksjy75z0
+
 For more information, see our website and downloads at <a href="https://www.chiknetwork.com">Chik Network</a>.
 <p>You can learn more in the Chik Wiki: <a href="https://github.com/Chik-Network/chik-blockchain/wiki/Chik-Blockchain-Wiki">Quick Start Guide</a></p>
 <p>Discord Channel: (https://discord.gg/SNbcMMvNBE).</p>
