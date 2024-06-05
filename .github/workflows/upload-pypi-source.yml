@@ -45,7 +45,7 @@ jobs:
             emoji: 🍎
             runs-on:
               intel: macos-12
-              arm: [macos, arm64]
+              arm: macos-14
           - name: Windows
             matrix: windows
             emoji: 🪟
@@ -73,8 +73,8 @@ jobs:
               matrix: macos
             arch:
               matrix: arm
-#            python:
-#              major_dot_minor: "3.8"
+            python:
+              major_dot_minor: "3.8"
           - os:
               matrix: windows
             arch:
