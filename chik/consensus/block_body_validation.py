@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable, Dict, List, Optional, Set, Tuple, Union
 
+from chik_rs import AugSchemeMPL, G1Element
 from chikbip158 import PyBIP158
 
 from chik.consensus.block_record import BlockRecord
@@ -19,12 +20,12 @@ from chik.full_node.coin_store import CoinStore
 from chik.full_node.mempool_check_conditions import mempool_check_time_locks
 from chik.types.block_protocol import BlockInfo
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32, bytes48
+from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.full_block import FullBlock
 from chik.types.generator_types import BlockGenerator
 from chik.types.unfinished_block import UnfinishedBlock
-from chik.util import cached_bls
+from chik.util.cached_bls import BLSCache
 from chik.util.condition_tools import pkm_pairs
 from chik.util.errors import Err
 from chik.util.hash import std_hash
@@ -135,6 +136,7 @@ async def validate_block_body(
     npc_result: Optional[NPCResult],
     fork_info: ForkInfo,
     get_block_generator: Callable[[BlockInfo], Awaitable[Optional[BlockGenerator]]],
+    bls_cache: Optional[BLSCache],
     *,
     validate_signature: bool = True,
 ) -> Tuple[Optional[Err], Optional[NPCResult]]:
@@ -512,7 +514,7 @@ async def validate_block_body(
             return error, None
 
     # create hash_key list for aggsig check
-    pairs_pks: List[bytes48] = []
+    pairs_pks: List[G1Element] = []
     pairs_msgs: List[bytes] = []
     if npc_result:
         assert npc_result.conds is not None
@@ -529,10 +531,11 @@ async def validate_block_body(
     # as the cache is likely to be useful when validating the corresponding
     # finished blocks later.
     if validate_signature:
-        force_cache: bool = isinstance(block, UnfinishedBlock)
-        if not cached_bls.aggregate_verify(
-            pairs_pks, pairs_msgs, block.transactions_info.aggregated_signature, force_cache
-        ):
-            return Err.BAD_AGGREGATE_SIGNATURE, None
+        if bls_cache is None:
+            if not AugSchemeMPL.aggregate_verify(pairs_pks, pairs_msgs, block.transactions_info.aggregated_signature):
+                return Err.BAD_AGGREGATE_SIGNATURE, None
+        else:
+            if not bls_cache.aggregate_verify(pairs_pks, pairs_msgs, block.transactions_info.aggregated_signature):
+                return Err.BAD_AGGREGATE_SIGNATURE, None
 
     return None, npc_result

@@ -29,7 +29,8 @@ from chik.server.outbound_message import Message, NodeType, make_msg
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 from chik.simulator.block_tools import BlockTools
-from chik.types.aliases import FarmerService, FullNodeService, HarvesterService, SimulatorFullNodeService
+from chik.simulator.start_simulator import SimulatorFullNodeService
+from chik.types.aliases import FarmerService, FullNodeService, HarvesterService
 from chik.types.blockchain_format.classgroup import ClassgroupElement
 from chik.types.blockchain_format.foliage import FoliageBlockData, FoliageTransactionBlock
 from chik.types.blockchain_format.proof_of_space import ProofOfSpace
@@ -426,7 +427,7 @@ async def add_test_blocks_into_full_node(blocks: List[FullBlock], full_node: Ful
     )
     assert pre_validation_results is not None and len(pre_validation_results) == len(blocks)
     for i in range(len(blocks)):
-        r, _, _ = await full_node.blockchain.add_block(blocks[i], pre_validation_results[i])
+        r, _, _ = await full_node.blockchain.add_block(blocks[i], pre_validation_results[i], None)
         assert r == AddBlockResult.NEW_PEAK
 
 

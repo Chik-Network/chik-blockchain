@@ -7,8 +7,6 @@ is returned literally.
 
 from __future__ import annotations
 
-from typing import cast
-
 from chik.types.blockchain_format.program import Program
 
 from .load_klvm import load_klvm_maybe_recompile
@@ -21,5 +19,4 @@ def puzzle_for_pk(public_key: Program) -> Program:
 
 
 def solution_for_conditions(conditions: Program) -> Program:
-    # TODO: Remove cast when we improve typing
-    return cast(Program, conditions.to([conditions]))
+    return conditions.to([conditions])

@@ -6,7 +6,16 @@ from chik.data_layer.data_layer_util import DLProof, VerifyProofResponse
 from chik.data_layer.data_layer_wallet import Mirror, SingletonRecord
 from chik.pools.pool_wallet_info import PoolWalletInfo
 from chik.rpc.rpc_client import RpcClient
-from chik.rpc.wallet_request_types import GetNotifications, GetNotificationsResponse
+from chik.rpc.wallet_request_types import (
+    ApplySignatures,
+    ApplySignaturesResponse,
+    GatherSigningInfo,
+    GatherSigningInfoResponse,
+    GetNotifications,
+    GetNotificationsResponse,
+    SubmitTransactions,
+    SubmitTransactionsResponse,
+)
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.sized_bytes import bytes32
@@ -19,6 +28,7 @@ from chik.wallet.trade_record import TradeRecord
 from chik.wallet.trading.offer import Offer
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.transaction_sorting import SortKey
+from chik.wallet.util.klvm_streamable import json_deserialize_with_klvm_streamable
 from chik.wallet.util.query_filter import TransactionTypeFilter
 from chik.wallet.util.tx_config import CoinSelectionConfig, TXConfig
 from chik.wallet.util.wallet_types import WalletType
@@ -395,10 +405,13 @@ class WalletRpcClient(RpcClient):
     async def create_new_did_wallet(
         self,
         amount: int,
+        tx_config: TXConfig,
         fee: int = 0,
         name: Optional[str] = "DID Wallet",
         backup_ids: List[str] = [],
         required_num: int = 0,
+        extra_conditions: Tuple[Condition, ...] = tuple(),
+        timelock_info: ConditionValidTimes = ConditionValidTimes(),
     ) -> Dict[str, Any]:
         request = {
             "wallet_type": "did_wallet",
@@ -408,6 +421,9 @@ class WalletRpcClient(RpcClient):
             "amount": amount,
             "fee": fee,
             "wallet_name": name,
+            "extra_conditions": conditions_to_json_dicts(extra_conditions),
+            **tx_config.to_json_dict(),
+            **timelock_info.to_json_dict(),
         }
         response = await self.fetch("create_new_wallet", request)
         return response
@@ -1158,17 +1174,19 @@ class WalletRpcClient(RpcClient):
     async def dl_update_multiple(
         self,
         update_dictionary: Dict[bytes32, bytes32],
+        fee: uint64,
         extra_conditions: Tuple[Condition, ...] = tuple(),
         timelock_info: ConditionValidTimes = ConditionValidTimes(),
     ) -> List[TransactionRecord]:
         updates_as_strings = {str(lid): str(root) for lid, root in update_dictionary.items()}
         request = {
             "updates": updates_as_strings,
+            "fee": fee,
             "extra_conditions": conditions_to_json_dicts(extra_conditions),
             **timelock_info.to_json_dict(),
         }
         response = await self.fetch("dl_update_multiple", request)
-        return [TransactionRecord.from_json_dict_convenience(tx) for tx in response["tx_records"]]
+        return [TransactionRecord.from_json_dict_convenience(tx) for tx in response["transactions"]]
 
     async def dl_history(
         self,
@@ -1607,3 +1625,39 @@ class WalletRpcClient(RpcClient):
             },
         )
         return [TransactionRecord.from_json_dict_convenience(tx) for tx in response["transactions"]]
+
+    async def gather_signing_info(
+        self,
+        args: GatherSigningInfo,
+    ) -> GatherSigningInfoResponse:
+        return json_deserialize_with_klvm_streamable(
+            await self.fetch(
+                "gather_signing_info",
+                args.to_json_dict(),
+            ),
+            GatherSigningInfoResponse,
+        )
+
+    async def apply_signatures(
+        self,
+        args: ApplySignatures,
+    ) -> ApplySignaturesResponse:
+        return json_deserialize_with_klvm_streamable(
+            await self.fetch(
+                "apply_signatures",
+                args.to_json_dict(),
+            ),
+            ApplySignaturesResponse,
+        )
+
+    async def submit_transactions(
+        self,
+        args: SubmitTransactions,
+    ) -> SubmitTransactionsResponse:
+        return json_deserialize_with_klvm_streamable(
+            await self.fetch(
+                "submit_transactions",
+                args.to_json_dict(),
+            ),
+            SubmitTransactionsResponse,
+        )

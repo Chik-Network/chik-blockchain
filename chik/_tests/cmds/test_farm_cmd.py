@@ -11,7 +11,8 @@ from chik.cmds.farm_funcs import summary
 from chik.farmer.farmer import Farmer
 from chik.harvester.harvester import Harvester
 from chik.simulator.block_tools import BlockTools
-from chik.types.aliases import FarmerService, HarvesterService, SimulatorFullNodeService, WalletService
+from chik.simulator.start_simulator import SimulatorFullNodeService
+from chik.types.aliases import FarmerService, HarvesterService, WalletService
 
 
 @pytest.mark.anyio

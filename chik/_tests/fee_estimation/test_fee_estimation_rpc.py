@@ -10,8 +10,9 @@ from chik.rpc.full_node_rpc_client import FullNodeRpcClient
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.simulator_protocol import FarmNewBlockProtocol
+from chik.simulator.start_simulator import SimulatorFullNodeService
 from chik.simulator.wallet_tools import WalletTool
-from chik.types.aliases import SimulatorFullNodeService, WalletService
+from chik.types.aliases import WalletService
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.spend_bundle import SpendBundle

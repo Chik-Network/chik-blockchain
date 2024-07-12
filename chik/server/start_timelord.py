@@ -5,7 +5,7 @@ import pathlib
 import sys
 from typing import Any, Dict, Optional
 
-from chik.consensus.constants import ConsensusConstants
+from chik.consensus.constants import ConsensusConstants, replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.rpc.timelord_rpc_api import TimelordRpcApi
 from chik.server.outbound_message import NodeType
@@ -35,7 +35,7 @@ def create_timelord_service(
 ) -> TimelordService:
     service_config = config[SERVICE_NAME]
     overrides = service_config["network_overrides"]["constants"][service_config["selected_network"]]
-    updated_constants = constants.replace_str_to_bytes(**overrides)
+    updated_constants = replace_str_to_bytes(constants, **overrides)
 
     node = Timelord(root_path, service_config, updated_constants)
     peer_api = TimelordAPI(node)

@@ -72,7 +72,7 @@ async def test_nft_mint_from_did(
     await time_out_assert(30, wallet_0.get_confirmed_balance, funds)
 
     did_wallet: DIDWallet = await DIDWallet.create_new_did_wallet(
-        wallet_node_0.wallet_state_manager, wallet_0, uint64(1)
+        wallet_node_0.wallet_state_manager, wallet_0, uint64(1), DEFAULT_TX_CONFIG
     )
     spend_bundle_list = await wallet_node_0.wallet_state_manager.tx_store.get_unconfirmed_for_wallet(did_wallet.id())
     spend_bundle = spend_bundle_list[0].spend_bundle
@@ -121,9 +121,10 @@ async def test_nft_mint_from_did(
     sb = tx_records[0].spend_bundle
     assert sb is not None
 
-    await api_0.push_tx({"spend_bundle": bytes(sb).hex()})
+    bundle, _ = await nft_wallet_maker.wallet_state_manager.sign_bundle(sb.coin_spends)
+    await api_0.push_tx({"spend_bundle": bytes(bundle).hex()})
 
-    await time_out_assert_not_none(5, full_node_api.full_node.mempool_manager.get_spendbundle, sb.name())
+    await time_out_assert_not_none(5, full_node_api.full_node.mempool_manager.get_spendbundle, bundle.name())
     await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph_token))
 
     await time_out_assert(30, nft_count, mint_total, nft_wallet_taker)
@@ -217,7 +218,7 @@ async def test_nft_mint_from_did_rpc(
     )
 
     did_wallet_maker: DIDWallet = await DIDWallet.create_new_did_wallet(
-        wallet_node_maker.wallet_state_manager, wallet_maker, uint64(1)
+        wallet_node_maker.wallet_state_manager, wallet_maker, uint64(1), DEFAULT_TX_CONFIG
     )
     spend_bundle_list = await wallet_node_maker.wallet_state_manager.tx_store.get_unconfirmed_for_wallet(
         did_wallet_maker.id()
@@ -413,7 +414,7 @@ async def test_nft_mint_from_did_rpc_no_royalties(
     )
 
     did_wallet_maker: DIDWallet = await DIDWallet.create_new_did_wallet(
-        wallet_node_maker.wallet_state_manager, wallet_maker, uint64(1)
+        wallet_node_maker.wallet_state_manager, wallet_maker, uint64(1), DEFAULT_TX_CONFIG
     )
     spend_bundle_list = await wallet_node_maker.wallet_state_manager.tx_store.get_unconfirmed_for_wallet(
         did_wallet_maker.id()
@@ -564,7 +565,7 @@ async def test_nft_mint_from_did_multiple_xck(
     await time_out_assert(30, wallet_maker.get_confirmed_balance, funds)
 
     did_wallet: DIDWallet = await DIDWallet.create_new_did_wallet(
-        wallet_node_0.wallet_state_manager, wallet_maker, uint64(1)
+        wallet_node_0.wallet_state_manager, wallet_maker, uint64(1), DEFAULT_TX_CONFIG
     )
     spend_bundle_list = await wallet_node_0.wallet_state_manager.tx_store.get_unconfirmed_for_wallet(did_wallet.id())
     spend_bundle = spend_bundle_list[0].spend_bundle
@@ -624,9 +625,10 @@ async def test_nft_mint_from_did_multiple_xck(
     sb = tx_records[0].spend_bundle
     assert sb is not None
 
-    await api_0.push_tx({"spend_bundle": bytes(sb).hex()})
+    bundle, _ = await nft_wallet_maker.wallet_state_manager.sign_bundle(sb.coin_spends)
+    await api_0.push_tx({"spend_bundle": bytes(bundle).hex()})
 
-    await time_out_assert_not_none(5, full_node_api.full_node.mempool_manager.get_spendbundle, sb.name())
+    await time_out_assert_not_none(5, full_node_api.full_node.mempool_manager.get_spendbundle, bundle.name())
     await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph_token))
 
     await time_out_assert(30, nft_count, mint_total, nft_wallet_taker)
@@ -679,7 +681,7 @@ async def test_nft_mint_from_xck(
     await time_out_assert(30, wallet_0.get_confirmed_balance, funds)
 
     did_wallet: DIDWallet = await DIDWallet.create_new_did_wallet(
-        wallet_node_0.wallet_state_manager, wallet_0, uint64(1)
+        wallet_node_0.wallet_state_manager, wallet_0, uint64(1), DEFAULT_TX_CONFIG
     )
     spend_bundle_list = await wallet_node_0.wallet_state_manager.tx_store.get_unconfirmed_for_wallet(did_wallet.id())
     spend_bundle = spend_bundle_list[0].spend_bundle
@@ -728,9 +730,10 @@ async def test_nft_mint_from_xck(
     sb = tx_records[0].spend_bundle
     assert sb is not None
 
-    await api_0.push_tx({"spend_bundle": bytes(sb).hex()})
+    bundle, _ = await nft_wallet_maker.wallet_state_manager.sign_bundle(sb.coin_spends)
+    await api_0.push_tx({"spend_bundle": bytes(bundle).hex()})
 
-    await time_out_assert_not_none(5, full_node_api.full_node.mempool_manager.get_spendbundle, sb.name())
+    await time_out_assert_not_none(5, full_node_api.full_node.mempool_manager.get_spendbundle, bundle.name())
     await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph_token))
 
     await time_out_assert(30, nft_count, mint_total, nft_wallet_taker)
@@ -823,7 +826,7 @@ async def test_nft_mint_from_xck_rpc(
     )
 
     did_wallet_maker: DIDWallet = await DIDWallet.create_new_did_wallet(
-        wallet_node_maker.wallet_state_manager, wallet_maker, uint64(1)
+        wallet_node_maker.wallet_state_manager, wallet_maker, uint64(1), DEFAULT_TX_CONFIG
     )
     spend_bundle_list = await wallet_node_maker.wallet_state_manager.tx_store.get_unconfirmed_for_wallet(
         did_wallet_maker.id()
@@ -985,7 +988,7 @@ async def test_nft_mint_from_xck_multiple_xck(
     await time_out_assert(30, wallet_maker.get_confirmed_balance, funds)
 
     did_wallet: DIDWallet = await DIDWallet.create_new_did_wallet(
-        wallet_node_0.wallet_state_manager, wallet_maker, uint64(1)
+        wallet_node_0.wallet_state_manager, wallet_maker, uint64(1), DEFAULT_TX_CONFIG
     )
     spend_bundle_list = await wallet_node_0.wallet_state_manager.tx_store.get_unconfirmed_for_wallet(did_wallet.id())
     spend_bundle = spend_bundle_list[0].spend_bundle
@@ -1045,9 +1048,10 @@ async def test_nft_mint_from_xck_multiple_xck(
     sb = tx_records[0].spend_bundle
     assert sb is not None
 
-    await api_0.push_tx({"spend_bundle": bytes(sb).hex()})
+    bundle, _ = await nft_wallet_maker.wallet_state_manager.sign_bundle(sb.coin_spends)
+    await api_0.push_tx({"spend_bundle": bytes(bundle).hex()})
 
-    await time_out_assert_not_none(5, full_node_api.full_node.mempool_manager.get_spendbundle, sb.name())
+    await time_out_assert_not_none(5, full_node_api.full_node.mempool_manager.get_spendbundle, bundle.name())
     await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph_token))
 
     await time_out_assert(30, nft_count, mint_total, nft_wallet_taker)

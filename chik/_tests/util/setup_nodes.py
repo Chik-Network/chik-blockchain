@@ -36,14 +36,8 @@ from chik.simulator.setup_services import (
     setup_wallet_node,
 )
 from chik.simulator.socket import find_available_listen_port
-from chik.types.aliases import (
-    FarmerService,
-    FullNodeService,
-    HarvesterService,
-    SimulatorFullNodeService,
-    TimelordService,
-    WalletService,
-)
+from chik.simulator.start_simulator import SimulatorFullNodeService
+from chik.types.aliases import FarmerService, FullNodeService, HarvesterService, TimelordService, WalletService
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import UnresolvedPeerInfo
 from chik.util.hash import std_hash

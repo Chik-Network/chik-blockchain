@@ -19,7 +19,7 @@ from chik.types.blockchain_format.foliage import Foliage, FoliageBlockData, Foli
 from chik.types.blockchain_format.pool_target import PoolTarget
 from chik.types.blockchain_format.proof_of_space import ProofOfSpace
 from chik.types.blockchain_format.reward_chain_block import RewardChainBlock, RewardChainBlockUnfinished
-from chik.types.blockchain_format.sized_bytes import bytes32
+from chik.types.blockchain_format.sized_bytes import bytes32, bytes100
 from chik.types.blockchain_format.vdf import VDFInfo, VDFProof
 from chik.types.full_block import FullBlock
 from chik.types.generator_types import BlockGenerator
@@ -37,7 +37,7 @@ DEFAULT_PROOF_OF_SPACE = ProofOfSpace(
     uint8(20),
     bytes(32 * 5),
 )
-DEFAULT_VDF_INFO = VDFInfo(bytes32([0] * 32), uint64(1), ClassgroupElement(bytes(100)))
+DEFAULT_VDF_INFO = VDFInfo(bytes32([0] * 32), uint64(1), ClassgroupElement(bytes100([0] * 100)))
 DEFAULT_VDF_PROOF = VDFProof(uint8(0), bytes(100), False)
 
 

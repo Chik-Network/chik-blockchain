@@ -1,0 +1,4 @@
+[tool.diff_cover]
+exclude = [
+    "*/chik/_tests/*/config.py",
+]

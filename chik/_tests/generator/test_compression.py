@@ -7,8 +7,8 @@ from typing import Any, List
 
 import pytest
 from chik_rs import ALLOW_BACKREFS
-from klvm import SExp
 from klvm.serialize import sexp_from_stream
+from klvm.SExp import SExp
 from klvm_tools import binutils
 
 from chik._tests.core.make_block_generator import make_spend_bundle

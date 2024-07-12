@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 
 def get_chikpos_install_info() -> Optional[Dict[str, Any]]:
-    chikpos_version: str = importlib.metadata.version("chikpos")
+    chikpos_version = importlib.metadata.version("chikpos")
     return {"display_name": "Chik Proof of Space", "version": chikpos_version, "installed": True}
 
 

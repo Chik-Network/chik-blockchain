@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
+from klvm.KLVMObject import KLVMStorage
 from klvm_tools import binutils
 from klvm_tools.klvmc import compile_klvm_text
 
@@ -84,7 +85,7 @@ def run_generator(self: BlockGenerator) -> Tuple[int, Program]:
     return GENERATOR_MOD.run_with_cost(MAX_COST, [self.program, args])
 
 
-def as_atom_list(prg: Program) -> List[bytes]:
+def as_atom_list(prg: KLVMStorage) -> List[bytes]:
     """
     Pretend `prg` is a list of atoms. Return the corresponding
     python list of atoms.

@@ -20,8 +20,6 @@ from chik.rpc.wallet_rpc_api import WalletRpcApi
 from chik.seeder.crawler import Crawler
 from chik.seeder.crawler_api import CrawlerAPI
 from chik.server.start_service import Service
-from chik.simulator.full_node_simulator import FullNodeSimulator
-from chik.simulator.simulator_full_node_rpc_api import SimulatorFullNodeRpcApi
 from chik.timelord.timelord import Timelord
 from chik.timelord.timelord_api import TimelordAPI
 from chik.wallet.wallet_node import WalletNode
@@ -33,6 +31,5 @@ FarmerService = Service[Farmer, FarmerAPI, FarmerRpcApi]
 FullNodeService = Service[FullNode, FullNodeAPI, FullNodeRpcApi]
 HarvesterService = Service[Harvester, HarvesterAPI, HarvesterRpcApi]
 IntroducerService = Service[Introducer, IntroducerAPI, FullNodeRpcApi]
-SimulatorFullNodeService = Service[FullNode, FullNodeSimulator, SimulatorFullNodeRpcApi]
 TimelordService = Service[Timelord, TimelordAPI, TimelordRpcApi]
 WalletService = Service[WalletNode, WalletNodeAPI, WalletRpcApi]

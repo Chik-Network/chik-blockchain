@@ -7,8 +7,12 @@ import subprocess
 import sys
 import tempfile
 
+# TODO: publish wheels for these
 excepted_packages = {
     "dnslib",  # pure python
+    "chiklisp_loader",
+    "chiklisp_puzzles",
+    "chik_base",
 }
 
 

@@ -45,6 +45,7 @@ from chik.types.header_block import HeaderBlock
 from chik.types.unfinished_block import UnfinishedBlock
 from chik.types.unfinished_header_block import UnfinishedHeaderBlock
 from chik.types.weight_proof import SubEpochChallengeSegment
+from chik.util.cached_bls import BLSCache
 from chik.util.errors import ConsensusError, Err
 from chik.util.generator_tools import get_block_header
 from chik.util.hash import std_hash
@@ -290,6 +291,7 @@ class Blockchain(BlockchainInterface):
         self,
         block: FullBlock,
         pre_validation_result: PreValidationResult,
+        bls_cache: Optional[BLSCache],
         fork_info: Optional[ForkInfo] = None,
     ) -> Tuple[AddBlockResult, Optional[Err], Optional[StateChangeSummary]]:
         """
@@ -302,6 +304,9 @@ class Blockchain(BlockchainInterface):
         Args:
             block: The FullBlock to be validated.
             pre_validation_result: A result of successful pre validation
+            bls_cache: An optional cache of pairings that are likely to be part
+               of the aggregate signature. If this is set, the cache will always
+               be used (which may be slower if there are no cache hits).
             fork_info: Information about the fork chain this block is part of,
                to make validation more efficient. This is an in-out parameter.
 
@@ -309,7 +314,7 @@ class Blockchain(BlockchainInterface):
             The result of adding the block to the blockchain (NEW_PEAK, ADDED_AS_ORPHAN, INVALID_BLOCK,
                 DISCONNECTED_BLOCK, ALREDY_HAVE_BLOCK)
             An optional error if the result is not NEW_PEAK or ADDED_AS_ORPHAN
-            A StateChangeSumamry iff NEW_PEAK, with:
+            A StateChangeSummary iff NEW_PEAK, with:
                 - A fork point if the result is NEW_PEAK
                 - A list of coin changes as a result of rollback
                 - A list of NPCResult for any new transaction block added to the chain
@@ -430,6 +435,7 @@ class Blockchain(BlockchainInterface):
             npc_result,
             fork_info,
             self.get_block_generator,
+            bls_cache,
             # If we did not already validate the signature, validate it now
             validate_signature=not pre_validation_result.validated_signature,
         )
@@ -778,6 +784,7 @@ class Blockchain(BlockchainInterface):
             npc_result,
             fork_info,
             self.get_block_generator,
+            None,
             validate_signature=False,  # Signature was already validated before calling this method, no need to validate
         )
 

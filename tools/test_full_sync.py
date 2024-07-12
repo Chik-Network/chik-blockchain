@@ -13,6 +13,7 @@ import zstd
 
 from chik._tests.util.full_sync import FakePeer, FakeServer, run_sync_test
 from chik.cmds.init_funcs import chik_init
+from chik.consensus.constants import replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.full_node.full_node import FullNode
 from chik.server.ws_connection import WSChikConnection
@@ -123,7 +124,7 @@ async def run_sync_checkpoint(
     config = load_config(root_path, "config.yaml")
 
     overrides = config["network_overrides"]["constants"][config["selected_network"]]
-    constants = DEFAULT_CONSTANTS.replace_str_to_bytes(**overrides)
+    constants = replace_str_to_bytes(DEFAULT_CONSTANTS, **overrides)
     config["full_node"]["db_sync"] = "off"
     full_node = await FullNode.create(
         config["full_node"],

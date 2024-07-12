@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 from typing import Tuple
 
-import pkg_resources
+import importlib_resources
 from chik_rs import AugSchemeMPL, ClassgroupElement, Coin, G1Element, G2Element, VDFInfo, VDFProof
 
 from chik.consensus.coinbase import create_farmer_coin, create_pool_coin
@@ -20,9 +20,8 @@ from chik.util.ints import uint8, uint32, uint64, uint128
 # farmer puzzle hash
 ph = bytes32(b"a" * 32)
 
-klvm_generator_bin_path = pkg_resources.resource_filename(__name__, "klvm_generator.bin")
-with open(klvm_generator_bin_path, "rb") as f:
-    klvm_generator = f.read()
+klvm_generator_bin_path = importlib_resources.files(__name__.rpartition(".")[0]).joinpath("klvm_generator.bin")
+klvm_generator = klvm_generator_bin_path.read_bytes()
 
 
 def rewards(height: uint32) -> Tuple[Coin, Coin]:

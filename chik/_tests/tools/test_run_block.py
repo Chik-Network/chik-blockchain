@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 import json
 from pathlib import Path
 from typing import List
@@ -10,10 +9,9 @@ from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
-from chik.util.ints import uint32, uint64, uint128
+from chik.util.ints import uint8, uint32, uint64, uint128
 
-constants = dataclasses.replace(
-    DEFAULT_CONSTANTS,
+constants = DEFAULT_CONSTANTS.replace(
     AGG_SIG_ME_ADDITIONAL_DATA=bytes.fromhex("ae83525ba8d1dd3f09b277de18ca3e43fc0af20d20c4b3e92ef2a48bd291ccb2"),
     DIFFICULTY_CONSTANT_FACTOR=uint128(10052721566054),
     DIFFICULTY_STARTING=uint64(30),
@@ -25,8 +23,8 @@ constants = dataclasses.replace(
     GENESIS_PRE_FARM_POOL_PUZZLE_HASH=bytes32.fromhex(
         "d23da14695a188ae5708dd152263c4db883eb27edeb936178d4d988b8f3ce5fc"
     ),
-    MEMPOOL_BLOCK_BUFFER=10,
-    MIN_PLOT_SIZE=18,
+    MEMPOOL_BLOCK_BUFFER=uint8(10),
+    MIN_PLOT_SIZE=uint8(18),
 )
 retire_bytes = (
     b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"

@@ -24,7 +24,8 @@ from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.block_tools import BlockTools, get_plot_dir
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.simulator_protocol import ReorgProtocol
-from chik.types.aliases import SimulatorFullNodeService, WalletService
+from chik.simulator.start_simulator import SimulatorFullNodeService
+from chik.types.aliases import WalletService
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
 from chik.util.bech32m import encode_puzzle_hash
@@ -389,11 +390,11 @@ class TestPoolWalletRpc:
                             status: PoolWalletInfo = (await client.pw_status(some_wallet.id()))[0]
                             assert (await some_wallet.get_pool_wallet_index()) < 5
                             auth_sk = find_authentication_sk(
-                                [some_wallet.wallet_state_manager.private_key], status.current.owner_pubkey
+                                [some_wallet.wallet_state_manager.get_master_private_key()], status.current.owner_pubkey
                             )
                             assert auth_sk is not None
                             owner_sk = find_owner_sk(
-                                [some_wallet.wallet_state_manager.private_key], status.current.owner_pubkey
+                                [some_wallet.wallet_state_manager.get_master_private_key()], status.current.owner_pubkey
                             )
                             assert owner_sk is not None
                             assert owner_sk[0] != auth_sk

@@ -6,7 +6,7 @@ import sys
 from multiprocessing import freeze_support
 from typing import Any, Dict, Optional
 
-from chik.consensus.constants import ConsensusConstants
+from chik.consensus.constants import ConsensusConstants, replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.rpc.wallet_rpc_api import WalletRpcApi
 from chik.server.outbound_message import NodeType
@@ -38,7 +38,7 @@ def create_wallet_service(
     service_config = config[SERVICE_NAME]
 
     overrides = service_config["network_overrides"]["constants"][service_config["selected_network"]]
-    updated_constants = consensus_constants.replace_str_to_bytes(**overrides)
+    updated_constants = replace_str_to_bytes(consensus_constants, **overrides)
     if "short_sync_blocks_behind_threshold" not in service_config:
         service_config["short_sync_blocks_behind_threshold"] = 20
 
