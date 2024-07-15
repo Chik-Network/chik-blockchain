@@ -37,7 +37,7 @@ dependencies = [
     "zstd==1.5.5.1",
     "packaging==24.0",
     "psutil==5.9.4",
-    "hsms==0.3.1",
+    "hsmk==0.3.1",
 ]
 
 upnp_dependencies = [

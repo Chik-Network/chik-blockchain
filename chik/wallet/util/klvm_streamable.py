@@ -4,7 +4,7 @@ import dataclasses
 import functools
 from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union, get_args, get_type_hints
 
-from hsms.klvm_serde import from_program_for_type, to_program_for_type
+from hsmk.klvm_serde import from_program_for_type, to_program_for_type
 
 from chik.types.blockchain_format.program import Program
 from chik.util.streamable import (
