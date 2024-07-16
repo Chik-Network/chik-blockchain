@@ -12,7 +12,7 @@ from chik.types.condition_with_args import ConditionWithArgs
 from chik.util.ints import uint8, uint32, uint64, uint128
 
 constants = DEFAULT_CONSTANTS.replace(
-    AGG_SIG_ME_ADDITIONAL_DATA=bytes.fromhex("ae83525ba8d1dd3f09b277de18ca3e43fc0af20d20c4b3e92ef2a48bd291ccb2"),
+    AGG_SIG_ME_ADDITIONAL_DATA=bytes32.fromhex("ae83525ba8d1dd3f09b277de18ca3e43fc0af20d20c4b3e92ef2a48bd291ccb2"),
     DIFFICULTY_CONSTANT_FACTOR=uint128(10052721566054),
     DIFFICULTY_STARTING=uint64(30),
     EPOCH_BLOCKS=uint32(768),
