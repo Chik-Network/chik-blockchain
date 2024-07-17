@@ -47,7 +47,7 @@ for setuptools_scm/PEP 440 reasons.
 * Bump `dnspython` to `2.6.1`
 * Bump `typing-extensions` to `4.11.0`,
 * Bump `packaging` to `24.0`
-* Bump `hsmk` to `0.3.1`,
+* Bump `hsmk` to `0.3.2`,
 
 ### Fixed
 * Add bytes type to `DerivationRecord.pubkey`
