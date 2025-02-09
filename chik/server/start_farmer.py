@@ -10,13 +10,13 @@ from chik.farmer.farmer import Farmer
 from chik.farmer.farmer_api import FarmerAPI
 from chik.rpc.farmer_rpc_api import FarmerRpcApi
 from chik.server.outbound_message import NodeType
+from chik.server.signal_handlers import SignalHandlers
 from chik.server.start_service import RpcInfo, Service, async_run
 from chik.types.aliases import FarmerService
 from chik.util.chik_logging import initialize_service_logging
 from chik.util.config import get_unresolved_peer_infos, load_config, load_config_cli
 from chik.util.default_root import DEFAULT_ROOT_PATH
 from chik.util.keychain import Keychain
-from chik.util.misc import SignalHandlers
 
 # See: https://bugs.python.org/issue29288
 "".encode("idna")

@@ -31,6 +31,7 @@ from chik.server.api_protocol import ApiProtocol
 from chik.server.chik_policy import set_chik_policy
 from chik.server.outbound_message import NodeType
 from chik.server.server import ChikServer
+from chik.server.signal_handlers import SignalHandlers
 from chik.server.ssl_context import chik_ssl_ca_paths, private_ssl_ca_paths
 from chik.server.upnp import UPnP
 from chik.server.ws_connection import WSChikConnection
@@ -38,7 +39,6 @@ from chik.types.peer_info import PeerInfo, UnresolvedPeerInfo
 from chik.util.ints import uint16
 from chik.util.lock import Lockfile, LockfileError
 from chik.util.log_exceptions import log_exceptions
-from chik.util.misc import SignalHandlers
 from chik.util.network import resolve
 from chik.util.setproctitle import setproctitle
 
@@ -173,6 +173,11 @@ class Service(Generic[_T_RpcServiceProtocol, _T_ApiProtocol, _T_RpcApiProtocol])
                     resolved_peers[unresolved] = resolved
 
                 if any(connection.peer_info == resolved for connection in self._server.all_connections.values()):
+                    continue
+                if any(
+                    connection.peer_info.host == resolved.host and connection.peer_server_port == resolved.port
+                    for connection in self._server.all_connections.values()
+                ):
                     continue
 
                 if not await self._server.start_client(resolved, None):

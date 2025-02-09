@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain import Blockchain, BlockchainMutexPriority
-from chik.consensus.cost_calculator import NPCResult
+from chik.consensus.get_block_generator import get_block_generator
 from chik.consensus.pos_quality import UI_ACTUAL_SPACE_CONSTANT_FACTOR
 from chik.full_node.fee_estimator_interface import FeeEstimatorInterface
 from chik.full_node.full_node import FullNode
@@ -23,8 +23,8 @@ from chik.types.coin_spend import CoinSpend
 from chik.types.full_block import FullBlock
 from chik.types.generator_types import BlockGenerator
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
-from chik.types.mempool_item import MempoolItem
 from chik.types.spend_bundle import SpendBundle
+from chik.types.spend_bundle_conditions import SpendBundleConditions
 from chik.types.unfinished_header_block import UnfinishedHeaderBlock
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.ints import uint32, uint64, uint128
@@ -103,9 +103,6 @@ class FullNodeRpcApi:
             "/get_network_space": self.get_network_space,
             "/get_additions_and_removals": self.get_additions_and_removals,
             "/get_aggsig_additional_data": self.get_aggsig_additional_data,
-            # this function is just here for backwards-compatibility. It will probably
-            # be removed in the future
-            "/get_initial_freeze_period": self.get_initial_freeze_period,
             "/get_recent_signage_point_or_eos": self.get_recent_signage_point_or_eos,
             # Coins
             "/get_coin_records_by_puzzle_hash": self.get_coin_records_by_puzzle_hash,
@@ -157,12 +154,6 @@ class FullNodeRpcApi:
             payloads.append(create_payload_dict(change, change_data, self.service_name, "unfinished_block_info"))
 
         return payloads
-
-    # this function is just here for backwards-compatibility. It will probably
-    # be removed in the future
-    async def get_initial_freeze_period(self, _: Dict[str, Any]) -> EndpointResult:
-        # Mon May 03 2021 17:00:00 GMT+0000
-        return {"INITIAL_FREEZE_END_TIMESTAMP": 1620061200}
 
     async def get_blockchain_state(self, _: Dict[str, Any]) -> EndpointResult:
         """
@@ -478,7 +469,7 @@ class FullNodeRpcApi:
             raise ValueError(f"Block {header_hash.hex()} not found")
 
         spends: List[CoinSpend] = []
-        block_generator = await self.service.blockchain.get_block_generator(full_block)
+        block_generator = await get_block_generator(self.service.blockchain.lookup_block_generators, full_block)
         if block_generator is None:  # if block is not a transaction block.
             return {"block_spends": spends}
 
@@ -494,7 +485,7 @@ class FullNodeRpcApi:
         if full_block is None:
             raise ValueError(f"Block {header_hash.hex()} not found")
 
-        block_generator = await self.service.blockchain.get_block_generator(full_block)
+        block_generator = await get_block_generator(self.service.blockchain.lookup_block_generators, full_block)
         if block_generator is None:  # if block is not a transaction block.
             return {"block_spends_with_conditions": []}
 
@@ -775,7 +766,9 @@ class FullNodeRpcApi:
         if block is None or block.transactions_generator is None:
             raise ValueError("Invalid block or block generator")
 
-        block_generator: Optional[BlockGenerator] = await self.service.blockchain.get_block_generator(block)
+        block_generator: Optional[BlockGenerator] = await get_block_generator(
+            self.service.blockchain.lookup_block_generators, block
+        )
         assert block_generator is not None
 
         spend_info = get_puzzle_and_solution_for_coin(
@@ -833,7 +826,7 @@ class FullNodeRpcApi:
             raise ValueError("No coin_name in request")
 
         coin_name: bytes32 = bytes32.from_hexstr(request["coin_name"])
-        items: List[MempoolItem] = self.service.mempool_manager.mempool.get_items_by_coin_id(coin_name)
+        items = self.service.mempool_manager.mempool.get_items_by_coin_id(coin_name)
 
         return {"mempool_items": [item.to_json_dict() for item in items]}
 
@@ -866,14 +859,9 @@ class FullNodeRpcApi:
             raise ValueError(f"Request must contain exactly one of {ns}")
 
         if "spend_bundle" in request:
-            spend_bundle: SpendBundle = SpendBundle.from_json_dict(request["spend_bundle"])
-            spend_name = spend_bundle.name()
-            npc_result: NPCResult = await self.service.mempool_manager.pre_validate_spendbundle(
-                spend_bundle, None, spend_name
-            )
-            if npc_result.error is not None:
-                raise RuntimeError(f"Spend Bundle failed validation: {npc_result.error}")
-            cost = uint64(0 if npc_result.conds is None else npc_result.conds.cost)
+            spend_bundle = SpendBundle.from_json_dict(request["spend_bundle"])
+            conds: SpendBundleConditions = await self.service.mempool_manager.pre_validate_spendbundle(spend_bundle)
+            cost = conds.cost
         elif "cost" in request:
             cost = request["cost"]
         else:

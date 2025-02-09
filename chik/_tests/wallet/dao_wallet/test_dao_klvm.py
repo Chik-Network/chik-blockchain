@@ -13,7 +13,6 @@ from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
-from chik.types.spend_bundle import SpendBundle
 from chik.util.condition_tools import conditions_dict_for_solution
 from chik.util.errors import Err
 from chik.util.hash import std_hash
@@ -23,6 +22,7 @@ from chik.wallet.dao_wallet.dao_info import DAORules
 from chik.wallet.dao_wallet.dao_utils import curry_singleton, get_p2_singleton_puzhash, get_treasury_puzzle
 from chik.wallet.puzzles.load_klvm import load_klvm
 from chik.wallet.singleton import create_singleton_puzzle_hash
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 CAT_MOD_HASH: bytes32 = CAT_MOD.get_tree_hash()
 SINGLETON_MOD: Program = load_klvm("singleton_top_layer_v1_1.clsp")
@@ -98,7 +98,7 @@ def test_proposal() -> None:
     )
     self_destruct_time = 1000  # number of blocks
     oracle_spend_delay = 10
-    active_votes_list = [0xFADEDDAB]  # are the the ids of previously voted on proposals?
+    active_votes_list = [0xFADEDDAB]  # are the ids of previously voted on proposals?
     acs: Program = Program.to(1)
     acs_ph: bytes32 = acs.get_tree_hash()
 
@@ -1249,7 +1249,7 @@ async def do_spend(
     spends = []
     for coin, puzzle, solution in zip(coins, puzzles, solutions):
         spends.append(make_spend(coin, puzzle, solution))
-    spend_bundle = SpendBundle(spends, AugSchemeMPL.aggregate([]))
+    spend_bundle = WalletSpendBundle(spends, AugSchemeMPL.aggregate([]))
     result = await sim_client.push_tx(spend_bundle)
     await sim.farm_block()
     return result

@@ -5,6 +5,7 @@ import dataclasses
 import json
 import logging
 import os
+import shutil
 import signal
 import ssl
 import subprocess
@@ -31,6 +32,7 @@ from chik.daemon.windows_signal import kill
 from chik.plotters.plotters import get_available_plotters
 from chik.plotting.util import add_plot_directory
 from chik.server.server import ssl_context_for_server
+from chik.server.signal_handlers import SignalHandlers
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.chik_logging import initialize_service_logging
 from chik.util.chik_version import chik_short_version
@@ -41,7 +43,6 @@ from chik.util.json_util import dict_to_json_str
 from chik.util.keychain import Keychain, KeyData, passphrase_requirements, supports_os_passphrase_storage
 from chik.util.lock import Lockfile, LockfileError
 from chik.util.log_exceptions import log_exceptions
-from chik.util.misc import SignalHandlers
 from chik.util.network import WebServer
 from chik.util.service_groups import validate_service
 from chik.util.setproctitle import setproctitle
@@ -60,7 +61,7 @@ try:
     from aiohttp.web_ws import WebSocketResponse
 except ModuleNotFoundError:
     print("Error: Make sure to run . ./activate from the project folder before starting Chik.")
-    quit()
+    sys.exit()
 
 
 log = logging.getLogger(__name__)
@@ -112,7 +113,8 @@ else:
     application_path = os.path.dirname(__file__)
 
     def executable_for_service(service_name: str) -> str:
-        return service_name
+        cmd_to_exec = shutil.which(service_name)
+        return cmd_to_exec if cmd_to_exec is not None else service_name
 
 
 async def ping() -> Dict[str, Any]:

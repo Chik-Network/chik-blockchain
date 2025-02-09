@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import copy
-import dataclasses
 import logging
 import os
 import random
@@ -14,14 +13,14 @@ import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 from random import Random
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import anyio
 from chik_rs import ALLOW_BACKREFS, MEMPOOL_MODE, AugSchemeMPL, G1Element, G2Element, PrivateKey, solution_generator
 
 from chik.consensus.block_creation import create_unfinished_block, unfinished_block_to_full_block
 from chik.consensus.block_record import BlockRecord
-from chik.consensus.blockchain_interface import BlockchainInterface
+from chik.consensus.blockchain_interface import BlockRecordsProtocol
 from chik.consensus.coinbase import create_puzzlehash_for_pk
 from chik.consensus.condition_costs import ConditionCost
 from chik.consensus.constants import ConsensusConstants, replace_str_to_bytes
@@ -38,12 +37,7 @@ from chik.consensus.pot_iterations import (
 )
 from chik.consensus.vdf_info_computation import get_signage_point_vdf_info
 from chik.daemon.keychain_proxy import KeychainProxy, connect_to_keychain_and_validate, wrap_local_keychain
-from chik.full_node.bundle_tools import (
-    best_solution_generator_from_template,
-    detect_potential_template_generator,
-    simple_solution_generator,
-    simple_solution_generator_backrefs,
-)
+from chik.full_node.bundle_tools import simple_solution_generator, simple_solution_generator_backrefs
 from chik.full_node.signage_point import SignagePoint
 from chik.plotting.create_plots import PlotKeys, create_plots
 from chik.plotting.manager import PlotManager
@@ -92,7 +86,7 @@ from chik.types.blockchain_format.vdf import VDFInfo, VDFProof
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
 from chik.types.full_block import FullBlock
-from chik.types.generator_types import BlockGenerator, CompressorArg
+from chik.types.generator_types import BlockGenerator
 from chik.types.spend_bundle import SpendBundle
 from chik.types.unfinished_block import UnfinishedBlock
 from chik.util.bech32m import encode_puzzle_hash
@@ -150,10 +144,6 @@ test_constants = DEFAULT_CONSTANTS.replace(
     # Allows creating blockchains with timestamps up to 10 days in the future, for testing
     MAX_FUTURE_TIME2=uint32(3600 * 24 * 10),
     MEMPOOL_BLOCK_BUFFER=uint8(6),
-    # we deliberately make this different from HARD_FORK_HEIGHT in the
-    # tests, to ensure they operate independently (which they need to do for
-    # testnet10)
-    HARD_FORK_FIX_HEIGHT=uint32(5496100),
 )
 
 
@@ -593,11 +583,13 @@ class BlockTools:
         normalized_to_identity_cc_sp: bool = False,
         normalized_to_identity_cc_ip: bool = False,
         current_time: bool = False,
-        previous_generator: Optional[Union[CompressorArg, List[uint32]]] = None,
+        block_refs: List[uint32] = [],
         genesis_timestamp: Optional[uint64] = None,
         force_plot_id: Optional[bytes32] = None,
         dummy_block_references: bool = False,
         include_transactions: bool = False,
+        skip_overflow: bool = False,
+        min_signage_point: int = -1,
     ) -> List[FullBlock]:
         assert num_blocks > 0
         if block_list_input is not None:
@@ -729,6 +721,10 @@ class BlockTools:
                             # Ignore this signage_point because it's in the past
                             continue
 
+                        if signage_point_index <= min_signage_point:
+                            # start farming blocks after min_signage_point
+                            continue
+
                     signage_point: SignagePoint = get_signage_point(
                         constants,
                         BlockCache(blocks),
@@ -764,12 +760,13 @@ class BlockTools:
                                 # Ignore this block because it's in the past
                                 if required_iters <= latest_block.required_iters:
                                     continue
+
                         assert latest_block.header_hash in blocks
                         additions = None
                         removals = None
                         if transaction_data_included:
                             transaction_data = None
-                            previous_generator = None
+                            block_refs = []
                         if transaction_data is not None:
                             additions = compute_additions_unchecked(transaction_data)
                             removals = transaction_data.removals()
@@ -797,18 +794,9 @@ class BlockTools:
                         if transaction_data is not None:
                             if start_height >= constants.HARD_FORK_HEIGHT:
                                 block_generator = simple_solution_generator_backrefs(transaction_data)
-                                previous_generator = None
+                                block_refs = []
                             else:
-                                if type(previous_generator) is CompressorArg:
-                                    block_generator = best_solution_generator_from_template(
-                                        previous_generator, transaction_data
-                                    )
-                                else:
-                                    block_generator = simple_solution_generator(transaction_data)
-                                    if type(previous_generator) is list:
-                                        block_generator = BlockGenerator(
-                                            block_generator.program, [], previous_generator
-                                        )
+                                block_generator = simple_solution_generator(transaction_data)
 
                             aggregate_signature = transaction_data.aggregated_signature
                         else:
@@ -818,20 +806,16 @@ class BlockTools:
                         if dummy_block_references:
                             if block_generator is None:
                                 program = SerializedProgram.from_bytes(solution_generator([]))
-                                block_generator = BlockGenerator(program, [], [])
+                                block_generator = BlockGenerator(program, [])
 
                             if len(tx_block_heights) > 4:
-                                block_refs = [
-                                    tx_block_heights[1],
-                                    tx_block_heights[len(tx_block_heights) // 2],
-                                    tx_block_heights[-2],
-                                ]
-                            else:
-                                block_refs = []
-                            block_generator = dataclasses.replace(
-                                block_generator, block_height_list=block_generator.block_height_list + block_refs
-                            )
-
+                                block_refs.extend(
+                                    [
+                                        tx_block_heights[1],
+                                        tx_block_heights[len(tx_block_heights) // 2],
+                                        tx_block_heights[-2],
+                                    ]
+                                )
                         (
                             full_block,
                             block_record,
@@ -865,10 +849,11 @@ class BlockTools:
                             seed,
                             normalized_to_identity_cc_ip=normalized_to_identity_cc_ip,
                             current_time=current_time,
+                            block_refs=block_refs,
                         )
                         if block_record.is_transaction_block:
                             transaction_data_included = True
-                            previous_generator = None
+                            block_refs = []
                             keep_going_until_tx_block = False
                             assert full_block.foliage_transaction_block is not None
                         elif guarantee_transaction_block:
@@ -892,11 +877,6 @@ class BlockTools:
 
                         if full_block.transactions_generator is not None:
                             tx_block_heights.append(full_block.height)
-                            compressor_arg = detect_potential_template_generator(
-                                full_block.height, full_block.transactions_generator
-                            )
-                            if compressor_arg is not None:
-                                previous_generator = compressor_arg
 
                         blocks_added_this_sub_slot += 1
 
@@ -969,7 +949,7 @@ class BlockTools:
             if not pending_ses:  # if we just created a sub-epoch summary, we can at least skip another sub-slot
                 sub_epoch_summary = next_sub_epoch_summary(
                     constants,
-                    BlockCache(blocks, height_to_hash=height_to_hash),
+                    BlockCache(blocks),
                     latest_block.required_iters,
                     block_list[-1],
                     False,
@@ -1070,11 +1050,20 @@ class BlockTools:
             blocks_added_this_sub_slot = 0  # Sub slot ended, overflows are in next sub slot
 
             # Handle overflows: No overflows on new epoch or sub-epoch
-            if new_sub_slot_iters is None and num_empty_slots_added >= skip_slots and not pending_ses:
+
+            if (
+                new_sub_slot_iters is None
+                and num_empty_slots_added >= skip_slots
+                and not pending_ses
+                and not skip_overflow
+            ):
                 for signage_point_index in range(
                     constants.NUM_SPS_SUB_SLOT - constants.NUM_SP_INTERVALS_EXTRA,
                     constants.NUM_SPS_SUB_SLOT,
                 ):
+                    if same_slot_as_last and signage_point_index <= min_signage_point:
+                        # start farming blocks after min_signage_point
+                        continue
                     # note that we are passing in the finished slots which include the last slot
                     signage_point = get_signage_point(
                         constants,
@@ -1122,18 +1111,9 @@ class BlockTools:
                         if transaction_data is not None:
                             if start_height >= constants.HARD_FORK_HEIGHT:
                                 block_generator = simple_solution_generator_backrefs(transaction_data)
-                                previous_generator = None
+                                block_refs = []
                             else:
-                                if previous_generator is not None and type(previous_generator) is CompressorArg:
-                                    block_generator = best_solution_generator_from_template(
-                                        previous_generator, transaction_data
-                                    )
-                                else:
-                                    block_generator = simple_solution_generator(transaction_data)
-                                    if type(previous_generator) is list:
-                                        block_generator = BlockGenerator(
-                                            block_generator.program, [], previous_generator
-                                        )
+                                block_generator = simple_solution_generator(transaction_data)
                             aggregate_signature = transaction_data.aggregated_signature
                         else:
                             block_generator = None
@@ -1142,19 +1122,16 @@ class BlockTools:
                         if dummy_block_references:
                             if block_generator is None:
                                 program = SerializedProgram.from_bytes(solution_generator([]))
-                                block_generator = BlockGenerator(program, [], [])
+                                block_generator = BlockGenerator(program, [])
 
                             if len(tx_block_heights) > 4:
-                                block_refs = [
-                                    tx_block_heights[1],
-                                    tx_block_heights[len(tx_block_heights) // 2],
-                                    tx_block_heights[-2],
-                                ]
-                            else:
-                                block_refs = []
-                            block_generator = dataclasses.replace(
-                                block_generator, block_height_list=block_generator.block_height_list + block_refs
-                            )
+                                block_refs.extend(
+                                    [
+                                        tx_block_heights[1],
+                                        tx_block_heights[len(tx_block_heights) // 2],
+                                        tx_block_heights[-2],
+                                    ]
+                                )
 
                         (
                             full_block,
@@ -1191,11 +1168,12 @@ class BlockTools:
                             overflow_rc_challenge=overflow_rc_challenge,
                             normalized_to_identity_cc_ip=normalized_to_identity_cc_ip,
                             current_time=current_time,
+                            block_refs=block_refs,
                         )
 
                         if block_record.is_transaction_block:
                             transaction_data_included = True
-                            previous_generator = None
+                            block_refs = []
                             keep_going_until_tx_block = False
                             assert full_block.foliage_transaction_block is not None
                         elif guarantee_transaction_block:
@@ -1220,11 +1198,6 @@ class BlockTools:
 
                         if full_block.transactions_generator is not None:
                             tx_block_heights.append(full_block.height)
-                            compressor_arg = detect_potential_template_generator(
-                                full_block.height, full_block.transactions_generator
-                            )
-                            if compressor_arg is not None:
-                                previous_generator = compressor_arg
 
                         blocks_added_this_sub_slot += 1
                         self.log.info(f"Created block {block_record.height} ov=True, iters {block_record.total_iters}")
@@ -1274,7 +1247,7 @@ class BlockTools:
             for signage_point_index in range(0, constants.NUM_SPS_SUB_SLOT):
                 signage_point: SignagePoint = get_signage_point(
                     constants,
-                    BlockCache({}, {}),
+                    BlockCache({}),
                     None,
                     sub_slot_total_iters,
                     uint8(signage_point_index),
@@ -1504,7 +1477,7 @@ class BlockTools:
 
 def get_signage_point(
     constants: ConsensusConstants,
-    blocks: BlockchainInterface,
+    blocks: BlockRecordsProtocol,
     latest_block: Optional[BlockRecord],
     sub_slot_start_total_iters: uint128,
     signage_point_index: uint8,
@@ -1646,7 +1619,9 @@ def finish_block(
         difficulty,
     )
 
-    block_record = block_to_block_record(constants, BlockCache(blocks), required_iters, full_block, None)
+    block_record = block_to_block_record(
+        constants, BlockCache(blocks), required_iters, full_block, sub_slot_iters=sub_slot_iters
+    )
     return full_block, block_record
 
 
@@ -1697,14 +1672,17 @@ def get_plot_tmp_dir(plot_dir_name: str = "test-plots", automated_testing: bool 
 def load_block_list(
     block_list: List[FullBlock], constants: ConsensusConstants
 ) -> Tuple[Dict[uint32, bytes32], uint64, Dict[bytes32, BlockRecord]]:
-    difficulty = 0
+    difficulty = uint64(constants.DIFFICULTY_STARTING)
+    sub_slot_iters = uint64(constants.SUB_SLOT_ITERS_STARTING)
     height_to_hash: Dict[uint32, bytes32] = {}
     blocks: Dict[bytes32, BlockRecord] = {}
     for full_block in block_list:
-        if full_block.height == 0:
-            difficulty = uint64(constants.DIFFICULTY_STARTING)
-        else:
-            difficulty = full_block.weight - block_list[full_block.height - 1].weight
+        if full_block.height != 0:
+            if len(full_block.finished_sub_slots) > 0:
+                if full_block.finished_sub_slots[0].challenge_chain.new_difficulty is not None:
+                    difficulty = full_block.finished_sub_slots[0].challenge_chain.new_difficulty
+                if full_block.finished_sub_slots[0].challenge_chain.new_sub_slot_iters is not None:
+                    sub_slot_iters = full_block.finished_sub_slots[0].challenge_chain.new_sub_slot_iters
         if full_block.reward_chain_block.signage_point_index == 0:
             challenge = full_block.reward_chain_block.pos_ss_cc_challenge_hash
             sp_hash = challenge
@@ -1729,7 +1707,7 @@ def load_block_list(
             BlockCache(blocks),
             required_iters,
             full_block,
-            None,
+            sub_slot_iters,
         )
         height_to_hash[uint32(full_block.height)] = full_block.header_hash
     return height_to_hash, uint64(difficulty), blocks
@@ -1820,6 +1798,7 @@ def get_full_block_and_block_record(
     prev_block: BlockRecord,
     seed: bytes = b"",
     *,
+    block_refs: List[uint32] = [],
     overflow_cc_challenge: Optional[bytes32] = None,
     overflow_rc_challenge: Optional[bytes32] = None,
     normalized_to_identity_cc_ip: bool = False,
@@ -1915,22 +1894,22 @@ def compute_cost_table() -> List[int]:
 CONDITION_COSTS = compute_cost_table()
 
 
-def conditions_cost(conds: Program, hard_fork: bool) -> uint64:
+def conditions_cost(conds: Program) -> uint64:
     condition_cost = 0
     for cond in conds.as_iter():
         condition = cond.first().as_atom()
-        if condition in [ConditionOpcode.AGG_SIG_UNSAFE, ConditionOpcode.AGG_SIG_ME]:
-            condition_cost += ConditionCost.AGG_SIG.value
-        elif condition == ConditionOpcode.CREATE_COIN:
+        if condition == ConditionOpcode.CREATE_COIN:
             condition_cost += ConditionCost.CREATE_COIN.value
         # after the 2.0 hard fork, two byte conditions (with no leading 0)
         # have costs. Account for that.
-        elif hard_fork and len(condition) == 2 and condition[0] != 0:
+        elif len(condition) == 2 and condition[0] != 0:
             condition_cost += CONDITION_COSTS[condition[1]]
-        elif hard_fork and condition == ConditionOpcode.SOFTFORK.value:
+        elif condition == ConditionOpcode.SOFTFORK.value:
             arg = cond.rest().first().as_int()
             condition_cost += arg * 10000
-        elif hard_fork and condition in [
+        elif condition in [
+            ConditionOpcode.AGG_SIG_UNSAFE,
+            ConditionOpcode.AGG_SIG_ME,
             ConditionOpcode.AGG_SIG_PARENT,
             ConditionOpcode.AGG_SIG_PUZZLE,
             ConditionOpcode.AGG_SIG_AMOUNT,
@@ -1953,8 +1932,7 @@ def compute_fee_test(additions: Sequence[Coin], removals: Sequence[Coin]) -> uin
     ret = removal_amount - addition_amount
     # in order to allow creating blocks that mint coins, clamp the fee
     # to 0, if it ends up being negative
-    if ret < 0:
-        ret = 0
+    ret = max(ret, 0)
     return uint64(ret)
 
 
@@ -1966,8 +1944,8 @@ def compute_cost_test(generator: BlockGenerator, constants: ConsensusConstants, 
     condition_cost = 0
     klvm_cost = 0
 
-    if height >= constants.HARD_FORK_FIX_HEIGHT:
-        blocks = [bytes(g) for g in generator.generator_refs]
+    if height >= constants.HARD_FORK_HEIGHT:
+        blocks = generator.generator_refs
         cost, result = generator.program._run(INFINITE_COST, MEMPOOL_MODE | ALLOW_BACKREFS, [DESERIALIZE_MOD, blocks])
         klvm_cost += cost
 
@@ -1979,17 +1957,17 @@ def compute_cost_test(generator: BlockGenerator, constants: ConsensusConstants, 
 
             cost, result = puzzle._run(INFINITE_COST, MEMPOOL_MODE, solution)
             klvm_cost += cost
-            condition_cost += conditions_cost(result, height >= constants.HARD_FORK_HEIGHT)
+            condition_cost += conditions_cost(result)
 
     else:
-        block_program_args = SerializedProgram.to([[bytes(g) for g in generator.generator_refs]])
+        block_program_args = SerializedProgram.to([generator.generator_refs])
         klvm_cost, result = GENERATOR_MOD._run(INFINITE_COST, MEMPOOL_MODE, [generator.program, block_program_args])
 
         for res in result.first().as_iter():
             # each condition item is:
             # (parent-coin-id puzzle-hash amount conditions)
             conditions = res.at("rrrf")
-            condition_cost += conditions_cost(conditions, height >= constants.HARD_FORK_HEIGHT)
+            condition_cost += conditions_cost(conditions)
 
     size_cost = len(bytes(generator.program)) * constants.COST_PER_BYTE
 

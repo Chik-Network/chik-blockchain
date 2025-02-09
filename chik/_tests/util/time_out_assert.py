@@ -11,9 +11,8 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, Tuple, cast, fi
 import chik
 import chik._tests
 from chik._tests import ether
-from chik._tests.util.misc import DataTypeProtocol
+from chik._tests.util.misc import DataTypeProtocol, caller_file_and_line
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
-from chik.util.misc import caller_file_and_line
 from chik.util.timing import adjusted_timeout
 
 log = logging.getLogger(__name__)

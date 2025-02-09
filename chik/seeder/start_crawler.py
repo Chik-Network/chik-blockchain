@@ -12,12 +12,12 @@ from chik.rpc.crawler_rpc_api import CrawlerRpcApi
 from chik.seeder.crawler import Crawler
 from chik.seeder.crawler_api import CrawlerAPI
 from chik.server.outbound_message import NodeType
+from chik.server.signal_handlers import SignalHandlers
 from chik.server.start_service import RpcInfo, Service, async_run
 from chik.types.aliases import CrawlerService
 from chik.util.chik_logging import initialize_service_logging
 from chik.util.config import load_config, load_config_cli
 from chik.util.default_root import DEFAULT_ROOT_PATH
-from chik.util.misc import SignalHandlers
 
 # See: https://bugs.python.org/issue29288
 "".encode("idna")
@@ -31,14 +31,13 @@ def create_full_node_crawler_service(
     config: Dict[str, Any],
     consensus_constants: ConsensusConstants,
     connect_to_daemon: bool = True,
+    start_crawler_loop: bool = True,
 ) -> CrawlerService:
     service_config = config[SERVICE_NAME]
     crawler_config = service_config["crawler"]
 
     crawler = Crawler(
-        service_config,
-        root_path=root_path,
-        constants=consensus_constants,
+        service_config, root_path=root_path, constants=consensus_constants, start_crawler_loop=start_crawler_loop
     )
     api = CrawlerAPI(crawler)
 

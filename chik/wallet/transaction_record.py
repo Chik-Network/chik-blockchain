@@ -1,19 +1,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Generic, List, Optional, Tuple, Type, TypeVar
+from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar
 
 from chik.consensus.coinbase import farmer_parent_id, pool_parent_id
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
-from chik.types.spend_bundle import SpendBundle
 from chik.util.bech32m import decode_puzzle_hash, encode_puzzle_hash
 from chik.util.errors import Err
 from chik.util.ints import uint8, uint32, uint64
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.util.transaction_type import TransactionType
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 T = TypeVar("T")
 _T_TransactionRecord = TypeVar("_T_TransactionRecord", bound="TransactionRecordOld")
@@ -41,7 +41,7 @@ class TransactionRecordOld(Streamable):
     fee_amount: uint64
     confirmed: bool
     sent: uint32
-    spend_bundle: Optional[SpendBundle]
+    spend_bundle: Optional[WalletSpendBundle]
     additions: List[Coin]
     removals: List[Coin]
     wallet_id: uint32
@@ -100,6 +100,13 @@ class TransactionRecordOld(Streamable):
             memos_list.append((coin_id, memos))
         modified_tx["memos"] = memos_list
         return cls.from_json_dict(modified_tx)
+
+    @classmethod
+    def from_json_dict(cls: Type[_T_TransactionRecord], json_dict: Dict[str, Any]) -> _T_TransactionRecord:
+        try:
+            return super().from_json_dict(json_dict)
+        except Exception:
+            return cls.from_json_dict_convenience(json_dict)
 
     def to_json_dict_convenience(self, config: Dict) -> Dict:
         selected = config["selected_network"]

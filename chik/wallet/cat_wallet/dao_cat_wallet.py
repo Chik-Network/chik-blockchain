@@ -10,7 +10,6 @@ from chik.server.ws_connection import WSChikConnection
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.types.spend_bundle import SpendBundle
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.ints import uint32, uint64, uint128
 from chik.wallet.cat_wallet.cat_utils import (
@@ -35,12 +34,14 @@ from chik.wallet.payment import Payment
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.curry_and_treehash import calculate_hash_of_quoted_mod_hash
 from chik.wallet.util.transaction_type import TransactionType
-from chik.wallet.util.tx_config import CoinSelectionConfig, TXConfig
+from chik.wallet.util.tx_config import TXConfig
 from chik.wallet.util.wallet_sync_utils import fetch_coin_spend
 from chik.wallet.util.wallet_types import WalletType
 from chik.wallet.wallet import Wallet
+from chik.wallet.wallet_action_scope import WalletActionScope
 from chik.wallet.wallet_coin_record import WalletCoinRecord
 from chik.wallet.wallet_info import WalletInfo
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 if TYPE_CHECKING:
     from chik.wallet.wallet_state_manager import WalletStateManager
@@ -127,7 +128,7 @@ class DAOCATWallet:
         if name is None:
             name = CATWallet.default_wallet_name_for_unknown_cat(limitations_program_hash_hex)
 
-        limitations_program_hash = bytes32(hexstr_to_bytes(limitations_program_hash_hex))
+        limitations_program_hash = bytes32.from_hexstr(limitations_program_hash_hex)
 
         self.dao_cat_info = DAOCATInfo(
             dao_wallet_id,
@@ -256,7 +257,7 @@ class DAOCATWallet:
         proposal_id: bytes32,
         is_yes_vote: bool,
         proposal_puzzle: Optional[Program] = None,
-    ) -> SpendBundle:
+    ) -> WalletSpendBundle:
         coins: List[LockedCoinInfo] = await self.advanced_select_coins(amount, proposal_id)
         running_sum = 0  # this will be used for change calculation
         change = sum(c.coin.amount for c in coins) - amount
@@ -362,7 +363,7 @@ class DAOCATWallet:
     async def enter_dao_cat_voting_mode(
         self,
         amount: uint64,
-        tx_config: TXConfig,
+        action_scope: WalletActionScope,
         fee: uint64 = uint64(0),
         extra_conditions: Tuple[Condition, ...] = tuple(),
     ) -> List[TransactionRecord]:
@@ -380,7 +381,7 @@ class DAOCATWallet:
         txs: List[TransactionRecord] = await cat_wallet.generate_signed_transaction(
             [amount],
             [lockup_puzzle.get_tree_hash()],
-            tx_config,
+            action_scope,
             fee=fee,
             extra_conditions=extra_conditions,
         )
@@ -393,10 +394,10 @@ class DAOCATWallet:
     async def exit_vote_state(
         self,
         coins: List[LockedCoinInfo],
-        tx_config: TXConfig,
+        action_scope: WalletActionScope,
         fee: uint64 = uint64(0),
         extra_conditions: Tuple[Condition, ...] = tuple(),
-    ) -> List[TransactionRecord]:
+    ) -> None:
         extra_delta, limitations_solution = 0, Program.to([])
         limitations_program_reveal = Program.to([])
         spendable_cat_list = []
@@ -404,7 +405,7 @@ class DAOCATWallet:
         spent_coins = []
         for lci in coins:
             coin = lci.coin
-            if tx_config.reuse_puzhash:  # pragma: no cover
+            if action_scope.config.tx_config.reuse_puzhash:  # pragma: no cover
                 new_inner_puzhash = await self.standard_wallet.get_puzzle_hash(new=False)
             else:
                 new_inner_puzhash = await self.standard_wallet.get_puzzle_hash(new=True)
@@ -452,14 +453,10 @@ class DAOCATWallet:
         spend_bundle = unsigned_spend_bundle_for_spendable_cats(CAT_MOD, spendable_cat_list)
 
         if fee > 0:  # pragma: no cover
-            chik_tx = await self.standard_wallet.create_tandem_xck_tx(
+            await self.standard_wallet.create_tandem_xck_tx(
                 fee,
-                tx_config,
+                action_scope,
             )
-            assert chik_tx.spend_bundle is not None
-            full_spend = SpendBundle.aggregate([spend_bundle, chik_tx.spend_bundle])
-        else:
-            full_spend = spend_bundle
 
         record = TransactionRecord(
             confirmed_at_height=uint32(0),
@@ -469,14 +466,14 @@ class DAOCATWallet:
             fee_amount=fee,
             confirmed=False,
             sent=uint32(10),
-            spend_bundle=full_spend,
-            additions=full_spend.additions(),
-            removals=full_spend.removals(),
+            spend_bundle=spend_bundle,
+            additions=spend_bundle.additions(),
+            removals=spend_bundle.removals(),
             wallet_id=self.id(),
             sent_to=[],
             trade_id=None,
             type=uint32(TransactionType.INCOMING_TX.value),
-            name=full_spend.name(),
+            name=spend_bundle.name(),
             memos=[],
             valid_times=parse_timelock_info(extra_conditions),
         )
@@ -493,11 +490,15 @@ class DAOCATWallet:
             new_locked_coins,
         )
         await self.save_info(dao_cat_info)
-        return [record]
+        async with action_scope.use() as interface:
+            interface.side_effects.transactions.append(record)
 
     async def remove_active_proposal(
-        self, proposal_id_list: List[bytes32], tx_config: TXConfig, fee: uint64 = uint64(0)
-    ) -> SpendBundle:
+        self,
+        proposal_id_list: List[bytes32],
+        action_scope: WalletActionScope,
+        fee: uint64 = uint64(0),
+    ) -> WalletSpendBundle:
         locked_coins: List[Tuple[LockedCoinInfo, List[bytes32]]] = []
         for lci in self.dao_cat_info.locked_coins:
             my_finished_proposals = []
@@ -557,13 +558,9 @@ class DAOCATWallet:
         spend_bundle = unsigned_spend_bundle_for_spendable_cats(CAT_MOD, spendable_cat_list)
 
         if fee > 0:  # pragma: no cover
-            chik_tx = await self.standard_wallet.create_tandem_xck_tx(fee, tx_config=tx_config)
-            assert chik_tx.spend_bundle is not None
-            full_spend = SpendBundle.aggregate([spend_bundle, chik_tx.spend_bundle])
-        else:
-            full_spend = spend_bundle
+            await self.standard_wallet.create_tandem_xck_tx(fee, action_scope=action_scope)
 
-        return full_spend
+        return spend_bundle
 
     def get_asset_id(self) -> str:
         return bytes(self.dao_cat_info.limitations_program_hash).hex()
@@ -630,7 +627,7 @@ class DAOCATWallet:
     async def select_coins(
         self,
         amount: uint64,
-        coin_selection_config: CoinSelectionConfig,
+        action_scope: WalletActionScope,
     ) -> Set[Coin]:
         return set()
 

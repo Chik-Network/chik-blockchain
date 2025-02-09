@@ -6,14 +6,19 @@ from typing import Any, Dict, List, Optional, Tuple, cast
 from chik_rs import Coin
 
 from chik._tests.cmds.cmd_test_utils import TestRpcClients, TestWalletRpcClient, logType, run_cli_command_and_assert
-from chik._tests.cmds.wallet.test_consts import FINGERPRINT_ARG, STD_TX, get_bytes32
+from chik._tests.cmds.wallet.test_consts import FINGERPRINT_ARG, STD_TX, STD_UTX, get_bytes32
+from chik.rpc.wallet_request_types import VCMintResponse, VCRevokeResponse, VCSpendResponse
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.ints import uint32, uint64
+from chik.wallet.conditions import ConditionValidTimes
+from chik.wallet.lineage_proof import LineageProof
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG, TXConfig
+from chik.wallet.vc_wallet.vc_drivers import VCLineageProof, VerifiedCredential
 from chik.wallet.vc_wallet.vc_store import VCRecord
 
+test_condition_valid_times: ConditionValidTimes = ConditionValidTimes(min_time=uint64(100), max_time=uint64(150))
 # VC Commands
 
 
@@ -28,19 +33,27 @@ def test_vcs_mint(capsys: object, get_test_cli_clients: Tuple[TestRpcClients, Pa
             tx_config: TXConfig,
             target_address: Optional[bytes32] = None,
             fee: uint64 = uint64(0),
-        ) -> Tuple[VCRecord, List[TransactionRecord]]:
-            self.add_to_log("vc_mint", (did_id, tx_config, target_address, fee))
+            push: bool = True,
+            timelock_info: ConditionValidTimes = ConditionValidTimes(),
+        ) -> VCMintResponse:
+            self.add_to_log("vc_mint", (did_id, tx_config, target_address, fee, push, timelock_info))
 
-            class FakeVC:
-                def __init__(self) -> None:
-                    self.launcher_id = get_bytes32(3)
-
-                def __getattr__(self, item: str) -> Any:
-                    if item == "vc":
-                        return self
-
-            txs = [STD_TX]
-            return cast(VCRecord, FakeVC()), txs
+            return VCMintResponse(
+                [STD_UTX],
+                [STD_TX],
+                VCRecord(
+                    VerifiedCredential(
+                        STD_TX.removals[0],
+                        LineageProof(None, None, None),
+                        VCLineageProof(None, None, None, None),
+                        bytes32([3] * 32),
+                        bytes32([0] * 32),
+                        bytes32([1] * 32),
+                        None,
+                    ),
+                    uint32(0),
+                ),
+            )
 
     inst_rpc_client = VcsMintRpcClient()  # pylint: disable=no-value-for-parameter
     test_rpc_clients.wallet_rpc_client = inst_rpc_client
@@ -48,14 +61,28 @@ def test_vcs_mint(capsys: object, get_test_cli_clients: Tuple[TestRpcClients, Pa
     did_id = encode_puzzle_hash(did_bytes, "did:chik:")
     target_bytes = get_bytes32(2)
     target_addr = encode_puzzle_hash(target_bytes, "xck")
-    command_args = ["wallet", "vcs", "mint", FINGERPRINT_ARG, f"-d{did_id}", "-m0.5", f"-t{target_addr}"]
+    command_args = [
+        "wallet",
+        "vcs",
+        "mint",
+        FINGERPRINT_ARG,
+        f"-d{did_id}",
+        "-m0.5",
+        f"-t{target_addr}",
+        "--valid-at",
+        "100",
+        "--expires-at",
+        "150",
+    ]
     # these are various things that should be in the output
     assert_list = [
         f"New VC with launcher ID minted: {get_bytes32(3).hex()}",
         f"Transaction {get_bytes32(2).hex()}",
     ]
     run_cli_command_and_assert(capsys, root_dir, command_args, assert_list)
-    expected_calls: logType = {"vc_mint": [(did_bytes, DEFAULT_TX_CONFIG, target_bytes, 500000000000)]}
+    expected_calls: logType = {
+        "vc_mint": [(did_bytes, DEFAULT_TX_CONFIG, target_bytes, 500000000000, True, test_condition_valid_times)]
+    }
     test_rpc_clients.wallet_rpc_client.check_log(expected_calls)
 
 
@@ -108,9 +135,14 @@ def test_vcs_update_proofs(capsys: object, get_test_cli_clients: Tuple[TestRpcCl
             new_proof_hash: Optional[bytes32] = None,
             provider_inner_puzhash: Optional[bytes32] = None,
             fee: uint64 = uint64(0),
-        ) -> List[TransactionRecord]:
-            self.add_to_log("vc_spend", (vc_id, tx_config, new_puzhash, new_proof_hash, provider_inner_puzhash, fee))
-            return [STD_TX]
+            push: bool = True,
+            timelock_info: ConditionValidTimes = ConditionValidTimes(),
+        ) -> VCSpendResponse:
+            self.add_to_log(
+                "vc_spend",
+                (vc_id, tx_config, new_puzhash, new_proof_hash, provider_inner_puzhash, fee, push, timelock_info),
+            )
+            return VCSpendResponse([STD_UTX], [STD_TX])
 
     inst_rpc_client = VcsUpdateProofsRpcClient()  # pylint: disable=no-value-for-parameter
     test_rpc_clients.wallet_rpc_client = inst_rpc_client
@@ -127,6 +159,10 @@ def test_vcs_update_proofs(capsys: object, get_test_cli_clients: Tuple[TestRpcCl
         f"-t{target_ph.hex()}",
         f"-p{new_proof.hex()}",
         "--reuse-puzhash",
+        "--valid-at",
+        "100",
+        "--expires-at",
+        "150",
     ]
     # these are various things that should be in the output
     assert_list = [
@@ -136,7 +172,16 @@ def test_vcs_update_proofs(capsys: object, get_test_cli_clients: Tuple[TestRpcCl
     run_cli_command_and_assert(capsys, root_dir, command_args, assert_list)
     expected_calls: logType = {
         "vc_spend": [
-            (vc_bytes, DEFAULT_TX_CONFIG.override(reuse_puzhash=True), target_ph, new_proof, None, uint64(500000000000))
+            (
+                vc_bytes,
+                DEFAULT_TX_CONFIG.override(reuse_puzhash=True),
+                target_ph,
+                new_proof,
+                None,
+                uint64(500000000000),
+                True,
+                test_condition_valid_times,
+            )
         ]
     }
     test_rpc_clients.wallet_rpc_client.check_log(expected_calls)
@@ -210,9 +255,11 @@ def test_vcs_revoke(capsys: object, get_test_cli_clients: Tuple[TestRpcClients, 
             vc_parent_id: bytes32,
             tx_config: TXConfig,
             fee: uint64 = uint64(0),
-        ) -> List[TransactionRecord]:
-            self.add_to_log("vc_revoke", (vc_parent_id, tx_config, fee))
-            return [STD_TX]
+            push: bool = True,
+            timelock_info: ConditionValidTimes = ConditionValidTimes(),
+        ) -> VCRevokeResponse:
+            self.add_to_log("vc_revoke", (vc_parent_id, tx_config, fee, push, timelock_info))
+            return VCRevokeResponse([STD_UTX], [STD_TX])
 
     inst_rpc_client = VcsRevokeRpcClient()  # pylint: disable=no-value-for-parameter
     test_rpc_clients.wallet_rpc_client = inst_rpc_client
@@ -225,6 +272,10 @@ def test_vcs_revoke(capsys: object, get_test_cli_clients: Tuple[TestRpcClients, 
         FINGERPRINT_ARG,
         "-m0.5",
         "--reuse-puzhash",
+        "--valid-at",
+        "100",
+        "--expires-at",
+        "150",
     ]
     # these are various things that should be in the output
     assert_list = ["VC successfully revoked!", f"Transaction {get_bytes32(2).hex()}"]
@@ -233,8 +284,20 @@ def test_vcs_revoke(capsys: object, get_test_cli_clients: Tuple[TestRpcClients, 
     expected_calls: logType = {
         "vc_get": [(vc_id,)],
         "vc_revoke": [
-            (parent_id, DEFAULT_TX_CONFIG.override(reuse_puzhash=True), uint64(500000000000)),
-            (parent_id, DEFAULT_TX_CONFIG.override(reuse_puzhash=True), uint64(500000000000)),
+            (
+                parent_id,
+                DEFAULT_TX_CONFIG.override(reuse_puzhash=True),
+                uint64(500000000000),
+                True,
+                test_condition_valid_times,
+            ),
+            (
+                parent_id,
+                DEFAULT_TX_CONFIG.override(reuse_puzhash=True),
+                uint64(500000000000),
+                True,
+                test_condition_valid_times,
+            ),
         ],
     }
     test_rpc_clients.wallet_rpc_client.check_log(expected_calls)
@@ -251,6 +314,8 @@ def test_vcs_approve_r_cats(capsys: object, get_test_cli_clients: Tuple[TestRpcC
             min_amount_to_claim: uint64,
             tx_config: TXConfig,
             fee: uint64 = uint64(0),
+            push: bool = True,
+            timelock_info: ConditionValidTimes = ConditionValidTimes(),
         ) -> List[TransactionRecord]:
             self.add_to_log(
                 "crcat_approve_pending",
@@ -259,6 +324,8 @@ def test_vcs_approve_r_cats(capsys: object, get_test_cli_clients: Tuple[TestRpcC
                     min_amount_to_claim,
                     tx_config,
                     fee,
+                    push,
+                    timelock_info,
                 ),
             )
             return [STD_TX]
@@ -275,10 +342,14 @@ def test_vcs_approve_r_cats(capsys: object, get_test_cli_clients: Tuple[TestRpcC
         "-a1",
         "-m0.5",
         "--min-coin-amount",
-        "0.000000001",
+        "0.001",
         "--max-coin-amount",
         "10",
         "--reuse",
+        "--valid-at",
+        "100",
+        "--expires-at",
+        "150",
     ]
     # these are various things that should be in the output
     assert_list = ["VC successfully approved R-CATs!", f"Transaction {get_bytes32(2).hex()}"]
@@ -289,13 +360,15 @@ def test_vcs_approve_r_cats(capsys: object, get_test_cli_clients: Tuple[TestRpcC
                 wallet_id,
                 uint64(1000),
                 TXConfig(
-                    min_coin_amount=uint64(0),
+                    min_coin_amount=uint64(1),
                     max_coin_amount=uint64(10000),
                     excluded_coin_amounts=[],
                     excluded_coin_ids=[],
                     reuse_puzhash=True,
                 ),
                 uint64(500000000000),
+                True,
+                test_condition_valid_times,
             )
         ],
         "get_wallets": [(None,)],

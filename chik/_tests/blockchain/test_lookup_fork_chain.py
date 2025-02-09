@@ -7,7 +7,7 @@ import pytest
 
 from chik._tests.util.benchmarks import rand_hash
 from chik.consensus.block_record import BlockRecord
-from chik.consensus.blockchain_interface import BlockchainInterface
+from chik.consensus.blockchain_interface import BlockRecordsProtocol
 from chik.consensus.find_fork_point import find_fork_point_in_chain, lookup_fork_chain
 from chik.simulator.block_tools import test_constants
 from chik.types.blockchain_format.sized_bytes import bytes32
@@ -47,7 +47,7 @@ dummy_chain.add_block(A, B)
 dummy_chain.add_block(E, D)
 dummy_chain.add_block(F, E)
 
-test_chain: BlockchainInterface = dummy_chain  # type: ignore[assignment]
+test_chain: BlockRecordsProtocol = dummy_chain  # type: ignore[assignment]
 
 #    A
 #    |

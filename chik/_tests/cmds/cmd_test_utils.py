@@ -10,6 +10,7 @@ from chik_rs import Coin, G2Element
 
 import chik.cmds.wallet_funcs
 from chik._tests.cmds.testing_classes import create_test_block_record
+from chik._tests.cmds.wallet.test_consts import STD_TX, STD_UTX
 from chik.cmds.chik import cli as chik_cli
 from chik.cmds.cmds_util import _T_RpcClient, node_config_section_names
 from chik.consensus.block_record import BlockRecord
@@ -18,12 +19,12 @@ from chik.rpc.data_layer_rpc_client import DataLayerRpcClient
 from chik.rpc.farmer_rpc_client import FarmerRpcClient
 from chik.rpc.full_node_rpc_client import FullNodeRpcClient
 from chik.rpc.rpc_client import RpcClient
+from chik.rpc.wallet_request_types import SendTransactionMultiResponse
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.simulator_full_node_rpc_client import SimulatorFullNodeRpcClient
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.signing_mode import SigningMode
-from chik.types.spend_bundle import SpendBundle
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.config import load_config
 from chik.util.ints import uint8, uint16, uint32, uint64
@@ -34,6 +35,7 @@ from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.transaction_type import TransactionType
 from chik.wallet.util.tx_config import CoinSelectionConfig, TXConfig
 from chik.wallet.util.wallet_types import WalletType
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 # Any functions that are the same for every command being tested should be below.
 # Functions that are specific to a command should be in the test file for that command.
@@ -117,7 +119,7 @@ class TestWalletRpcClient(TestRpcClient):
             fee_amount=uint64(1234567),
             confirmed=False,
             sent=uint32(0),
-            spend_bundle=SpendBundle([], G2Element()),
+            spend_bundle=WalletSpendBundle([], G2Element()),
             additions=[Coin(bytes32([1] * 32), bytes32([2] * 32), uint64(12345678))],
             removals=[Coin(bytes32([2] * 32), bytes32([4] * 32), uint64(12345678))],
             wallet_id=uint32(1),
@@ -252,26 +254,34 @@ class TestWalletRpcClient(TestRpcClient):
         tx_config: TXConfig,
         coins: Optional[List[Coin]] = None,
         fee: uint64 = uint64(0),
-    ) -> TransactionRecord:
-        self.add_to_log("send_transaction_multi", (wallet_id, additions, tx_config, coins, fee))
-        return TransactionRecord(
-            confirmed_at_height=uint32(1),
-            created_at_time=uint64(1234),
-            to_puzzle_hash=bytes32([1] * 32),
-            amount=uint64(12345678),
-            fee_amount=uint64(1234567),
-            confirmed=False,
-            sent=uint32(0),
-            spend_bundle=SpendBundle([], G2Element()),
-            additions=[Coin(bytes32([1] * 32), bytes32([2] * 32), uint64(12345678))],
-            removals=[Coin(bytes32([2] * 32), bytes32([4] * 32), uint64(12345678))],
-            wallet_id=uint32(1),
-            sent_to=[("aaaaa", uint8(1), None)],
-            trade_id=None,
-            type=uint32(TransactionType.OUTGOING_TX.value),
-            name=bytes32([2] * 32),
-            memos=[(bytes32([3] * 32), [bytes([4] * 32)])],
-            valid_times=ConditionValidTimes(),
+        push: bool = True,
+        timelock_info: ConditionValidTimes = ConditionValidTimes(),
+    ) -> SendTransactionMultiResponse:
+        self.add_to_log("send_transaction_multi", (wallet_id, additions, tx_config, coins, fee, push, timelock_info))
+        name = bytes32([2] * 32)
+        return SendTransactionMultiResponse(
+            [STD_UTX],
+            [STD_TX],
+            TransactionRecord(
+                confirmed_at_height=uint32(1),
+                created_at_time=uint64(1234),
+                to_puzzle_hash=bytes32([1] * 32),
+                amount=uint64(12345678),
+                fee_amount=uint64(1234567),
+                confirmed=False,
+                sent=uint32(0),
+                spend_bundle=WalletSpendBundle([], G2Element()),
+                additions=[Coin(bytes32([1] * 32), bytes32([2] * 32), uint64(12345678))],
+                removals=[Coin(bytes32([2] * 32), bytes32([4] * 32), uint64(12345678))],
+                wallet_id=uint32(1),
+                sent_to=[("aaaaa", uint8(1), None)],
+                trade_id=None,
+                type=uint32(TransactionType.OUTGOING_TX.value),
+                name=name,
+                memos=[(bytes32([3] * 32), [bytes([4] * 32)])],
+                valid_times=ConditionValidTimes(),
+            ),
+            name,
         )
 
 

@@ -11,7 +11,15 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import click
 import zstd
-from chik_rs import MEMPOOL_MODE, AugSchemeMPL, G1Element, SpendBundleConditions, run_block_generator
+from chik_rs import (
+    DONT_VALIDATE_SIGNATURE,
+    MEMPOOL_MODE,
+    AugSchemeMPL,
+    G1Element,
+    G2Element,
+    SpendBundleConditions,
+    run_block_generator,
+)
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.block_protocol import BlockInfo
@@ -34,7 +42,10 @@ def run_gen(
             bytes(generator_program),
             block_program_args,
             DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM,
-            flags,
+            flags | DONT_VALIDATE_SIGNATURE,
+            G2Element(),
+            None,
+            DEFAULT_CONSTANTS,
         )
         run_time = time() - start_time
         return err, result, run_time
@@ -94,7 +105,7 @@ def main(file: Path, mempool_mode: bool, start: int, end: Optional[int], call: O
             ref = c.execute("SELECT block FROM full_blocks WHERE height=? and in_main_chain=1", (h,))
             generator = generator_from_block(zstd.decompress(ref.fetchone()[0]))
             assert generator is not None
-            generator_blobs.append(bytes(generator))
+            generator_blobs.append(generator)
             ref.close()
 
         ref_lookup_time = time() - start_time

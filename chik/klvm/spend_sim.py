@@ -29,7 +29,7 @@ from chik.types.coin_spend import CoinSpend
 from chik.types.generator_types import BlockGenerator
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.types.mempool_item import MempoolItem
-from chik.types.spend_bundle import SpendBundle
+from chik.types.spend_bundle import SpendBundle, T_SpendBundle
 from chik.util.db_wrapper import DBWrapper2
 from chik.util.errors import Err, ValidationError
 from chik.util.hash import std_hash
@@ -64,7 +64,7 @@ class CostLogger:
         self.cost_dict: Dict[str, int] = {}
         self.cost_dict_no_puzs: Dict[str, int] = {}
 
-    def add_cost(self, descriptor: str, spend_bundle: SpendBundle) -> SpendBundle:
+    def add_cost(self, descriptor: str, spend_bundle: T_SpendBundle) -> T_SpendBundle:
         program: BlockGenerator = simple_solution_generator(spend_bundle)
         npc_result: NPCResult = get_name_puzzle_conditions(
             program,
@@ -337,14 +337,12 @@ class SimClient:
     async def push_tx(self, spend_bundle: SpendBundle) -> Tuple[MempoolInclusionStatus, Optional[Err]]:
         try:
             spend_bundle_id = spend_bundle.name()
-            cost_result: NPCResult = await self.service.mempool_manager.pre_validate_spendbundle(
-                spend_bundle, None, spend_bundle_id
-            )
+            sbc = await self.service.mempool_manager.pre_validate_spendbundle(spend_bundle, spend_bundle_id)
         except ValidationError as e:
             return MempoolInclusionStatus.FAILED, e.code
         assert self.service.mempool_manager.peak is not None
         info = await self.service.mempool_manager.add_spend_bundle(
-            spend_bundle, cost_result, spend_bundle_id, self.service.mempool_manager.peak.height
+            spend_bundle, sbc, spend_bundle_id, self.service.mempool_manager.peak.height
         )
         return info.status, info.error
 

@@ -23,10 +23,10 @@ from chik.plotting.util import (
 )
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.config import load_config
+from chik.util.cpu import available_logical_cores
 from chik.util.hash import std_hash
 from chik.util.ints import uint32
 from chik.util.keychain import Keychain
-from chik.util.misc import available_logical_cores
 from chik.wallet.derive_keys import master_sk_to_farmer_sk, master_sk_to_local_sk
 
 log = logging.getLogger(__name__)

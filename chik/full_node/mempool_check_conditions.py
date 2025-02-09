@@ -3,26 +3,14 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Optional
 
-from chik_rs import (
-    AGG_SIG_ARGS,
-    ALLOW_BACKREFS,
-    DISALLOW_INFINITY_G1,
-    ENABLE_BLS_OPS_OUTSIDE_GUARD,
-    ENABLE_FIXED_DIV,
-    ENABLE_MESSAGE_CONDITIONS,
-    ENABLE_SOFTFORK_CONDITION,
-    MEMPOOL_MODE,
-    NO_RELATIVE_CONDITIONS_ON_EPHEMERAL,
-)
-from chik_rs import get_puzzle_and_solution_for_coin as get_puzzle_and_solution_for_coin_rust
+from chik_rs import DONT_VALIDATE_SIGNATURE, MEMPOOL_MODE, G2Element, get_flags_for_height_and_constants
+from chik_rs import get_puzzle_and_solution_for_coin2 as get_puzzle_and_solution_for_coin_rust
 from chik_rs import run_block_generator, run_block_generator2, run_chik_program
 
 from chik.consensus.constants import ConsensusConstants
 from chik.consensus.cost_calculator import NPCResult
-from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.coin_spend import CoinSpend, CoinSpendWithConditions, SpendInfo, make_spend
@@ -40,45 +28,6 @@ DESERIALIZE_MOD = load_serialized_klvm_maybe_recompile(
 log = logging.getLogger(__name__)
 
 
-def get_flags_for_height_and_constants(height: int, constants: ConsensusConstants) -> int:
-    flags = 0
-
-    if height >= constants.SOFT_FORK2_HEIGHT:
-        flags = flags | NO_RELATIVE_CONDITIONS_ON_EPHEMERAL
-
-    if height >= constants.SOFT_FORK4_HEIGHT:
-        flags = flags | ENABLE_MESSAGE_CONDITIONS
-
-    if height >= constants.SOFT_FORK5_HEIGHT:
-        flags = flags | DISALLOW_INFINITY_G1
-
-    if height >= constants.HARD_FORK_HEIGHT:
-        # the hard-fork initiated with 2.0. To activate June 2024
-        # * costs are ascribed to some unknown condition codes, to allow for
-        #    soft-forking in new conditions with cost
-        # * a new condition, SOFTFORK, is added which takes a first parameter to
-        #   specify its cost. This allows soft-forks similar to the softfork
-        #   operator
-        # * BLS operators introduced in the soft-fork (behind the softfork
-        #   guard) are made available outside of the guard.
-        # * division with negative numbers are allowed, and round toward
-        #   negative infinity
-        # * AGG_SIG_* conditions are allowed to have unknown additional
-        #   arguments
-        # * Allow the block generator to be serialized with the improved klvm
-        #   serialization format (with back-references)
-        flags = (
-            flags
-            | ENABLE_SOFTFORK_CONDITION
-            | ENABLE_BLS_OPS_OUTSIDE_GUARD
-            | ENABLE_FIXED_DIV
-            | AGG_SIG_ARGS
-            | ALLOW_BACKREFS
-        )
-
-    return flags
-
-
 def get_name_puzzle_conditions(
     generator: BlockGenerator,
     max_cost: int,
@@ -87,18 +36,19 @@ def get_name_puzzle_conditions(
     height: uint32,
     constants: ConsensusConstants,
 ) -> NPCResult:
-    run_block = run_block_generator
-    flags = get_flags_for_height_and_constants(height, constants)
+    flags = get_flags_for_height_and_constants(height, constants) | DONT_VALIDATE_SIGNATURE
 
     if mempool_mode:
         flags = flags | MEMPOOL_MODE
 
-    if height >= constants.HARD_FORK_FIX_HEIGHT:
+    if height >= constants.HARD_FORK_HEIGHT:
         run_block = run_block_generator2
+    else:
+        run_block = run_block_generator
 
     try:
-        block_args = [bytes(gen) for gen in generator.generator_refs]
-        err, result = run_block(bytes(generator.program), block_args, max_cost, flags)
+        block_args = generator.generator_refs
+        err, result = run_block(bytes(generator.program), block_args, max_cost, flags, G2Element(), None, constants)
         assert (err is None) != (result is None)
         if err is not None:
             return NPCResult(uint16(err), None)
@@ -114,22 +64,14 @@ def get_puzzle_and_solution_for_coin(
     generator: BlockGenerator, coin: Coin, height: int, constants: ConsensusConstants
 ) -> SpendInfo:
     try:
-        args = bytearray(b"\xff")
-        args += bytes(DESERIALIZE_MOD)
-        args += b"\xff"
-        args += bytes(Program.to([bytes(a) for a in generator.generator_refs]))
-        args += b"\x80\x80"
-
         puzzle, solution = get_puzzle_and_solution_for_coin_rust(
-            bytes(generator.program),
-            bytes(args),
-            DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM,
-            coin.parent_coin_info,
-            coin.amount,
-            coin.puzzle_hash,
+            generator.program,
+            generator.generator_refs,
+            constants.MAX_BLOCK_COST_KLVM,
+            coin,
             get_flags_for_height_and_constants(height, constants),
         )
-        return SpendInfo(SerializedProgram.from_bytes(puzzle), SerializedProgram.from_bytes(solution))
+        return SpendInfo(puzzle, solution)
     except Exception as e:
         raise ValueError(f"Failed to get puzzle and solution for coin {coin}, error: {e}") from e
 
@@ -138,13 +80,13 @@ def get_spends_for_block(generator: BlockGenerator, height: int, constants: Cons
     args = bytearray(b"\xff")
     args += bytes(DESERIALIZE_MOD)
     args += b"\xff"
-    args += bytes(Program.to([bytes(a) for a in generator.generator_refs]))
+    args += bytes(Program.to(generator.generator_refs))
     args += b"\x80\x80"
 
     _, ret = run_chik_program(
         bytes(generator.program),
         bytes(args),
-        DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM,
+        constants.MAX_BLOCK_COST_KLVM,
         get_flags_for_height_and_constants(height, constants),
     )
 
@@ -165,7 +107,7 @@ def get_spends_for_block_with_conditions(
     args = bytearray(b"\xff")
     args += bytes(DESERIALIZE_MOD)
     args += b"\xff"
-    args += bytes(Program.to([bytes(a) for a in generator.generator_refs]))
+    args += bytes(Program.to(generator.generator_refs))
     args += b"\x80\x80"
 
     flags = get_flags_for_height_and_constants(height, constants)
@@ -173,7 +115,7 @@ def get_spends_for_block_with_conditions(
     _, ret = run_chik_program(
         bytes(generator.program),
         bytes(args),
-        DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM,
+        constants.MAX_BLOCK_COST_KLVM,
         flags,
     )
 
@@ -184,7 +126,7 @@ def get_spends_for_block_with_conditions(
         puzzle_hash = puzzle.get_tree_hash()
         coin = Coin(parent.as_atom(), puzzle_hash, uint64(amount.as_int()))
         coin_spend = make_spend(coin, puzzle, solution)
-        conditions = conditions_for_solution(puzzle, solution, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM)
+        conditions = conditions_for_solution(puzzle, solution, constants.MAX_BLOCK_COST_KLVM)
         spends.append(CoinSpendWithConditions(coin_spend, conditions))
 
     return spends

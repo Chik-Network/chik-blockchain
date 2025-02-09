@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Set, Tuple, Type, TypeVar
 
-from chik_rs import ALLOW_BACKREFS, run_chik_program, tree_hash
+from chik_rs import ALLOW_BACKREFS, MEMPOOL_MODE, run_chik_program, tree_hash
 from klvm.casts import int_from_bytes
 from klvm.KLVMObject import KLVMStorage
 from klvm.EvalError import EvalError
@@ -18,6 +18,7 @@ from .tree_hash import sha256_treehash
 
 INFINITE_COST = 11000000000
 
+DEFAULT_FLAGS = MEMPOOL_MODE
 
 T_KLVMStorage = TypeVar("T_KLVMStorage", bound=KLVMStorage)
 T_Program = TypeVar("T_Program", bound="Program")
@@ -128,12 +129,17 @@ class Program(SExp):
         cost, r = run_chik_program(self.as_bin(), prog_args.as_bin(), max_cost, flags)
         return cost, Program.to(r)
 
-    def run_with_cost(self, max_cost: int, args: Any) -> Tuple[int, Program]:
-        return self._run(max_cost, 0, args)
+    def run_with_cost(self, max_cost: int, args: Any, flags=DEFAULT_FLAGS) -> Tuple[int, Program]:
+        # when running puzzles in the wallet, default to enabling all soft-forks
+        # as well as enabling mempool-mode (i.e. strict mode)
+        return self._run(max_cost, flags, args)
 
-    def run(self, args: Any) -> Program:
-        cost, r = self.run_with_cost(INFINITE_COST, args)
+    def run(self, args: Any, max_cost=INFINITE_COST, flags=DEFAULT_FLAGS) -> Program:
+        cost, r = self._run(max_cost, flags, args)
         return r
+
+    def run_with_flags(self, max_cost: int, flags: int, args: Any) -> Tuple[int, Program]:
+        return self._run(max_cost, flags, args)
 
     # Replicates the curry function from klvm_tools, taking advantage of *args
     # being a list.  We iterate through args in reverse building the code to

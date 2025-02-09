@@ -12,7 +12,7 @@ from chik.types.coin_spend import CoinSpend, make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.util.condition_tools import conditions_for_solution
 from chik.util.ints import uint64
-from chik.util.misc import VersionedBlob
+from chik.util.streamable import VersionedBlob
 from chik.wallet.puzzles.clawback.metadata import ClawbackMetadata
 from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
 from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import MOD

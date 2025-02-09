@@ -23,9 +23,9 @@ except ImportError:
     CryptFileKeyring = None
 
 
+from chik.cmds.cmds_util import prompt_yes_no
 from chik.util.errors import KeychainUserNotFound
-from chik.util.keychain import KeyData, KeyDataSecrets, get_private_key_user
-from chik.util.misc import prompt_yes_no
+from chik.util.keychain import MAX_KEYS, KeyData, KeyDataSecrets, get_private_key_user
 
 LegacyKeyring = Union[MacKeyring, WinKeyring, CryptFileKeyring]
 
@@ -33,7 +33,6 @@ LegacyKeyring = Union[MacKeyring, WinKeyring, CryptFileKeyring]
 CURRENT_KEY_VERSION = "1.8"
 DEFAULT_USER = f"user-chik-{CURRENT_KEY_VERSION}"  # e.g. user-chik-1.8
 DEFAULT_SERVICE = f"chik-{DEFAULT_USER}"  # e.g. chik-user-chik-1.8
-MAX_KEYS = 100
 
 
 # casting to compensate for a combination of mypy and keyring issues
@@ -88,7 +87,7 @@ def get_key_data(keyring: LegacyKeyring, index: int) -> KeyData:
 
 def get_keys(keyring: LegacyKeyring) -> List[KeyData]:
     keys: List[KeyData] = []
-    for index in range(MAX_KEYS + 1):
+    for index in range(MAX_KEYS):
         try:
             keys.append(get_key_data(keyring, index))
         except KeychainUserNotFound:
@@ -112,7 +111,7 @@ def print_keys(keyring: LegacyKeyring) -> None:
 
 def remove_keys(keyring: LegacyKeyring) -> None:
     removed = 0
-    for index in range(MAX_KEYS + 1):
+    for index in range(MAX_KEYS):
         try:
             keyring.delete_password(DEFAULT_SERVICE, get_private_key_user(DEFAULT_USER, index))
             removed += 1

@@ -18,6 +18,7 @@ from chik.protocols.shared_protocol import Capability, default_capabilities
 from chik.seeder.dns_server import DNSServer, create_dns_server_service
 from chik.seeder.start_crawler import create_full_node_crawler_service
 from chik.server.outbound_message import NodeType
+from chik.server.signal_handlers import SignalHandlers
 from chik.server.start_farmer import create_farmer_service
 from chik.server.start_full_node import create_full_node_service
 from chik.server.start_harvester import create_harvester_service
@@ -47,7 +48,6 @@ from chik.util.db_wrapper import generate_in_memory_db_uri
 from chik.util.ints import uint16
 from chik.util.keychain import bytes_to_mnemonic
 from chik.util.lock import Lockfile
-from chik.util.misc import SignalHandlers
 
 log = logging.getLogger(__name__)
 
@@ -169,7 +169,7 @@ async def setup_full_node(
 
 @asynccontextmanager
 async def setup_crawler(
-    root_path_populated_with_config: Path, database_uri: str
+    root_path_populated_with_config: Path, database_uri: str, start_crawler_loop: bool = True
 ) -> AsyncGenerator[CrawlerService, None]:
     create_all_ssl(
         root_path=root_path_populated_with_config,
@@ -193,6 +193,7 @@ async def setup_crawler(
         config,
         updated_constants,
         connect_to_daemon=False,
+        start_crawler_loop=start_crawler_loop,
     )
     async with service.manage():
         if not service_config["crawler"]["start_rpc_server"]:  # otherwise the loops don't work.

@@ -40,7 +40,7 @@ def init_cmd(
     - Make a copy of your Farming Machine CA directory: ~/.chik/[version]/config/ssl/ca
     - Shut down all chik daemon processes with `chik stop all -d`
     - Run `chik init -c [directory]` on your remote harvester,
-      where [directory] is the the copy of your Farming Machine CA directory
+      where [directory] is the copy of your Farming Machine CA directory
     - Get more details on remote harvester on Chik wiki:
       https://github.com/Chik-Network/chik-blockchain/wiki/Farming-on-many-machines
     """

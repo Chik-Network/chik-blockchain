@@ -111,7 +111,7 @@ class KeychainProxy(DaemonProxy):
                     autoclose=True,
                     autoping=True,
                     heartbeat=self.heartbeat,
-                    ssl=self.ssl_context,
+                    ssl=self.ssl_context if self.ssl_context is not None else True,
                     max_msg_size=self.max_message_size,
                 )
                 await self.listener()
@@ -365,7 +365,12 @@ class KeychainProxy(DaemonProxy):
                             break
                     else:
                         raise KeychainKeyNotFound(fingerprint)
-                key = selected_key.private_key if private else selected_key.public_key
+                if private and selected_key.secrets is not None:
+                    key = selected_key.private_key
+                elif not private:
+                    key = selected_key.public_key
+                else:
+                    return None
         else:
             response, success = await self.get_response_for_request(
                 "get_key_for_fingerprint", {"fingerprint": fingerprint, "private": private}

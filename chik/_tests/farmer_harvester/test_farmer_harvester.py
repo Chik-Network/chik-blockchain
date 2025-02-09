@@ -9,6 +9,7 @@ import pytest
 from chik_rs import G1Element
 
 from chik._tests.conftest import HarvesterFarmerEnvironment
+from chik._tests.util.split_managers import split_async_manager
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.cmds.cmds_util import get_any_service_client
 from chik.farmer.farmer import Farmer
@@ -25,7 +26,6 @@ from chik.util.config import load_config
 from chik.util.hash import std_hash
 from chik.util.ints import uint8, uint32, uint64
 from chik.util.keychain import generate_mnemonic
-from chik.util.misc import split_async_manager
 
 
 def farmer_is_started(farmer: Farmer) -> bool:

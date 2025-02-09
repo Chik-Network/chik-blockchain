@@ -10,10 +10,10 @@ from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
-from chik.types.spend_bundle import SpendBundle
 from chik.util.hash import std_hash
 from chik.util.ints import uint64
 from chik.wallet.util.debug_spend_bundle import debug_spend_bundle
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 
 def test_debug_spend_bundle() -> None:
@@ -48,7 +48,7 @@ def test_debug_spend_bundle() -> None:
     sys.stdout = result
 
     debug_spend_bundle(
-        SpendBundle(
+        WalletSpendBundle(
             [
                 make_spend(
                     coin_bad_reveal,

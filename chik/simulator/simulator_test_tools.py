@@ -8,6 +8,7 @@ from chik_rs import PrivateKey
 
 from chik.consensus.coinbase import create_puzzlehash_for_pk
 from chik.daemon.server import WebSocketServer, daemon_launch_lock_path
+from chik.server.signal_handlers import SignalHandlers
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.socket import find_available_listen_port
 from chik.simulator.ssl_certs import (
@@ -26,7 +27,6 @@ from chik.util.errors import KeychainFingerprintExists
 from chik.util.ints import uint32
 from chik.util.keychain import Keychain
 from chik.util.lock import Lockfile
-from chik.util.misc import SignalHandlers
 from chik.wallet.derive_keys import master_sk_to_wallet_sk
 
 """

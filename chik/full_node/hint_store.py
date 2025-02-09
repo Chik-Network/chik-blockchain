@@ -7,8 +7,8 @@ from typing import List, Set, Tuple
 import typing_extensions
 
 from chik.types.blockchain_format.sized_bytes import bytes32
+from chik.util.batches import to_batches
 from chik.util.db_wrapper import SQLITE_MAX_VARIABLE_NUMBER, DBWrapper2
-from chik.util.misc import to_batches
 
 log = logging.getLogger(__name__)
 

@@ -11,10 +11,10 @@ from chik.types.blockchain_format.coin import Coin, coin_as_list
 from chik.types.blockchain_format.program import INFINITE_COST, Program
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, make_spend
-from chik.types.spend_bundle import SpendBundle
 from chik.util.bech32m import bech32_decode, bech32_encode, convertbits
 from chik.util.errors import Err, ValidationError
 from chik.util.ints import uint64
+from chik.util.streamable import parse_rust
 from chik.wallet.conditions import (
     AssertCoinAnnouncement,
     AssertPuzzleAnnouncement,
@@ -41,6 +41,7 @@ from chik.wallet.util.puzzle_compression import (
     decompress_object_with_puzzles,
     lowest_best_version,
 )
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 OFFER_MOD = load_klvm_maybe_recompile("settlement_payments.clsp")
 OFFER_MOD_HASH = OFFER_MOD.get_tree_hash()
@@ -72,20 +73,20 @@ class NotarizedPayment(Payment):
         return cls(puzzle_hash, amount, memos, nonce)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Offer:
     requested_payments: Dict[
         Optional[bytes32], List[NotarizedPayment]
     ]  # The key is the asset id of the asset being requested
-    _bundle: SpendBundle
+    _bundle: WalletSpendBundle
     driver_dict: Dict[bytes32, PuzzleInfo]  # asset_id -> asset driver
 
     # this is a cache of the coin additions made by the SpendBundle (_bundle)
     # ordered by the coin being spent
-    _additions: Dict[Coin, List[Coin]] = field(init=False)
+    _additions: Dict[Coin, List[Coin]] = field(init=False, repr=False)
     _hints: Dict[bytes32, bytes32] = field(init=False)
-    _offered_coins: Dict[Optional[bytes32], List[Coin]] = field(init=False)
-    _final_spend_bundle: Optional[SpendBundle] = field(init=False)
+    _offered_coins: Dict[Optional[bytes32], List[Coin]] = field(init=False, repr=False)
+    _final_spend_bundle: Optional[WalletSpendBundle] = field(init=False, repr=False)
     _conditions: Optional[Dict[Coin, List[Condition]]] = field(init=False)
 
     @staticmethod
@@ -225,7 +226,7 @@ class Offer:
         for parent_spend in self._bundle.coin_spends:
             coins_for_this_spend: List[Coin] = []
 
-            parent_puzzle: UncurriedPuzzle = uncurry_puzzle(parent_spend.puzzle_reveal.to_program())
+            parent_puzzle: UncurriedPuzzle = uncurry_puzzle(parent_spend.puzzle_reveal)
             parent_solution: Program = parent_spend.solution.to_program()
             additions: List[Coin] = self._additions[parent_spend.coin]
 
@@ -292,7 +293,7 @@ class Offer:
         offered_coins: Dict[Optional[bytes32], List[Coin]] = self.get_offered_coins()
         offered_amounts: Dict[Optional[bytes32], int] = {}
         for asset_id, coins in offered_coins.items():
-            offered_amounts[asset_id] = uint64(sum([c.amount for c in coins]))
+            offered_amounts[asset_id] = uint64(sum(c.amount for c in coins))
         return offered_amounts
 
     def get_requested_payments(self) -> Dict[Optional[bytes32], List[NotarizedPayment]]:
@@ -301,7 +302,7 @@ class Offer:
     def get_requested_amounts(self) -> Dict[Optional[bytes32], int]:
         requested_amounts: Dict[Optional[bytes32], int] = {}
         for asset_id, coins in self.get_requested_payments().items():
-            requested_amounts[asset_id] = uint64(sum([c.amount for c in coins]))
+            requested_amounts[asset_id] = uint64(sum(c.amount for c in coins))
         return requested_amounts
 
     def arbitrage(self) -> Dict[Optional[bytes32], int]:
@@ -364,7 +365,7 @@ class Offer:
 
         # Then we gather anything else as unknown
         sum_of_additions_so_far: int = sum(pending_dict.values())
-        unknown: int = sum([c.amount for c in non_ephemeral_removals]) - sum_of_additions_so_far
+        unknown: int = sum(c.amount for c in non_ephemeral_removals) - sum_of_additions_so_far
         if unknown > 0:
             pending_dict["unknown"] = unknown
 
@@ -450,7 +451,7 @@ class Offer:
     @classmethod
     def aggregate(cls, offers: List[Offer]) -> Offer:
         total_requested_payments: Dict[Optional[bytes32], List[NotarizedPayment]] = {}
-        total_bundle = SpendBundle([], G2Element())
+        total_bundle = WalletSpendBundle([], G2Element())
         total_driver_dict: Dict[bytes32, PuzzleInfo] = {}
         for offer in offers:
             # First check for any overlap in inputs
@@ -470,7 +471,7 @@ class Offer:
                 if key in total_driver_dict and total_driver_dict[key] != value:
                     raise ValueError(f"The offers to aggregate disagree on the drivers for {key.hex()}")
 
-            total_bundle = SpendBundle.aggregate([total_bundle, offer._bundle])
+            total_bundle = WalletSpendBundle.aggregate([total_bundle, offer._bundle])
             total_driver_dict.update(offer.driver_dict)
 
         return cls(total_requested_payments, total_bundle, total_driver_dict)
@@ -481,7 +482,7 @@ class Offer:
 
     # A "valid" spend means that this bundle can be pushed to the network and will succeed
     # This differs from the `to_spend_bundle` method which deliberately creates an invalid SpendBundle
-    def to_valid_spend(self, arbitrage_ph: Optional[bytes32] = None, solver: Solver = Solver({})) -> SpendBundle:
+    def to_valid_spend(self, arbitrage_ph: Optional[bytes32] = None, solver: Solver = Solver({})) -> WalletSpendBundle:
         if not self.is_valid():
             raise ValueError("Offer is currently incomplete")
 
@@ -570,9 +571,9 @@ class Offer:
                     )
                 )
 
-        return SpendBundle.aggregate([SpendBundle(completion_spends, G2Element()), self._bundle])
+        return WalletSpendBundle.aggregate([WalletSpendBundle(completion_spends, G2Element()), self._bundle])
 
-    def to_spend_bundle(self) -> SpendBundle:
+    def to_spend_bundle(self) -> WalletSpendBundle:
         try:
             if self._final_spend_bundle is not None:
                 return self._final_spend_bundle
@@ -600,9 +601,9 @@ class Offer:
                 )
             )
 
-        sb = SpendBundle.aggregate(
+        sb = WalletSpendBundle.aggregate(
             [
-                SpendBundle(additional_coin_spends, G2Element()),
+                WalletSpendBundle(additional_coin_spends, G2Element()),
                 self._bundle,
             ]
         )
@@ -610,13 +611,13 @@ class Offer:
         return sb
 
     @classmethod
-    def from_spend_bundle(cls, bundle: SpendBundle) -> Offer:
+    def from_spend_bundle(cls, bundle: WalletSpendBundle) -> Offer:
         # Because of the `to_spend_bundle` method, we need to parse the dummy CoinSpends as `requested_payments`
         requested_payments: Dict[Optional[bytes32], List[NotarizedPayment]] = {}
         driver_dict: Dict[bytes32, PuzzleInfo] = {}
         leftover_coin_spends: List[CoinSpend] = []
         for coin_spend in bundle.coin_spends:
-            driver = match_puzzle(uncurry_puzzle(coin_spend.puzzle_reveal.to_program()))
+            driver = match_puzzle(uncurry_puzzle(coin_spend.puzzle_reveal))
             if driver is not None:
                 asset_id = create_asset_id(driver)
                 assert asset_id is not None
@@ -636,7 +637,9 @@ class Offer:
             else:
                 leftover_coin_spends.append(coin_spend)
 
-        return cls(requested_payments, SpendBundle(leftover_coin_spends, bundle.aggregated_signature), driver_dict)
+        return cls(
+            requested_payments, WalletSpendBundle(leftover_coin_spends, bundle.aggregated_signature), driver_dict
+        )
 
     def name(self) -> bytes32:
         return self.to_spend_bundle().name()
@@ -683,12 +686,12 @@ class Offer:
     # We basically hijack the SpendBundle versions for most of it
     @classmethod
     def parse(cls, f: BinaryIO) -> Offer:
-        parsed_bundle = SpendBundle.parse(f)
+        parsed_bundle = parse_rust(f, WalletSpendBundle)
         return cls.from_bytes(bytes(parsed_bundle))
 
     def stream(self, f: BinaryIO) -> None:
-        as_spend_bundle = SpendBundle.from_bytes(bytes(self))
-        as_spend_bundle.stream(f)
+        spend_bundle_bytes = self.to_spend_bundle().to_bytes()
+        f.write(spend_bundle_bytes)
 
     def __bytes__(self) -> bytes:
         return bytes(self.to_spend_bundle())
@@ -696,5 +699,5 @@ class Offer:
     @classmethod
     def from_bytes(cls, as_bytes: bytes) -> Offer:
         # Because of the __bytes__ method, we need to parse the dummy CoinSpends as `requested_payments`
-        bundle = SpendBundle.from_bytes(as_bytes)
+        bundle = WalletSpendBundle.from_bytes(as_bytes)
         return cls.from_spend_bundle(bundle)

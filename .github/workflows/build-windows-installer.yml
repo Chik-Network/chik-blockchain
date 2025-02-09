@@ -29,8 +29,7 @@ on:
       - "**"
 
 concurrency:
-  # SHA is added to the end if on `main` to let all main workflows run
-  group: ${{ github.ref }}-${{ github.workflow }}-${{ github.event_name }}-${{ (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/long_lived/')) && github.sha || '' }}
+  group: ${{ github.event_name == 'pull_request' && format('{0}-{1}', github.workflow_ref, github.event.pull_request.number) || github.run_id }}
   cancel-in-progress: true
 
 permissions:
@@ -38,9 +37,14 @@ permissions:
   contents: write
 
 jobs:
+  version:
+    uses: ./.github/workflows/reflow-version.yml
+
   build:
     name: Build EXE
     runs-on: [windows-2019]
+    needs:
+      - version
     timeout-minutes: 65
     outputs:
       chik-installer-version: ${{ steps.version_number.outputs.CHIK_INSTALLER_VERSION }}
@@ -48,6 +52,11 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10"]
+
+    env:
+      CHIK_INSTALLER_VERSION: ${{ needs.version.outputs.chik-installer-version }}
+      POETRY_DYNAMIC_VERSIONING_OVERRIDE: "chik-blockchain=${{ needs.version.outputs.chik-installer-version }}"
+      TAG_TYPE: ${{ needs.version.outputs.tag-type }}
 
     steps:
       - name: Checkout Code
@@ -61,22 +70,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check tag type
-        shell: bash
-        run: |
-          REG_B="^[0-9]+\.[0-9]+\.[0-9]+-b[0-9]+$"
-          REG_RC="^[0-9]+\.[0-9]+\.[0-9]+-rc[0-9]+$"
-          if [[ "${{ github.event.release.tag_name }}" =~ $REG_B ]] || [[ "${{ inputs.release_type }}" =~ $REG_B ]]; then
-            echo "TAG_TYPE=beta"
-            echo "TAG_TYPE=beta" >> "$GITHUB_ENV"
-          elif [[ "${{ github.event.release.tag_name }}" =~ $REG_RC ]] || [[ "${{ inputs.release_type }}" =~ $REG_RC ]]; then
-            echo "TAG_TYPE=rc"
-            echo "TAG_TYPE=rc" >> "$GITHUB_ENV"
-          fi
-
-      - name: Set git urls to https instead of ssh
-        run: |
-          git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+      - uses: Chik-Network/actions/git-ssh-to-https@main
 
       - name: Get npm cache directory
         id: npm-cache
@@ -93,6 +87,8 @@ jobs:
             ${{ runner.os }}-node-
 
       - uses: chik-network/actions/cache-pip@main
+        with:
+          mode: poetry
 
       - uses: Chik-Network/actions/setup-python@main
         name: Install Python ${{ matrix.python-version }}
@@ -144,19 +140,6 @@ jobs:
           smctl.exe keypair ls
           C:\Windows\System32\certutil.exe -csp "DigiCert Signing Manager KSP" -key -user
           smksp_cert_sync.exe
-
-      # Create our own venv outside of the git directory JUST for getting the ACTUAL version so that install can't break it
-      - name: Get version number
-        id: version_number
-        shell: bash
-        run: |
-          python -m venv ../venv
-          source ../venv/Scripts/activate
-          pip3 install setuptools_scm
-          CHIK_INSTALLER_VERSION=$(python ./build_scripts/installer-version.py)
-          echo "$CHIK_INSTALLER_VERSION"
-          echo "CHIK_INSTALLER_VERSION=$CHIK_INSTALLER_VERSION" >> "$GITHUB_OUTPUT"
-          deactivate
 
       - name: Get latest madmax plotter
         env:
@@ -237,7 +220,6 @@ jobs:
 
       - name: Build Windows installer
         env:
-          CHIK_INSTALLER_VERSION: ${{ steps.version_number.outputs.CHIK_INSTALLER_VERSION }}
           HAS_SIGNING_SECRET: ${{ steps.check_secrets.outputs.HAS_SIGNING_SECRET }}
         run: |
           $env:path="C:\Program` Files` (x86)\Microsoft` Visual` Studio\2019\Enterprise\SDK\ScopeCppSDK\vc15\VC\bin\;$env:path"
@@ -249,7 +231,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: chik-installers-windows-exe-intel
-          path: ${{ github.workspace }}\chik-blockchain-gui\release-builds\
+          path: chik-blockchain-gui\release-builds\windows-installer\
 
       - name: Remove Windows exe and installer to exclude from cache
         run: |
@@ -259,139 +241,70 @@ jobs:
           Remove-Item .\chik-blockchain-gui\release-builds -Recurse -Force
 
   publish:
-    name: Publish EXE
-    runs-on: ubuntu-latest
+    name: 📦 Publish Installers
+    uses: ./.github/workflows/reflow-publish-installer.yml
+    with:
+      concurrency-name: windows
+      chik-installer-version: ${{ needs.version.outputs.chik-installer-version }}
+      chik-dev-version: ${{ needs.version.outputs.chik-dev-version }}
+      configuration: ${{ toJSON( matrix.configuration ) }}
+    secrets: inherit
     needs:
+      - version
       - build
-    timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10"]
-
-    env:
-      CHIK_INSTALLER_VERSION: ${{ needs.build.outputs.chik-installer-version }}
-
-    steps:
-      - uses: Chik-Network/actions/clean-workspace@main
-
-      - uses: Chik-Network/actions/setup-python@main
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - uses: chik-network/actions/create-venv@main
-        id: create-venv
-
-      - uses: chik-network/actions/activate-venv@main
-        with:
-          directories: ${{ steps.create-venv.outputs.activate-venv-directories }}
-
-      - name: Download constraints file
-        uses: actions/download-artifact@v4
-        with:
-          name: constraints-file-intel
-          path: venv
-
-      - name: Install utilities
-        run: |
-          pip install --constraint venv/constraints.txt py3createtorrent
-
-      - name: Download packages
-        uses: actions/download-artifact@v4
-        with:
-          name: chik-installers-windows-exe-intel
-          path: chik-blockchain-gui/release-builds/
-
-      - name: Set Env
-        uses: Chik-Network/actions/setjobenv@main
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Test for secrets access
-        id: check_secrets
-        run: |
-          unset HAS_AWS_SECRET
-          unset HAS_GLUE_SECRET
-
-          if [ -n "$AWS_SECRET" ]; then HAS_AWS_SECRET='true' ; fi
-          echo HAS_AWS_SECRET=${HAS_AWS_SECRET} >> "$GITHUB_OUTPUT"
-
-          if [ -n "$GLUE_API_URL" ]; then HAS_GLUE_SECRET='true' ; fi
-          echo HAS_GLUE_SECRET=${HAS_GLUE_SECRET} >> "$GITHUB_OUTPUT"
-        env:
-          SIGNING_SECRET: "${{ secrets.SM_CLIENT_CERT_FILE_B64 }}"
-          AWS_SECRET: "${{ secrets.CHIK_AWS_ACCOUNT_ID }}"
-          GLUE_API_URL: "${{ secrets.GLUE_API_URL }}"
-
-      - name: Configure AWS credentials
-        if: steps.check_secrets.outputs.HAS_AWS_SECRET
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.CHIK_AWS_ACCOUNT_ID }}:role/installer-upload
-          aws-region: us-west-2
-
-      - name: Upload to s3
-        if: steps.check_secrets.outputs.HAS_AWS_SECRET
-        run: |
-          GIT_SHORT_HASH=$(echo "${GITHUB_SHA}" | cut -c1-8)
-          CHIK_DEV_BUILD=${CHIK_INSTALLER_VERSION}-$GIT_SHORT_HASH
-          echo CHIK_DEV_BUILD=${CHIK_DEV_BUILD} >> "$GITHUB_OUTPUT"
-          echo ${CHIK_DEV_BUILD}
-          pwd
-          aws s3 cp chik-blockchain-gui/release-builds/windows-installer/ChikSetup-${CHIK_INSTALLER_VERSION}.exe s3://download.chiknetwork.com/dev/ChikSetup-${CHIK_DEV_BUILD}.exe
-
-      - name: Create Checksums
-        run: |
-          ls "$GITHUB_WORKSPACE"/chik-blockchain-gui/release-builds/windows-installer/
-          sha256sum "$GITHUB_WORKSPACE"/chik-blockchain-gui/release-builds/windows-installer/ChikSetup-${{ env.CHIK_INSTALLER_VERSION }}.exe > "$GITHUB_WORKSPACE"/chik-blockchain-gui/release-builds/windows-installer/ChikSetup-${{ env.CHIK_INSTALLER_VERSION }}.exe.sha256
-          ls "$GITHUB_WORKSPACE"/chik-blockchain-gui/release-builds/windows-installer/
-
-      - name: Create torrent
-        if: env.FULL_RELEASE == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          py3createtorrent -f -t udp://tracker.opentrackr.org:1337/announce "${GITHUB_WORKSPACE}"/chik-blockchain-gui/release-builds/windows-installer/ChikSetup-${{ env.CHIK_INSTALLER_VERSION }}.exe -o "${GITHUB_WORKSPACE}"/chik-blockchain-gui/release-builds/windows-installer/ChikSetup-${{ env.CHIK_INSTALLER_VERSION }}.exe.torrent --webseed https://download.chiknetwork.com/install/ChikSetup-${{ env.CHIK_INSTALLER_VERSION }}.exe
-          ls
-          gh release upload --repo ${{ github.repository }} $RELEASE_TAG "${GITHUB_WORKSPACE}"/chik-blockchain-gui/release-builds/windows-installer/ChikSetup-${{ env.CHIK_INSTALLER_VERSION }}.exe.torrent
-
-      - name: Upload Dev Installer
-        if: steps.check_secrets.outputs.HAS_AWS_SECRET && github.ref == 'refs/heads/main'
-        run: |
-          aws s3 cp "${GITHUB_WORKSPACE}"/chik-blockchain-gui/release-builds/windows-installer/ChikSetup-${{ env.CHIK_INSTALLER_VERSION }}.exe s3://download.chiknetwork.com/latest-dev/ChikSetup-latest-dev.exe
-          aws s3 cp "${GITHUB_WORKSPACE}"/chik-blockchain-gui/release-builds/windows-installer/ChikSetup-${{ env.CHIK_INSTALLER_VERSION }}.exe.sha256 s3://download.chiknetwork.com/latest-dev/ChikSetup-latest-dev.exe.sha256
-
-      - name: Upload Release Files
-        if: steps.check_secrets.outputs.HAS_AWS_SECRET && env.FULL_RELEASE == 'true'
-        run: |
-          aws s3 cp "${GITHUB_WORKSPACE}"/chik-blockchain-gui/release-builds/windows-installer/ChikSetup-${{ env.CHIK_INSTALLER_VERSION }}.exe s3://download.chiknetwork.com/install/
-          aws s3 cp "${GITHUB_WORKSPACE}"/chik-blockchain-gui/release-builds/windows-installer/ChikSetup-${{ env.CHIK_INSTALLER_VERSION }}.exe.sha256 s3://download.chiknetwork.com/install/
-          aws s3 cp "${GITHUB_WORKSPACE}"/chik-blockchain-gui/release-builds/windows-installer/ChikSetup-${{ env.CHIK_INSTALLER_VERSION }}.exe.torrent s3://download.chiknetwork.com/torrents/
-
-      - name: Upload release artifacts
-        if: env.RELEASE == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload --repo ${{ github.repository }} $RELEASE_TAG "${GITHUB_WORKSPACE}"/chik-blockchain-gui/release-builds/windows-installer/ChikSetup-${{ env.CHIK_INSTALLER_VERSION }}.exe
-
-      - uses: Chik-Network/actions/github/jwt@main
-        if: steps.check_secrets.outputs.HAS_GLUE_SECRET
-
-      - name: Mark pre-release installer complete
-        if: steps.check_secrets.outputs.HAS_GLUE_SECRET && env.PRE_RELEASE == 'true'
-        run: |
-          curl -s -XPOST -H "Authorization: Bearer ${{ env.JWT_TOKEN }}" --data '{"chik_ref": "${{ env.RELEASE_TAG }}"}' ${{ secrets.GLUE_API_URL }}/api/v1/${{ env.RFC_REPO }}-prerelease/${{ env.RELEASE_TAG }}/success/build-windows
-
-      - name: Mark release installer complete
-        if: steps.check_secrets.outputs.HAS_GLUE_SECRET && env.FULL_RELEASE == 'true'
-        run: |
-          curl -s -XPOST -H "Authorization: Bearer ${{ env.JWT_TOKEN }}" --data '{"chik_ref": "${{ env.RELEASE_TAG }}"}' ${{ secrets.GLUE_API_URL }}/api/v1/${{ env.RFC_REPO }}/${{ env.RELEASE_TAG }}/success/build-windows
+        configuration:
+          - python-version: ["3.10"]
+            os:
+              - matrix: windows
+                file-type:
+                  name: EXE
+                  extension: exe
+                glue-name: windows
+                artifact-platform-name: windows
+                file-arch-name:
+                  intel: intel
+                file-suffix:
+                  arm: ""
+                  intel: ""
+                names:
+                  gui:
+                    file: ChikSetup-{0}.exe
+                    dev-file: ChikSetup-{1}.exe
+                    latest-dev-file: ChikSetup-latest-dev.exe
+            mode:
+              - name: GUI
+                matrix: gui
+                glue-name: gui
+              - name: CLI
+                matrix: cli
+                glue-name: cli
+            arch:
+              - name: ARM64
+                matrix: arm
+                artifact-name: arm
+                glue-name: arm
+              - name: Intel
+                matrix: intel
+                artifact-name: intel
+                glue-name: intel
+            exclude:
+              - os:
+                  matrix: windows
+                arch:
+                  matrix: arm
+              - os:
+                  matrix: windows
+                mode:
+                  matrix: cli
 
   test:
     name: Test ${{ matrix.os.name }}
     runs-on: ${{ matrix.os.runs-on[matrix.arch.matrix] }}
     needs:
+      - version
       - build
     strategy:
       fail-fast: false
@@ -409,6 +322,9 @@ jobs:
           - name: Intel
             matrix: intel
 
+    env:
+      INSTALL_PATH: installed/
+
     steps:
       - uses: Chik-Network/actions/clean-workspace@main
 
@@ -419,19 +335,26 @@ jobs:
           path: packages
 
       - name: Install package
-        env:
-          INSTALL_PATH: ${{ github.workspace }}\installed
         run: |
           dir ./packages/
-          $env:INSTALLER_PATH = (Get-ChildItem packages/windows-installer/ChikSetup-*.exe)
-          Start-Process -Wait -FilePath $env:INSTALLER_PATH -ArgumentList "/S", ("/D=" + $env:INSTALL_PATH)
+          $env:INSTALLER_PATH = (Get-ChildItem packages/ChikSetup-*.exe)
+          # note that the installer requires the target path use backslashes
+          $env:RESOLVED_INSTALL_PATH = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($env:INSTALL_PATH)
+          Start-Process -Wait -FilePath $env:INSTALLER_PATH -ArgumentList "/S", ("/D=" + $env:RESOLVED_INSTALL_PATH)
+          echo ======================================
+          dir ./
+          echo ======================================
+          dir ./installed/
 
       - name: List installed files
         run: |
           Get-ChildItem -Recurse $env:INSTALL_PATH | Select FullName
 
-      - name: Run chik dev installers test
-        env:
-          INSTALL_PATH: ${{ github.workspace }}\installed
+      - name: List all files
+        if:
         run: |
-          & ($env:INSTALL_PATH + "\resources\app.asar.unpacked\daemon\chik.exe") dev installers test --expected-chik-version "${{ needs.build.outputs.chik-installer-version }}"
+          Get-ChildItem -Recurse $env:INSTALL_PATH | Select FullName
+
+      - name: Run chik dev installers test
+        run: |
+          & ($env:INSTALL_PATH + "/resources/app.asar.unpacked/daemon/chik.exe") dev installers test --expected-chik-version "${{ needs.version.outputs.chik-installer-version }}"

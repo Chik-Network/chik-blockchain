@@ -23,8 +23,14 @@ from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.socket import find_available_listen_port
 from chik.util.config import lock_and_load_config, save_config
 from chik.util.ints import uint16
-from chik.util.misc import sendable_termination_signals
 from chik.util.timing import adjusted_timeout
+
+if sys.platform == "win32" or sys.platform == "cygwin":
+    termination_signals = [signal.SIGBREAK, signal.SIGINT, signal.SIGTERM]
+    sendable_termination_signals = [signal.SIGTERM]
+else:
+    termination_signals = [signal.SIGINT, signal.SIGTERM]
+    sendable_termination_signals = termination_signals
 
 
 class CreateServiceProtocol(Protocol):
@@ -67,7 +73,7 @@ async def test_daemon_terminates(signal_number: signal.Signals, chik_root: ChikR
             assert return_code is None
 
             process.send_signal(signal_number)
-            process.communicate(timeout=adjusted_timeout(timeout=5))
+            process.communicate(timeout=adjusted_timeout(timeout=10))
         finally:
             await client.close()
 

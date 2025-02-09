@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 import pytest
 from chik_rs import G1Element, PrivateKey
 
-from chik._tests.util.misc import CoinGenerator
+from chik._tests.util.misc import CoinGenerator, add_blocks_in_batches
 from chik._tests.util.setup_nodes import OldSimulatorsAndWallets
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.protocols import wallet_protocol
@@ -28,7 +28,6 @@ from chik.util.config import load_config
 from chik.util.errors import Err
 from chik.util.ints import uint8, uint32, uint64, uint128
 from chik.util.keychain import Keychain, KeyData, generate_mnemonic
-from chik.util.misc import to_batches
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 from chik.wallet.util.wallet_sync_utils import PeerRequestException
 from chik.wallet.wallet_node import Balance, WalletNode
@@ -514,9 +513,7 @@ async def test_get_balance(
     #       with that to a KeyError when applying the race cache if there are less than WEIGHT_PROOF_RECENT_BLOCKS
     #       blocks but we still have a peak stored in the DB. So we need to add enough blocks for a weight proof here to
     #       be able to restart the wallet in this test.
-    for block_batch in to_batches(default_400_blocks, 64):
-        await full_node_api.full_node.add_block_batch(block_batch.entries, PeerInfo("0.0.0.0", 0), None)
-
+    await add_blocks_in_batches(default_400_blocks, full_node_api.full_node)
     # Initially there should be no sync and no balance
     assert not wallet_synced()
     assert await wallet_node.get_balance(wallet_id) == Balance()
@@ -640,8 +637,9 @@ async def test_transaction_send_cache(
     )
 
     # Generate the transaction
-    [tx] = await wallet.generate_signed_transaction(uint64(0), bytes32([0] * 32), DEFAULT_TX_CONFIG)
-    [tx] = await wallet.wallet_state_manager.add_pending_transactions([tx])
+    async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
+        await wallet.generate_signed_transaction(uint64(0), bytes32([0] * 32), action_scope)
+    [tx] = action_scope.side_effects.transactions
 
     # Make sure it is sent to the peer
     await wallet_node._resend_queue()
@@ -719,3 +717,67 @@ async def test_wallet_node_bad_coin_state_ignore(
 
     with pytest.raises(PeerRequestException):
         await wallet_node.get_coin_state([], wallet_node.get_full_node_peer())
+
+
+@pytest.mark.anyio
+@pytest.mark.standard_block_tools
+async def test_start_with_multiple_key_types(
+    simulator_and_wallet: OldSimulatorsAndWallets, self_hostname: str, default_400_blocks: List[FullBlock]
+) -> None:
+    [full_node_api], [(wallet_node, wallet_server)], bt = simulator_and_wallet
+
+    async def restart_with_fingerprint(fingerprint: Optional[int]) -> None:
+        wallet_node._close()
+        await wallet_node._await_closed(shutting_down=False)
+        await wallet_node._start_with_fingerprint(fingerprint=fingerprint)
+
+    initial_sk = wallet_node.wallet_state_manager.private_key
+
+    pk: G1Element = await wallet_node.keychain_proxy.add_key(
+        "c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        None,
+        private=False,
+    )
+    fingerprint_pk: int = pk.get_fingerprint()
+
+    await restart_with_fingerprint(fingerprint_pk)
+    assert wallet_node.wallet_state_manager.private_key is None
+    assert wallet_node.wallet_state_manager.root_pubkey == G1Element()
+
+    await wallet_node.keychain_proxy.delete_key_by_fingerprint(fingerprint_pk)
+
+    await restart_with_fingerprint(fingerprint_pk)
+    assert wallet_node.wallet_state_manager.private_key == initial_sk
+
+
+@pytest.mark.anyio
+@pytest.mark.standard_block_tools
+async def test_start_with_multiple_keys(
+    simulator_and_wallet: OldSimulatorsAndWallets, self_hostname: str, default_400_blocks: List[FullBlock]
+) -> None:
+    [full_node_api], [(wallet_node, wallet_server)], bt = simulator_and_wallet
+
+    async def restart_with_fingerprint(fingerprint: Optional[int]) -> None:
+        wallet_node._close()
+        await wallet_node._await_closed(shutting_down=False)
+        await wallet_node._start_with_fingerprint(fingerprint=fingerprint)
+
+    initial_sk = wallet_node.wallet_state_manager.private_key
+
+    sk_2: PrivateKey = await wallet_node.keychain_proxy.add_key(
+        (
+            "cup smoke miss park baby say island tomorrow segment lava bitter easily settle gift "
+            "renew arrive kangaroo dilemma organ skin design salt history awesome"
+        ),
+        None,
+        private=True,
+    )
+    fingerprint_2: int = sk_2.get_g1().get_fingerprint()
+
+    await restart_with_fingerprint(fingerprint_2)
+    assert wallet_node.wallet_state_manager.private_key == sk_2
+
+    await wallet_node.keychain_proxy.delete_key_by_fingerprint(fingerprint_2)
+
+    await restart_with_fingerprint(fingerprint_2)
+    assert wallet_node.wallet_state_manager.private_key == initial_sk

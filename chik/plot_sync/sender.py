@@ -26,8 +26,8 @@ from chik.protocols.harvester_protocol import (
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.server.outbound_message import NodeType, make_msg
 from chik.server.ws_connection import WSChikConnection
+from chik.util.batches import to_batches
 from chik.util.ints import int16, uint32, uint64
-from chik.util.misc import to_batches
 
 log = logging.getLogger(__name__)
 

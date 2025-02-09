@@ -13,7 +13,7 @@ from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.generator_types import BlockGenerator
-from chik.types.spend_bundle_conditions import Spend
+from chik.types.spend_bundle_conditions import SpendConditions
 from chik.util.ints import uint32
 from chik.wallet.puzzles.load_klvm import load_klvm, load_serialized_klvm_maybe_recompile
 
@@ -63,9 +63,8 @@ def to_sp(sexp: bytes) -> SerializedProgram:
 
 
 def block_generator() -> BlockGenerator:
-    generator_list = [to_sp(FIRST_GENERATOR), to_sp(SECOND_GENERATOR)]
-    generator_heights = [uint32(0), uint32(1)]
-    return BlockGenerator(to_sp(COMPILED_GENERATOR_CODE), generator_list, generator_heights)
+    generator_list = [FIRST_GENERATOR, SECOND_GENERATOR]
+    return BlockGenerator(to_sp(COMPILED_GENERATOR_CODE), generator_list)
 
 
 EXPECTED_ABBREVIATED_COST = 108379
@@ -81,7 +80,7 @@ EXPECTED_OUTPUT = (
 
 def run_generator(self: BlockGenerator) -> Tuple[int, Program]:
     """This mode is meant for accepting possibly soft-forked transactions into the mempool"""
-    args = Program.to([[bytes(g) for g in self.generator_refs]])
+    args = Program.to([self.generator_refs])
     return GENERATOR_MOD.run_with_cost(MAX_COST, [self.program, args])
 
 
@@ -140,7 +139,7 @@ class TestROM:
         )
         assert npc_result.conds is not None
 
-        spend = Spend(
+        spend = SpendConditions(
             coin_id=bytes32.fromhex("e8538c2d14f2a7defae65c5c97f5d4fae7ee64acef7fec9d28ad847a0880fd03"),
             parent_id=bytes32.fromhex("0000000000000000000000000000000000000000000000000000000000000000"),
             puzzle_hash=bytes32.fromhex("9dcf97a184f32623d11a73124ceb99a5709b083721e878a16d78f596718ba7b2"),

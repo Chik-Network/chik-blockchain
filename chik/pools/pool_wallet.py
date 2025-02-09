@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Set, Tupl
 from chik_rs import G1Element, G2Element, PrivateKey
 from typing_extensions import final
 
-from chik.klvm.singleton import SINGLETON_LAUNCHER
 from chik.pools.pool_config import PoolWalletConfig, load_pool_config, update_pool_config
 from chik.pools.pool_puzzles import (
+    SINGLETON_LAUNCHER,
     create_absorb_spend,
     create_full_puzzle,
     create_pooling_inner_puzzle,
@@ -42,17 +42,18 @@ from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, compute_additions
-from chik.types.spend_bundle import SpendBundle, estimate_fees
 from chik.util.ints import uint32, uint64, uint128
-from chik.wallet.conditions import AssertCoinAnnouncement, Condition, ConditionValidTimes, parse_timelock_info
+from chik.wallet.conditions import AssertCoinAnnouncement, Condition, ConditionValidTimes
 from chik.wallet.derive_keys import find_owner_sk
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.transaction_type import TransactionType
-from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG, CoinSelectionConfig, TXConfig
+from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG, TXConfig
 from chik.wallet.util.wallet_types import WalletType
 from chik.wallet.wallet import Wallet
+from chik.wallet.wallet_action_scope import WalletActionScope
 from chik.wallet.wallet_coin_record import WalletCoinRecord
 from chik.wallet.wallet_info import WalletInfo
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 if TYPE_CHECKING:
     from chik.wallet.wallet_state_manager import WalletStateManager
@@ -386,12 +387,12 @@ class PoolWallet:
         wallet_state_manager: Any,
         main_wallet: Wallet,
         initial_target_state: PoolState,
-        tx_config: TXConfig,
+        action_scope: WalletActionScope,
         fee: uint64 = uint64(0),
         p2_singleton_delay_time: Optional[uint64] = None,
         p2_singleton_delayed_ph: Optional[bytes32] = None,
         extra_conditions: Tuple[Condition, ...] = tuple(),
-    ) -> Tuple[TransactionRecord, bytes32, bytes32]:
+    ) -> Tuple[bytes32, bytes32]:
         """
         A "plot NFT", or pool wallet, represents the idea of a set of plots that all pay to
         the same pooling puzzle. This puzzle is a `chik singleton` that is
@@ -401,7 +402,6 @@ class PoolWallet:
 
         Call under the wallet state manager lock
         """
-        amount = 1
         standard_wallet = main_wallet
 
         if p2_singleton_delayed_ph is None:
@@ -419,7 +419,7 @@ class PoolWallet:
         # Verify Parameters - raise if invalid
         PoolWallet._verify_initial_target_state(initial_target_state)
 
-        spend_bundle, singleton_puzzle_hash, launcher_coin_id = await PoolWallet.generate_launcher_spend(
+        singleton_puzzle_hash, launcher_coin_id = await PoolWallet.generate_launcher_spend(
             standard_wallet,
             uint64(1),
             fee,
@@ -427,36 +427,15 @@ class PoolWallet:
             wallet_state_manager.constants.GENESIS_CHALLENGE,
             p2_singleton_delay_time,
             p2_singleton_delayed_ph,
-            tx_config,
+            action_scope,
             extra_conditions=extra_conditions,
         )
 
-        if spend_bundle is None:
-            raise ValueError("failed to generate ID for wallet")
-
-        standard_wallet_record = TransactionRecord(
-            confirmed_at_height=uint32(0),
-            created_at_time=uint64(int(time.time())),
-            to_puzzle_hash=singleton_puzzle_hash,
-            amount=uint64(amount),
-            fee_amount=fee,
-            confirmed=False,
-            sent=uint32(0),
-            spend_bundle=spend_bundle,
-            additions=spend_bundle.additions(),
-            removals=spend_bundle.removals(),
-            wallet_id=wallet_state_manager.main_wallet.id(),
-            sent_to=[],
-            memos=[],
-            trade_id=None,
-            type=uint32(TransactionType.OUTGOING_TX.value),
-            name=spend_bundle.name(),
-            valid_times=parse_timelock_info(extra_conditions),
-        )
         p2_singleton_puzzle_hash: bytes32 = launcher_id_to_p2_puzzle_hash(
             launcher_coin_id, p2_singleton_delay_time, p2_singleton_delayed_ph
         )
-        return standard_wallet_record, p2_singleton_puzzle_hash, launcher_coin_id
+
+        return p2_singleton_puzzle_hash, launcher_coin_id
 
     async def _get_owner_key_cache(self) -> Tuple[PrivateKey, uint32]:
         if self._owner_sk_and_index is None:
@@ -473,24 +452,21 @@ class PoolWallet:
     async def generate_fee_transaction(
         self,
         fee: uint64,
-        tx_config: TXConfig,
+        action_scope: WalletActionScope,
         extra_conditions: Tuple[Condition, ...] = tuple(),
-    ) -> TransactionRecord:
-        [fee_tx] = await self.standard_wallet.generate_signed_transaction(
+    ) -> None:
+        await self.standard_wallet.generate_signed_transaction(
             uint64(0),
             (await self.standard_wallet.get_new_puzzlehash()),
-            tx_config,
+            action_scope,
             fee=fee,
             origin_id=None,
             coins=None,
             primaries=None,
             extra_conditions=extra_conditions,
         )
-        return fee_tx
 
-    async def generate_travel_transactions(
-        self, fee: uint64, tx_config: TXConfig
-    ) -> Tuple[TransactionRecord, Optional[TransactionRecord]]:
+    async def generate_travel_transactions(self, fee: uint64, action_scope: WalletActionScope) -> None:
         # target_state is contained within pool_wallet_state
         pool_wallet_info: PoolWalletInfo = await self.get_current_state()
 
@@ -555,37 +531,34 @@ class PoolWallet:
         else:
             raise RuntimeError("Invalid state")
 
-        unsigned_spend_bundle = SpendBundle([outgoing_coin_spend], G2Element())
+        unsigned_spend_bundle = WalletSpendBundle([outgoing_coin_spend], G2Element())
         assert unsigned_spend_bundle.removals()[0].puzzle_hash == singleton.puzzle_hash
         assert unsigned_spend_bundle.removals()[0].name() == singleton.name()
-        fee_tx: Optional[TransactionRecord] = None
         if fee > 0:
-            fee_tx = await self.generate_fee_transaction(fee, tx_config)
-            assert fee_tx.spend_bundle is not None
-            unsigned_spend_bundle = SpendBundle.aggregate([unsigned_spend_bundle, fee_tx.spend_bundle])
-            fee_tx = dataclasses.replace(fee_tx, spend_bundle=None)
+            await self.generate_fee_transaction(fee, action_scope)
 
-        tx_record = TransactionRecord(
-            confirmed_at_height=uint32(0),
-            created_at_time=uint64(int(time.time())),
-            to_puzzle_hash=new_full_puzzle.get_tree_hash(),
-            amount=uint64(1),
-            fee_amount=fee,
-            confirmed=False,
-            sent=uint32(0),
-            spend_bundle=unsigned_spend_bundle,
-            additions=unsigned_spend_bundle.additions(),
-            removals=unsigned_spend_bundle.removals(),
-            wallet_id=self.id(),
-            sent_to=[],
-            trade_id=None,
-            memos=[],
-            type=uint32(TransactionType.OUTGOING_TX.value),
-            name=unsigned_spend_bundle.name(),
-            valid_times=ConditionValidTimes(),
-        )
-
-        return tx_record, fee_tx
+        async with action_scope.use() as interface:
+            interface.side_effects.transactions.append(
+                TransactionRecord(
+                    confirmed_at_height=uint32(0),
+                    created_at_time=uint64(int(time.time())),
+                    to_puzzle_hash=new_full_puzzle.get_tree_hash(),
+                    amount=uint64(1),
+                    fee_amount=fee,
+                    confirmed=False,
+                    sent=uint32(0),
+                    spend_bundle=unsigned_spend_bundle,
+                    additions=unsigned_spend_bundle.additions(),
+                    removals=unsigned_spend_bundle.removals(),
+                    wallet_id=self.id(),
+                    sent_to=[],
+                    trade_id=None,
+                    memos=[],
+                    type=uint32(TransactionType.OUTGOING_TX.value),
+                    name=unsigned_spend_bundle.name(),
+                    valid_times=ConditionValidTimes(),
+                )
+            )
 
     @staticmethod
     async def generate_launcher_spend(
@@ -596,14 +569,14 @@ class PoolWallet:
         genesis_challenge: bytes32,
         delay_time: uint64,
         delay_ph: bytes32,
-        tx_config: TXConfig,
+        action_scope: WalletActionScope,
         extra_conditions: Tuple[Condition, ...] = tuple(),
-    ) -> Tuple[SpendBundle, bytes32, bytes32]:
+    ) -> Tuple[bytes32, bytes32]:
         """
         Creates the initial singleton, which includes spending an origin coin, the launcher, and creating a singleton
         with the "pooling" inner state, which can be either self pooling or using a pool
         """
-        coins: Set[Coin] = await standard_wallet.select_coins(uint64(amount + fee), tx_config.coin_selection_config)
+        coins: Set[Coin] = await standard_wallet.select_coins(uint64(amount + fee), action_scope)
         if coins is None:
             raise ValueError("Not enough coins to create pool wallet")
 
@@ -644,10 +617,19 @@ class PoolWallet:
         pool_state_bytes = Program.to([("p", bytes(initial_target_state)), ("t", delay_time), ("h", delay_ph)])
         announcement_message = Program.to([puzzle_hash, amount, pool_state_bytes]).get_tree_hash()
 
-        [create_launcher_tx_record] = await standard_wallet.generate_signed_transaction(
+        genesis_launcher_solution: Program = Program.to([puzzle_hash, amount, pool_state_bytes])
+
+        launcher_cs: CoinSpend = CoinSpend(
+            launcher_coin,
+            SerializedProgram.from_program(genesis_launcher_puz),
+            SerializedProgram.from_program(genesis_launcher_solution),
+        )
+        launcher_sb = WalletSpendBundle([launcher_cs], G2Element())
+
+        await standard_wallet.generate_signed_transaction(
             amount,
             genesis_launcher_puz.get_tree_hash(),
-            tx_config,
+            action_scope,
             fee,
             coins,
             None,
@@ -657,24 +639,13 @@ class PoolWallet:
                 AssertCoinAnnouncement(asserted_id=launcher_coin.name(), asserted_msg=announcement_message),
             ),
         )
-        assert create_launcher_tx_record.spend_bundle is not None
 
-        genesis_launcher_solution: Program = Program.to([puzzle_hash, amount, pool_state_bytes])
+        async with action_scope.use() as interface:
+            interface.side_effects.extra_spends.append(launcher_sb)
 
-        launcher_cs: CoinSpend = CoinSpend(
-            launcher_coin,
-            SerializedProgram.from_program(genesis_launcher_puz),
-            SerializedProgram.from_program(genesis_launcher_solution),
-        )
-        launcher_sb: SpendBundle = SpendBundle([launcher_cs], G2Element())
+        return puzzle_hash, launcher_coin.name()
 
-        # Current inner will be updated when state is verified on the blockchain
-        full_spend: SpendBundle = SpendBundle.aggregate([create_launcher_tx_record.spend_bundle, launcher_sb])
-        return full_spend, puzzle_hash, launcher_coin.name()
-
-    async def join_pool(
-        self, target_state: PoolState, fee: uint64, tx_config: TXConfig
-    ) -> Tuple[uint64, TransactionRecord, Optional[TransactionRecord]]:
+    async def join_pool(self, target_state: PoolState, fee: uint64, action_scope: WalletActionScope) -> uint64:
         if target_state.state != FARMING_TO_POOL.value:
             raise ValueError(f"join_pool must be called with target_state={FARMING_TO_POOL} (FARMING_TO_POOL)")
         if self.target_state is not None:
@@ -715,13 +686,11 @@ class PoolWallet:
 
         self.target_state = target_state
         self.next_transaction_fee = fee
-        self.next_tx_config = tx_config
-        travel_tx, fee_tx = await self.generate_travel_transactions(fee, tx_config)
-        return total_fee, travel_tx, fee_tx
+        self.next_tx_config = action_scope.config.tx_config
+        await self.generate_travel_transactions(fee, action_scope)
+        return total_fee
 
-    async def self_pool(
-        self, fee: uint64, tx_config: TXConfig
-    ) -> Tuple[uint64, TransactionRecord, Optional[TransactionRecord]]:
+    async def self_pool(self, fee: uint64, action_scope: WalletActionScope) -> uint64:
         if await self.have_unconfirmed_transaction():
             raise ValueError(
                 "Cannot self pool due to unconfirmed transaction. If this is stuck, delete the unconfirmed transaction."
@@ -755,13 +724,13 @@ class PoolWallet:
             SELF_POOLING, owner_puzzlehash, owner_pubkey, pool_url=None, relative_lock_height=uint32(0)
         )
         self.next_transaction_fee = fee
-        self.next_tx_config = tx_config
-        travel_tx, fee_tx = await self.generate_travel_transactions(fee, tx_config)
-        return total_fee, travel_tx, fee_tx
+        self.next_tx_config = action_scope.config.tx_config
+        await self.generate_travel_transactions(fee, action_scope)
+        return total_fee
 
     async def claim_pool_rewards(
-        self, fee: uint64, max_spends_in_tx: Optional[int], tx_config: TXConfig
-    ) -> Tuple[TransactionRecord, Optional[TransactionRecord]]:
+        self, fee: uint64, max_spends_in_tx: Optional[int], action_scope: WalletActionScope
+    ) -> None:
         # Search for p2_puzzle_hash coins, and spend them with the singleton
         if await self.have_unconfirmed_transaction():
             raise ValueError(
@@ -827,48 +796,42 @@ class PoolWallet:
         if len(all_spends) == 0 or first_coin_record is None:
             raise ValueError("Nothing to claim, no unspent coinbase rewards")
 
-        claim_spend: SpendBundle = SpendBundle(all_spends, G2Element())
+        claim_spend = WalletSpendBundle(all_spends, G2Element())
 
         # If fee is 0, no signatures are required to absorb
-        full_spend: SpendBundle = claim_spend
-
-        fee_tx = None
         if fee > 0:
-            fee_tx = await self.generate_fee_transaction(
+            await self.generate_fee_transaction(
                 fee,
-                tx_config,
+                action_scope,
                 extra_conditions=(
                     AssertCoinAnnouncement(asserted_id=first_coin_record.coin.name(), asserted_msg=b"$"),
                 ),
             )
-            assert fee_tx.spend_bundle is not None
-            full_spend = SpendBundle.aggregate([fee_tx.spend_bundle, claim_spend])
-            fee_tx = dataclasses.replace(fee_tx, spend_bundle=None)
 
-        assert estimate_fees(full_spend) == fee
         current_time = uint64(int(time.time()))
         # The claim spend, minus the fee amount from the main wallet
-        absorb_transaction: TransactionRecord = TransactionRecord(
-            confirmed_at_height=uint32(0),
-            created_at_time=current_time,
-            to_puzzle_hash=current_state.current.target_puzzle_hash,
-            amount=uint64(total_amount),
-            fee_amount=fee,  # This will not be double counted in self.standard_wallet
-            confirmed=False,
-            sent=uint32(0),
-            spend_bundle=full_spend,
-            additions=full_spend.additions(),
-            removals=full_spend.removals(),
-            wallet_id=uint32(self.wallet_id),
-            sent_to=[],
-            memos=[],
-            trade_id=None,
-            type=uint32(TransactionType.OUTGOING_TX.value),
-            name=full_spend.name(),
-            valid_times=ConditionValidTimes(),
-        )
-
-        return absorb_transaction, fee_tx
+        async with action_scope.use() as interface:
+            interface.side_effects.transactions.append(
+                TransactionRecord(
+                    confirmed_at_height=uint32(0),
+                    created_at_time=current_time,
+                    to_puzzle_hash=current_state.current.target_puzzle_hash,
+                    amount=uint64(total_amount),
+                    fee_amount=fee,  # This will not be double counted in self.standard_wallet
+                    confirmed=False,
+                    sent=uint32(0),
+                    spend_bundle=claim_spend,
+                    additions=claim_spend.additions(),
+                    removals=claim_spend.removals(),
+                    wallet_id=uint32(self.wallet_id),
+                    sent_to=[],
+                    memos=[],
+                    trade_id=None,
+                    type=uint32(TransactionType.OUTGOING_TX.value),
+                    name=claim_spend.name(),
+                    valid_times=ConditionValidTimes(),
+                )
+            )
 
     async def new_peak(self, peak_height: uint32) -> None:
         # This gets called from the WalletStateManager whenever there is a new peak
@@ -912,13 +875,8 @@ class PoolWallet:
                     assert self.target_state.relative_lock_height >= self.MINIMUM_RELATIVE_LOCK_HEIGHT
                     assert self.target_state.pool_url is not None
 
-                travel_tx, fee_tx = await self.generate_travel_transactions(
-                    self.next_transaction_fee, self.next_tx_config
-                )
-                txs = [travel_tx]
-                if fee_tx is not None:
-                    txs.append(fee_tx)
-                await self.wallet_state_manager.add_pending_transactions(txs)
+                async with self.wallet_state_manager.new_action_scope(self.next_tx_config, push=True) as action_scope:
+                    await self.generate_travel_transactions(self.next_transaction_fee, action_scope)
 
     async def have_unconfirmed_transaction(self) -> bool:
         unconfirmed: List[TransactionRecord] = await self.wallet_state_manager.tx_store.get_unconfirmed_for_wallet(
@@ -952,7 +910,7 @@ class PoolWallet:
     async def coin_added(self, coin: Coin, height: uint32, peer: WSChikConnection, coin_data: Optional[object]) -> None:
         pass
 
-    async def select_coins(self, amount: uint64, coin_selection_config: CoinSelectionConfig) -> Set[Coin]:
+    async def select_coins(self, amount: uint64, action_scope: WalletActionScope) -> Set[Coin]:
         raise RuntimeError("PoolWallet does not support select_coins()")
 
     def require_derivation_paths(self) -> bool:

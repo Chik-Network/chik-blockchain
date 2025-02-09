@@ -7,7 +7,7 @@ from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.util.ints import uint8, uint32, uint64
-from chik.util.misc import VersionedBlob
+from chik.util.streamable import VersionedBlob
 from chik.wallet.puzzles.clawback.metadata import ClawbackMetadata, ClawbackVersion
 from chik.wallet.util.wallet_types import CoinType, StreamableWalletIdentifier, WalletType
 from chik.wallet.vc_wallet.cr_cat_drivers import CRCATMetadata, CRCATVersion

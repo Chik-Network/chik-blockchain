@@ -3,14 +3,26 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
 
+from chik_rs import G2Element
+
 from chik._tests.cmds.cmd_test_utils import TestRpcClients, TestWalletRpcClient, logType, run_cli_command_and_assert
-from chik._tests.cmds.wallet.test_consts import FINGERPRINT, FINGERPRINT_ARG, get_bytes32
+from chik._tests.cmds.wallet.test_consts import FINGERPRINT, FINGERPRINT_ARG, STD_TX, STD_UTX, get_bytes32
+from chik.rpc.wallet_request_types import (
+    NFTAddURIResponse,
+    NFTMintNFTResponse,
+    NFTSetNFTDIDResponse,
+    NFTTransferNFTResponse,
+)
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.signing_mode import SigningMode
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.ints import uint8, uint16, uint32, uint64
+from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.nft_wallet.nft_info import NFTInfo
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG, TXConfig
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
+
+test_condition_valid_times: ConditionValidTimes = ConditionValidTimes(min_time=uint64(100), max_time=uint64(150))
 
 # NFT Commands
 
@@ -87,7 +99,9 @@ def test_nft_mint(capsys: object, get_test_cli_clients: Tuple[TestRpcClients, Pa
             royalty_percentage: int = 0,
             did_id: Optional[str] = None,
             reuse_puzhash: Optional[bool] = None,
-        ) -> dict[str, object]:
+            push: bool = True,
+            timelock_info: ConditionValidTimes = ConditionValidTimes(),
+        ) -> NFTMintNFTResponse:
             self.add_to_log(
                 "mint_nft",
                 (
@@ -106,9 +120,17 @@ def test_nft_mint(capsys: object, get_test_cli_clients: Tuple[TestRpcClients, Pa
                     royalty_percentage,
                     did_id,
                     reuse_puzhash,
+                    push,
+                    timelock_info,
                 ),
             )
-            return {"spend_bundle": "spend bundle here"}
+            return NFTMintNFTResponse(
+                [STD_UTX],
+                [STD_TX],
+                uint32(wallet_id),
+                WalletSpendBundle([], G2Element()),
+                bytes32([0] * 32).hex(),
+            )
 
     inst_rpc_client = NFTCreateRpcClient()  # pylint: disable=no-value-for-parameter
     target_addr = encode_puzzle_hash(get_bytes32(2), "xck")
@@ -127,9 +149,13 @@ def test_nft_mint(capsys: object, get_test_cli_clients: Tuple[TestRpcClients, Pa
         target_addr,
         "-m0.5",
         "--reuse",
+        "--valid-at",
+        "100",
+        "--expires-at",
+        "150",
     ]
     # these are various things that should be in the output
-    assert_list = ["NFT minted Successfully with spend bundle: spend bundle here"]
+    assert_list = [f"NFT minted Successfully with spend bundle: {STD_TX.spend_bundle}"]
     run_cli_command_and_assert(capsys, root_dir, command_args, assert_list)
     expected_calls: logType = {
         "get_nft_wallet_did": [(4,)],
@@ -156,6 +182,8 @@ def test_nft_mint(capsys: object, get_test_cli_clients: Tuple[TestRpcClients, Pa
                 500000000000,
                 0,
                 "0xcee228b8638c67cb66a55085be99fa3b457ae5b56915896f581990f600b2c652",
+                True,
+                test_condition_valid_times,
             )
         ],
     }
@@ -175,9 +203,11 @@ def test_nft_add_uri(capsys: object, get_test_cli_clients: Tuple[TestRpcClients,
             uri: str,
             fee: int,
             tx_config: TXConfig,
-        ) -> dict[str, object]:
-            self.add_to_log("add_uri_to_nft", (wallet_id, nft_coin_id, key, uri, fee, tx_config))
-            return {"spend_bundle": "spend bundle here"}
+            push: bool,
+            timelock_info: ConditionValidTimes = ConditionValidTimes(),
+        ) -> NFTAddURIResponse:
+            self.add_to_log("add_uri_to_nft", (wallet_id, nft_coin_id, key, uri, fee, tx_config, push, timelock_info))
+            return NFTAddURIResponse([STD_UTX], [STD_TX], uint32(wallet_id), WalletSpendBundle([], G2Element()))
 
     inst_rpc_client = NFTAddUriRpcClient()  # pylint: disable=no-value-for-parameter
     nft_coin_id = get_bytes32(2).hex()
@@ -194,9 +224,14 @@ def test_nft_add_uri(capsys: object, get_test_cli_clients: Tuple[TestRpcClients,
         "https://example.com/nft",
         "-m0.5",
         "--reuse",
+        "--valid-at",
+        "100",
+        "--expires-at",
+        "150",
     ]
     # these are various things that should be in the output
-    assert_list = ["URI added successfully with spend bundle: spend bundle here"]
+    assert STD_TX.spend_bundle is not None
+    assert_list = [f"URI added successfully with spend bundle: {STD_TX.spend_bundle.to_json_dict()}"]
     run_cli_command_and_assert(capsys, root_dir, command_args, assert_list)
     expected_calls: logType = {
         "add_uri_to_nft": [
@@ -207,6 +242,8 @@ def test_nft_add_uri(capsys: object, get_test_cli_clients: Tuple[TestRpcClients,
                 "https://example.com/nft",
                 500000000000,
                 DEFAULT_TX_CONFIG.override(reuse_puzhash=True),
+                True,
+                test_condition_valid_times,
             )
         ],
     }
@@ -225,9 +262,18 @@ def test_nft_transfer(capsys: object, get_test_cli_clients: Tuple[TestRpcClients
             target_address: str,
             fee: int,
             tx_config: TXConfig,
-        ) -> dict[str, object]:
-            self.add_to_log("transfer_nft", (wallet_id, nft_coin_id, target_address, fee, tx_config))
-            return {"spend_bundle": "spend bundle here"}
+            push: bool,
+            timelock_info: ConditionValidTimes = ConditionValidTimes(),
+        ) -> NFTTransferNFTResponse:
+            self.add_to_log(
+                "transfer_nft", (wallet_id, nft_coin_id, target_address, fee, tx_config, push, timelock_info)
+            )
+            return NFTTransferNFTResponse(
+                [STD_UTX],
+                [STD_TX],
+                uint32(wallet_id),
+                WalletSpendBundle([], G2Element()),
+            )
 
     inst_rpc_client = NFTTransferRpcClient()  # pylint: disable=no-value-for-parameter
     nft_coin_id = get_bytes32(2).hex()
@@ -245,13 +291,26 @@ def test_nft_transfer(capsys: object, get_test_cli_clients: Tuple[TestRpcClients
         target_address,
         "-m0.5",
         "--reuse",
+        "--valid-at",
+        "100",
+        "--expires-at",
+        "150",
     ]
     # these are various things that should be in the output
-    assert_list = ["NFT transferred successfully with spend bundle: spend bundle here"]
+    assert STD_TX.spend_bundle is not None
+    assert_list = ["NFT transferred successfully", f"spend bundle: {STD_TX.spend_bundle.to_json_dict()}"]
     run_cli_command_and_assert(capsys, root_dir, command_args, assert_list)
     expected_calls: logType = {
         "transfer_nft": [
-            (4, nft_coin_id, target_address, 500000000000, DEFAULT_TX_CONFIG.override(reuse_puzhash=True))
+            (
+                4,
+                nft_coin_id,
+                target_address,
+                500000000000,
+                DEFAULT_TX_CONFIG.override(reuse_puzhash=True),
+                True,
+                test_condition_valid_times,
+            )
         ],
     }
     test_rpc_clients.wallet_rpc_client.check_log(expected_calls)
@@ -331,9 +390,16 @@ def test_nft_set_did(capsys: object, get_test_cli_clients: Tuple[TestRpcClients,
             nft_coin_id: str,
             fee: int,
             tx_config: TXConfig,
-        ) -> dict[str, object]:
-            self.add_to_log("set_nft_did", (wallet_id, did_id, nft_coin_id, fee, tx_config))
-            return {"spend_bundle": "this is a spend bundle"}
+            push: bool,
+            timelock_info: ConditionValidTimes = ConditionValidTimes(),
+        ) -> NFTSetNFTDIDResponse:
+            self.add_to_log("set_nft_did", (wallet_id, did_id, nft_coin_id, fee, tx_config, push, timelock_info))
+            return NFTSetNFTDIDResponse(
+                [STD_UTX],
+                [STD_TX],
+                uint32(wallet_id),
+                WalletSpendBundle([], G2Element()),
+            )
 
     inst_rpc_client = NFTSetDidRpcClient()  # pylint: disable=no-value-for-parameter
     nft_coin_id = get_bytes32(2).hex()
@@ -351,12 +417,27 @@ def test_nft_set_did(capsys: object, get_test_cli_clients: Tuple[TestRpcClients,
         did_id,
         "-m0.5",
         "--reuse",
+        "--valid-at",
+        "100",
+        "--expires-at",
+        "150",
     ]
     # these are various things that should be in the output
-    assert_list = ["Transaction to set DID on NFT has been initiated with: this is a spend bundle"]
+    assert STD_TX.spend_bundle is not None
+    assert_list = [f"Transaction to set DID on NFT has been initiated with: {STD_TX.spend_bundle.to_json_dict()}"]
     run_cli_command_and_assert(capsys, root_dir, command_args, assert_list)
     expected_calls: logType = {
-        "set_nft_did": [(4, did_id, nft_coin_id, 500000000000, DEFAULT_TX_CONFIG.override(reuse_puzhash=True))],
+        "set_nft_did": [
+            (
+                4,
+                did_id,
+                nft_coin_id,
+                500000000000,
+                DEFAULT_TX_CONFIG.override(reuse_puzhash=True),
+                True,
+                test_condition_valid_times,
+            )
+        ],
     }
     test_rpc_clients.wallet_rpc_client.check_log(expected_calls)
 

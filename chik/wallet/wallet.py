@@ -13,7 +13,6 @@ from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, make_spend
 from chik.types.signing_mode import CHIP_0002_SIGN_MESSAGE_PREFIX, SigningMode
-from chik.types.spend_bundle import SpendBundle
 from chik.util.hash import std_hash
 from chik.util.ints import uint32, uint64, uint128
 from chik.util.streamable import Streamable
@@ -52,11 +51,12 @@ from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.compute_memos import compute_memos
 from chik.wallet.util.puzzle_decorator import PuzzleDecoratorManager
 from chik.wallet.util.transaction_type import CLAWBACK_INCOMING_TRANSACTION_TYPES, TransactionType
-from chik.wallet.util.tx_config import CoinSelectionConfig, TXConfig
 from chik.wallet.util.wallet_types import WalletIdentifier, WalletType
+from chik.wallet.wallet_action_scope import WalletActionScope
 from chik.wallet.wallet_coin_record import WalletCoinRecord
 from chik.wallet.wallet_info import WalletInfo
 from chik.wallet.wallet_protocol import GSTOptionalArgs, WalletProtocol
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 if TYPE_CHECKING:
     from chik.server.ws_connection import WSChikConnection
@@ -169,8 +169,8 @@ class Wallet:
         return puzzle_hash  # Looks unimpressive, but it's more complicated in other wallets
 
     async def puzzle_for_puzzle_hash(self, puzzle_hash: bytes32) -> Program:
-        secret_key = await self.wallet_state_manager.get_private_key(puzzle_hash)
-        return puzzle_for_pk(secret_key.get_g1())
+        public_key = await self.wallet_state_manager.get_public_key(puzzle_hash)
+        return puzzle_for_pk(G1Element.from_bytes(public_key))
 
     async def get_new_puzzle(self) -> Program:
         dr = await self.wallet_state_manager.get_unused_derivation_record(self.id())
@@ -228,7 +228,7 @@ class Wallet:
     async def select_coins(
         self,
         amount: uint64,
-        coin_selection_config: CoinSelectionConfig,
+        action_scope: WalletActionScope,
     ) -> Set[Coin]:
         """
         Returns a set of coins that can be used for generating a new transaction.
@@ -242,14 +242,16 @@ class Wallet:
         unconfirmed_removals: Dict[bytes32, Coin] = await self.wallet_state_manager.unconfirmed_removals_for_wallet(
             self.id()
         )
-        coins = await select_coins(
-            spendable_amount,
-            coin_selection_config,
-            spendable_coins,
-            unconfirmed_removals,
-            self.log,
-            uint128(amount),
-        )
+        async with action_scope.use() as interface:
+            coins = await select_coins(
+                spendable_amount,
+                action_scope.config.adjust_for_side_effects(interface.side_effects).tx_config.coin_selection_config,
+                spendable_coins,
+                unconfirmed_removals,
+                self.log,
+                uint128(amount),
+            )
+            interface.side_effects.selected_coins.extend([*coins])
         assert sum(c.amount for c in coins) >= amount
         return coins
 
@@ -257,7 +259,7 @@ class Wallet:
         self,
         amount: uint64,
         newpuzzlehash: bytes32,
-        tx_config: TXConfig,
+        action_scope: WalletActionScope,
         fee: uint64 = uint64(0),
         origin_id: Optional[bytes32] = None,
         coins: Optional[Set[Coin]] = None,
@@ -288,12 +290,12 @@ class Wallet:
                 )
             coins = await self.select_coins(
                 uint64(total_amount),
-                tx_config.coin_selection_config,
+                action_scope,
             )
 
         assert len(coins) > 0
         self.log.info(f"coins is not None {coins}")
-        spend_value = sum([coin.amount for coin in coins])
+        spend_value = sum(coin.amount for coin in coins)
         self.log.info(f"spend_value is {spend_value} and total_amount is {total_amount}")
         change = spend_value - total_amount
         if negative_change_allowed:
@@ -325,7 +327,7 @@ class Wallet:
                     target_primary.append(Payment(newpuzzlehash, amount, memos))
 
                 if change > 0:
-                    if tx_config.reuse_puzhash:
+                    if action_scope.config.tx_config.reuse_puzhash:
                         change_puzzle_hash: bytes32 = coin.puzzle_hash
                         for primary in primaries:
                             if change_puzzle_hash == primary.puzzle_hash and change == primary.amount:
@@ -393,7 +395,7 @@ class Wallet:
         self,
         amount: uint64,
         puzzle_hash: bytes32,
-        tx_config: TXConfig,
+        action_scope: WalletActionScope,
         fee: uint64 = uint64(0),
         coins: Optional[Set[Coin]] = None,
         primaries: Optional[List[Payment]] = None,
@@ -401,7 +403,7 @@ class Wallet:
         puzzle_decorator_override: Optional[List[Dict[str, Any]]] = None,
         extra_conditions: Tuple[Condition, ...] = tuple(),
         **kwargs: Unpack[GSTOptionalArgs],
-    ) -> List[TransactionRecord]:
+    ) -> None:
         origin_id: Optional[bytes32] = kwargs.get("origin_id", None)
         negative_change_allowed: bool = kwargs.get("negative_change_allowed", False)
         """
@@ -418,7 +420,7 @@ class Wallet:
         transaction = await self._generate_unsigned_transaction(
             amount,
             puzzle_hash,
-            tx_config,
+            action_scope,
             fee,
             origin_id,
             coins,
@@ -429,7 +431,7 @@ class Wallet:
             extra_conditions=extra_conditions,
         )
         assert len(transaction) > 0
-        spend_bundle: SpendBundle = SpendBundle(transaction, G2Element())
+        spend_bundle = WalletSpendBundle(transaction, G2Element())
 
         now = uint64(int(time.time()))
         add_list: List[Coin] = list(spend_bundle.additions())
@@ -442,58 +444,59 @@ class Wallet:
         else:
             assert output_amount == input_amount
 
-        return [
-            TransactionRecord(
-                confirmed_at_height=uint32(0),
-                created_at_time=now,
-                to_puzzle_hash=puzzle_hash,
-                amount=uint64(non_change_amount),
-                fee_amount=uint64(fee),
-                confirmed=False,
-                sent=uint32(0),
-                spend_bundle=spend_bundle,
-                additions=add_list,
-                removals=rem_list,
-                wallet_id=self.id(),
-                sent_to=[],
-                trade_id=None,
-                type=uint32(TransactionType.OUTGOING_TX.value),
-                name=spend_bundle.name(),
-                memos=list(compute_memos(spend_bundle).items()),
-                valid_times=parse_timelock_info(extra_conditions),
+        async with action_scope.use() as interface:
+            interface.side_effects.transactions.append(
+                TransactionRecord(
+                    confirmed_at_height=uint32(0),
+                    created_at_time=now,
+                    to_puzzle_hash=puzzle_hash,
+                    amount=uint64(non_change_amount),
+                    fee_amount=uint64(fee),
+                    confirmed=False,
+                    sent=uint32(0),
+                    spend_bundle=spend_bundle,
+                    additions=add_list,
+                    removals=rem_list,
+                    wallet_id=self.id(),
+                    sent_to=[],
+                    trade_id=None,
+                    type=uint32(TransactionType.OUTGOING_TX.value),
+                    name=spend_bundle.name(),
+                    memos=list(compute_memos(spend_bundle).items()),
+                    valid_times=parse_timelock_info(extra_conditions),
+                )
             )
-        ]
 
     async def create_tandem_xck_tx(
         self,
         fee: uint64,
-        tx_config: TXConfig,
+        action_scope: WalletActionScope,
         extra_conditions: Tuple[Condition, ...] = tuple(),
-    ) -> TransactionRecord:
-        chik_coins = await self.select_coins(fee, tx_config.coin_selection_config)
-        [chik_tx] = await self.generate_signed_transaction(
+    ) -> None:
+        chik_coins = await self.select_coins(fee, action_scope)
+        await self.generate_signed_transaction(
             uint64(0),
-            (await self.get_puzzle_hash(not tx_config.reuse_puzhash)),
-            tx_config,
+            (await self.get_puzzle_hash(not action_scope.config.tx_config.reuse_puzhash)),
+            action_scope,
             fee=fee,
             coins=chik_coins,
             extra_conditions=extra_conditions,
         )
-        assert chik_tx.spend_bundle is not None
-        return chik_tx
 
     async def get_coins_to_offer(
         self,
         asset_id: Optional[bytes32],
         amount: uint64,
-        coin_selection_config: CoinSelectionConfig,
+        action_scope: WalletActionScope,
     ) -> Set[Coin]:
         if asset_id is not None:
             raise ValueError(f"The standard wallet cannot offer coins with asset id {asset_id}")
         balance = await self.get_spendable_balance()
         if balance < amount:
             raise Exception(f"insufficient funds in wallet {self.id()}")
-        return await self.select_coins(amount, coin_selection_config)
+        # We need to sandbox this because this method isn't supposed to lock up the coins
+        async with self.wallet_state_manager.new_action_scope(action_scope.config.tx_config) as sandbox:
+            return await self.select_coins(amount, sandbox)
 
     # WSChikConnection is only imported for type checking
     async def coin_added(

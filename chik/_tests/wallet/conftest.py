@@ -12,6 +12,7 @@ from chik._tests.wallet.wallet_block_tools import WalletBlockTools
 from chik.consensus.constants import ConsensusConstants
 from chik.consensus.cost_calculator import NPCResult
 from chik.full_node.full_node import FullNode
+from chik.rpc.full_node_rpc_client import FullNodeRpcClient
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
@@ -34,7 +35,12 @@ def block_is_current_at(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(scope="function", autouse=True)
-async def ignore_block_validation(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+async def ignore_block_validation(
+    request: pytest.FixtureRequest,
+    monkeypatch: pytest.MonkeyPatch,
+    # https://anyio.readthedocs.io/en/stable/testing.html#asynchronous-fixtures
+    anyio_backend: str,
+) -> None:
     """
     This fixture exists to patch the existing BlockTools with WalletBlockTools and to patch existing code to work with
     simplified blocks. This is done as a step towards the separation of the wallet into its own self contained project.
@@ -135,7 +141,7 @@ async def wallet_environments(
 
         full_node[0]._api.full_node.config = {**full_node[0]._api.full_node.config, **config_overrides}
 
-        rpc_clients: List[WalletRpcClient] = []
+        wallet_rpc_clients: List[WalletRpcClient] = []
         async with AsyncExitStack() as astack:
             for service in wallet_services:
                 service._node.config = {
@@ -148,10 +154,12 @@ async def wallet_environments(
                     **config_overrides,
                 }
                 service._node.wallet_state_manager.config = service._node.config
+                # Shorten the 10 seconds default value
+                service._node.coin_state_retry_seconds = 2
                 await service._node.server.start_client(
                     PeerInfo(bt.config["self_hostname"], full_node[0]._api.full_node.server.get_port()), None
                 )
-                rpc_clients.append(
+                wallet_rpc_clients.append(
                     await astack.enter_async_context(
                         WalletRpcClient.create_as_context(
                             bt.config["self_hostname"],
@@ -165,10 +173,11 @@ async def wallet_environments(
 
             wallet_states: List[WalletState] = []
             for service, blocks_needed in zip(wallet_services, request.param["blocks_needed"]):
-                await full_node[0]._api.farm_blocks_to_wallet(
-                    count=blocks_needed, wallet=service._node.wallet_state_manager.main_wallet
-                )
-                await full_node[0]._api.wait_for_wallet_synced(wallet_node=service._node, timeout=20)
+                if blocks_needed > 0:
+                    await full_node[0]._api.farm_blocks_to_wallet(
+                        count=blocks_needed, wallet=service._node.wallet_state_manager.main_wallet
+                    )
+                    await full_node[0]._api.wait_for_wallet_synced(wallet_node=service._node, timeout=20)
                 wallet_states.append(
                     WalletState(
                         Balance(
@@ -183,8 +192,18 @@ async def wallet_environments(
                     )
                 )
 
+            assert full_node[0].rpc_server is not None
+            client_node = await astack.enter_async_context(
+                FullNodeRpcClient.create_as_context(
+                    bt.config["self_hostname"],
+                    full_node[0].rpc_server.listen_port,
+                    full_node[0].root_path,
+                    full_node[0].config,
+                )
+            )
             yield WalletTestFramework(
                 full_node[0]._api,
+                client_node,
                 trusted_full_node,
                 [
                     WalletEnvironment(
@@ -192,7 +211,7 @@ async def wallet_environments(
                         rpc_client=rpc_client,
                         wallet_states={uint32(1): wallet_state},
                     )
-                    for service, rpc_client, wallet_state in zip(wallet_services, rpc_clients, wallet_states)
+                    for service, rpc_client, wallet_state in zip(wallet_services, wallet_rpc_clients, wallet_states)
                 ],
                 tx_config,
             )

@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 import psutil
 
 from chik.util.config import load_config
-from chik.util.misc import available_logical_cores
+from chik.util.cpu import available_logical_cores
 
 log = logging.getLogger("beta")
 

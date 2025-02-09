@@ -15,10 +15,10 @@ from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.eligible_coin_spends import UnspentLineageInfo
+from chik.util.batches import to_batches
 from chik.util.db_wrapper import SQLITE_MAX_VARIABLE_NUMBER, DBWrapper2
 from chik.util.ints import uint32, uint64
 from chik.util.lru_cache import LRUCache
-from chik.util.misc import to_batches
 
 log = logging.getLogger(__name__)
 

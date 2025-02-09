@@ -16,12 +16,9 @@ from chikbip158 import PyBIP158
 from chik.consensus.block_creation import create_unfinished_block
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain import BlockchainMutexPriority
+from chik.consensus.get_block_generator import get_block_generator
 from chik.consensus.pot_iterations import calculate_ip_iters, calculate_iterations_quality, calculate_sp_iters
-from chik.full_node.bundle_tools import (
-    best_solution_generator_from_template,
-    simple_solution_generator,
-    simple_solution_generator_backrefs,
-)
+from chik.full_node.bundle_tools import simple_solution_generator, simple_solution_generator_backrefs
 from chik.full_node.coin_store import CoinStore
 from chik.full_node.fee_estimate import FeeEstimate, FeeEstimateGroup, fee_rate_v2_to_v1
 from chik.full_node.fee_estimator_interface import FeeEstimatorInterface
@@ -62,13 +59,13 @@ from chik.types.spend_bundle import SpendBundle
 from chik.types.transaction_queue_entry import TransactionQueueEntry
 from chik.types.unfinished_block import UnfinishedBlock
 from chik.util.api_decorators import api_request
+from chik.util.batches import to_batches
 from chik.util.db_wrapper import SQLITE_MAX_VARIABLE_NUMBER
 from chik.util.full_block_utils import header_block_from_block
 from chik.util.generator_tools import get_block_header, tx_removals_and_additions
 from chik.util.hash import std_hash
 from chik.util.ints import uint8, uint32, uint64, uint128
 from chik.util.limited_semaphore import LimitedSemaphoreFullError
-from chik.util.misc import to_batches
 
 if TYPE_CHECKING:
     from chik.full_node.full_node import FullNode
@@ -859,16 +856,7 @@ class FullNodeAPI:
                         if peak.height >= self.full_node.constants.HARD_FORK_HEIGHT:
                             block_generator = simple_solution_generator_backrefs(spend_bundle)
                         else:
-                            if self.full_node.full_node_store.previous_generator is not None:
-                                self.log.info(
-                                    f"Using previous generator for height "
-                                    f"{self.full_node.full_node_store.previous_generator}"
-                                )
-                                block_generator = best_solution_generator_from_template(
-                                    self.full_node.full_node_store.previous_generator, spend_bundle
-                                )
-                            else:
-                                block_generator = simple_solution_generator(spend_bundle)
+                            block_generator = simple_solution_generator(spend_bundle)
 
             def get_plot_sig(to_sign: bytes32, _extra: G1Element) -> G2Element:
                 if to_sign == request.challenge_chain_sp:
@@ -1201,7 +1189,9 @@ class FullNodeAPI:
         tx_additions: List[Coin] = []
 
         if block.transactions_generator is not None:
-            block_generator: Optional[BlockGenerator] = await self.full_node.blockchain.get_block_generator(block)
+            block_generator: Optional[BlockGenerator] = await get_block_generator(
+                self.full_node.blockchain.lookup_block_generators, block
+            )
             # get_block_generator() returns None in case the block we specify
             # does not have a generator (i.e. is not a transaction block).
             # in this case we've already made sure `block` does have a
@@ -1401,7 +1391,9 @@ class FullNodeAPI:
         if block is None or block.transactions_generator is None:
             return reject_msg
 
-        block_generator: Optional[BlockGenerator] = await self.full_node.blockchain.get_block_generator(block)
+        block_generator: Optional[BlockGenerator] = await get_block_generator(
+            self.full_node.blockchain.lookup_block_generators, block
+        )
         assert block_generator is not None
         try:
             spend_info = await asyncio.get_running_loop().run_in_executor(
@@ -1699,7 +1691,7 @@ class FullNodeAPI:
         msg = make_msg(ProtocolMessageTypes.respond_ses_hashes, response)
         return msg
 
-    @api_request(peer_required=True, reply_types=[ProtocolMessageTypes.respond_fee_estimates])
+    @api_request(reply_types=[ProtocolMessageTypes.respond_fee_estimates])
     async def request_fee_estimates(self, request: wallet_protocol.RequestFeeEstimates) -> Message:
         def get_fee_estimates(est: FeeEstimatorInterface, req_times: List[uint64]) -> List[FeeEstimate]:
             now = datetime.now(timezone.utc)

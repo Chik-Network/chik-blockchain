@@ -38,8 +38,8 @@ from chik.rpc.rpc_server import StateChangedProtocol, default_get_connections
 from chik.server.outbound_message import NodeType
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
+from chik.util.cpu import available_logical_cores
 from chik.util.ints import uint32
-from chik.util.misc import available_logical_cores
 
 log = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.util.ints import uint64
-from chik.util.misc import VersionedBlob
+from chik.util.streamable import VersionedBlob
 from chik.wallet.payment import Payment
 from chik.wallet.puzzles.clawback.drivers import create_merkle_puzzle
 from chik.wallet.puzzles.clawback.metadata import ClawbackMetadata, ClawbackVersion

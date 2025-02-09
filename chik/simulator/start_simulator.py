@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from chik.full_node.full_node import FullNode
 from chik.server.outbound_message import NodeType
+from chik.server.signal_handlers import SignalHandlers
 from chik.server.start_service import Service, async_run
 from chik.simulator.block_tools import BlockTools, test_constants
 from chik.simulator.full_node_simulator import FullNodeSimulator
@@ -19,7 +20,6 @@ from chik.util.chik_logging import initialize_logging
 from chik.util.config import load_config, load_config_cli, override_config
 from chik.util.default_root import DEFAULT_ROOT_PATH
 from chik.util.ints import uint16
-from chik.util.misc import SignalHandlers
 
 SimulatorFullNodeService = Service[FullNode, FullNodeSimulator, SimulatorFullNodeRpcApi]
 

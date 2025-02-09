@@ -4,7 +4,6 @@ from typing import Collection, List, Optional, Tuple
 
 from chikbip158 import PyBIP158
 
-from chik.consensus.cost_calculator import NPCResult
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.full_block import FullBlock
@@ -42,19 +41,6 @@ def get_block_header(
         encoded_filter,
         block.transactions_info,
     )
-
-
-def additions_for_npc(npc_result: NPCResult) -> List[Coin]:
-    additions: List[Coin] = []
-
-    if npc_result.conds is None:
-        return []
-    for spend in npc_result.conds.spends:
-        for puzzle_hash, amount, _ in spend.create_coin:
-            coin = Coin(spend.coin_id, puzzle_hash, uint64(amount))
-            additions.append(coin)
-
-    return additions
 
 
 def tx_removals_and_additions(results: Optional[SpendBundleConditions]) -> Tuple[List[bytes32], List[Coin]]:

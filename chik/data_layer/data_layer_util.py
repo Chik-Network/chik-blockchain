@@ -2,17 +2,16 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
-from enum import IntEnum
+from enum import Enum, IntEnum
+from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 
-# TODO: remove or formalize this
-import aiosqlite as aiosqlite
+import aiosqlite
 from typing_extensions import final
 
 from chik.data_layer.data_layer_errors import ProofIntegrityError
 from chik.server.ws_connection import WSChikConnection
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.db_wrapper import DBWrapper2
@@ -26,7 +25,8 @@ if TYPE_CHECKING:
 
 
 def internal_hash(left_hash: bytes32, right_hash: bytes32) -> bytes32:
-    return Program.to((left_hash, right_hash)).get_tree_hash_precalc(left_hash, right_hash)
+    # see test for the definition this is optimized from
+    return bytes32(sha256(b"\2" + left_hash + right_hash).digest())
 
 
 def calculate_internal_hash(hash: bytes32, other_hash_side: Side, other_hash: bytes32) -> bytes32:
@@ -39,11 +39,13 @@ def calculate_internal_hash(hash: bytes32, other_hash_side: Side, other_hash: by
 
 
 def leaf_hash(key: bytes, value: bytes) -> bytes32:
-    return SerializedProgram.to((key, value)).get_tree_hash()
+    # see test for the definition this is optimized from
+    return bytes32(sha256(b"\2" + sha256(b"\1" + key).digest() + sha256(b"\1" + value).digest()).digest())
 
 
 def key_hash(key: bytes) -> bytes32:
-    return SerializedProgram.to(key).get_tree_hash()
+    # see test for the definition this is optimized from
+    return bytes32(sha256(b"\1" + key).digest())
 
 
 @dataclasses.dataclass(frozen=True)
@@ -86,7 +88,11 @@ async def _debug_dump(db: DBWrapper2, description: str = "") -> None:
                 print(f"        {dict(row)}")
 
 
-async def _dot_dump(data_store: DataStore, store_id: bytes32, root_hash: bytes32) -> str:
+async def _dot_dump(
+    data_store: DataStore,
+    store_id: bytes32,
+    root_hash: bytes32,
+) -> str:
     terminal_nodes = await data_store.get_keys_values(store_id=store_id, root_hash=root_hash)
     internal_nodes = await data_store.get_internal_nodes(store_id=store_id, root_hash=root_hash)
 
@@ -323,6 +329,19 @@ class InternalNode:
 
         # TODO: real exception considerations
         raise Exception("provided hash not present")
+
+
+class Unspecified(Enum):
+    # not beautiful, improve when a better way is known
+    # https://github.com/python/typing/issues/236#issuecomment-229515556
+
+    instance = None
+
+    def __repr__(self) -> str:
+        return "Unspecified"
+
+
+unspecified = Unspecified.instance
 
 
 @dataclass(frozen=True)
@@ -751,7 +770,7 @@ class PluginRemote:
     def unmarshal(cls, marshalled: Dict[str, Any]) -> PluginRemote:
         return cls(
             url=marshalled["url"],
-            headers=marshalled["headers"],
+            headers=marshalled.get("headers", {}),
         )
 
 

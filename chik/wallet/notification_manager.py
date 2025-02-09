@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 import logging
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -11,16 +10,15 @@ from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, make_spend
-from chik.types.spend_bundle import SpendBundle
 from chik.util.db_wrapper import DBWrapper2
 from chik.util.ints import uint32, uint64
 from chik.wallet.conditions import AssertCoinAnnouncement, Condition
 from chik.wallet.notification_store import Notification, NotificationStore
-from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.compute_memos import compute_memos_for_spend
 from chik.wallet.util.notifications import construct_notification
-from chik.wallet.util.tx_config import TXConfig
 from chik.wallet.util.wallet_types import WalletType
+from chik.wallet.wallet_action_scope import WalletActionScope
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 
 class NotificationManager:
@@ -87,13 +85,11 @@ class NotificationManager:
         target: bytes32,
         msg: bytes,
         amount: uint64,
-        tx_config: TXConfig,
+        action_scope: WalletActionScope,
         fee: uint64 = uint64(0),
         extra_conditions: Tuple[Condition, ...] = tuple(),
-    ) -> TransactionRecord:
-        coins: Set[Coin] = await self.wallet_state_manager.main_wallet.select_coins(
-            uint64(amount + fee), tx_config.coin_selection_config
-        )
+    ) -> None:
+        coins: Set[Coin] = await self.wallet_state_manager.main_wallet.select_coins(uint64(amount + fee), action_scope)
         origin_coin: bytes32 = next(iter(coins)).name()
         notification_puzzle: Program = construct_notification(target, amount)
         notification_hash: bytes32 = notification_puzzle.get_tree_hash()
@@ -103,11 +99,11 @@ class NotificationManager:
             notification_puzzle,
             Program.to(None),
         )
-        extra_spend_bundle = SpendBundle([notification_spend], G2Element())
-        [chik_tx] = await self.wallet_state_manager.main_wallet.generate_signed_transaction(
+        extra_spend_bundle = WalletSpendBundle([notification_spend], G2Element())
+        await self.wallet_state_manager.main_wallet.generate_signed_transaction(
             amount,
             notification_hash,
-            tx_config,
+            action_scope,
             fee,
             coins=coins,
             origin_id=origin_coin,
@@ -117,7 +113,5 @@ class NotificationManager:
                 AssertCoinAnnouncement(asserted_id=notification_coin.name(), asserted_msg=b""),
             ),
         )
-        full_tx: TransactionRecord = dataclasses.replace(
-            chik_tx, spend_bundle=SpendBundle.aggregate([chik_tx.spend_bundle, extra_spend_bundle])
-        )
-        return full_tx
+        async with action_scope.use() as interface:
+            interface.side_effects.extra_spends.append(extra_spend_bundle)

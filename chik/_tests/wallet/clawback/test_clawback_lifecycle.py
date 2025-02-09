@@ -16,11 +16,10 @@ from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
-from chik.types.spend_bundle import SpendBundle
 from chik.util.condition_tools import conditions_dict_for_solution, pkm_pairs_for_conditions_dict
 from chik.util.errors import Err
 from chik.util.ints import uint64
-from chik.util.misc import VersionedBlob
+from chik.util.streamable import VersionedBlob
 from chik.wallet.puzzles.clawback.drivers import (
     create_augmented_cond_puzzle_hash,
     create_clawback_merkle_tree,
@@ -39,6 +38,7 @@ from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import (
 from chik.wallet.uncurried_puzzle import uncurry_puzzle
 from chik.wallet.util.merkle_utils import check_merkle_proof
 from chik.wallet.util.wallet_types import RemarkDataType
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 ACS = Program.to(1)
 ACS_PH = ACS.get_tree_hash()
@@ -47,7 +47,7 @@ ACS_PH = ACS.get_tree_hash()
 async def do_spend(
     sim: SpendSim,
     sim_client: SimClient,
-    spend_bundle: SpendBundle,
+    spend_bundle: WalletSpendBundle,
     expected_result: Tuple[MempoolInclusionStatus, Optional[Err]],
     cost_logger: Optional[CostLogger] = None,
     cost_log_msg: str = "",
@@ -126,7 +126,7 @@ class TestClawbackLifecycle:
             )
             coin_spend = make_spend(starting_coin, sender_puz, sender_sol)
             sig = self.sign_coin_spend(coin_spend, sender_index)
-            spend_bundle = SpendBundle([coin_spend], sig)
+            spend_bundle = WalletSpendBundle([coin_spend], sig)
 
             await do_spend(
                 sim,
@@ -153,7 +153,7 @@ class TestClawbackLifecycle:
             claim_sol = create_merkle_solution(timelock, sender_ph, recipient_ph, recipient_puz, recipient_sol)
             coin_spend = make_spend(clawback_coin, cb_puzzle, claim_sol)
             sig = self.sign_coin_spend(coin_spend, recipient_index)
-            spend_bundle = SpendBundle([coin_spend], sig)
+            spend_bundle = WalletSpendBundle([coin_spend], sig)
 
             await do_spend(
                 sim,
@@ -185,7 +185,7 @@ class TestClawbackLifecycle:
             new_coin = (await sim_client.get_coin_records_by_puzzle_hash(sender_ph, include_spent_coins=False))[0].coin
             coin_spend = make_spend(new_coin, sender_puz, sender_sol)
             sig = self.sign_coin_spend(coin_spend, sender_index)
-            spend_bundle = SpendBundle([coin_spend], sig)
+            spend_bundle = WalletSpendBundle([coin_spend], sig)
 
             await do_spend(
                 sim,
@@ -204,7 +204,7 @@ class TestClawbackLifecycle:
             claw_sol = create_merkle_solution(timelock, sender_ph, recipient_ph, sender_puz, sender_claw_sol)
             coin_spend = make_spend(new_cb_coin, cb_puzzle, claw_sol)
             sig = self.sign_coin_spend(coin_spend, sender_index)
-            spend_bundle = SpendBundle([coin_spend], sig)
+            spend_bundle = WalletSpendBundle([coin_spend], sig)
 
             await do_spend(
                 sim,

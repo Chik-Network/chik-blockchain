@@ -5,7 +5,7 @@ import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from chik.cmds.cmds_util import get_any_service_client
+from chik.cmds.cmds_util import format_bytes, format_minutes, get_any_service_client
 from chik.cmds.units import units
 from chik.consensus.block_record import BlockRecord
 from chik.rpc.farmer_rpc_client import FarmerRpcClient
@@ -13,7 +13,6 @@ from chik.rpc.full_node_rpc_client import FullNodeRpcClient
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.util.default_root import DEFAULT_ROOT_PATH
 from chik.util.errors import CliRpcConnectionError
-from chik.util.misc import format_bytes, format_minutes
 from chik.util.network import is_localhost
 
 SECONDS_PER_BLOCK = (24 * 3600) / 4608

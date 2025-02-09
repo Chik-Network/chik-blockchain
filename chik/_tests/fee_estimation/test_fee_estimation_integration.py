@@ -11,7 +11,6 @@ from chik._tests.core.mempool.test_mempool_manager import (
     instantiate_mempool_manager,
     zero_calls_get_coin_records,
 )
-from chik.consensus.cost_calculator import NPCResult
 from chik.full_node.bitcoin_fee_estimator import create_bitcoin_fee_estimator
 from chik.full_node.fee_estimation import (
     EmptyFeeMempoolInfo,
@@ -29,7 +28,7 @@ from chik.simulator.wallet_tools import WalletTool
 from chik.types.klvm_cost import KLVMCost
 from chik.types.fee_rate import FeeRate, FeeRateV2
 from chik.types.mempool_item import MempoolItem
-from chik.types.spend_bundle_conditions import Spend, SpendBundleConditions
+from chik.types.spend_bundle_conditions import SpendBundleConditions, SpendConditions
 from chik.util.ints import uint32, uint64
 
 
@@ -42,12 +41,12 @@ def make_mempoolitem() -> MempoolItem:
     block_height = 1
 
     fee = uint64(10000000)
-    spends: List[Spend] = []
-    conds = SpendBundleConditions(spends, 0, 0, 0, None, None, [], cost, 0, 0)
+    spends: List[SpendConditions] = []
+    conds = SpendBundleConditions(spends, 0, 0, 0, None, None, [], cost, 0, 0, False)
     mempool_item = MempoolItem(
         spend_bundle,
         fee,
-        NPCResult(None, conds),
+        conds,
         spend_bundle.name(),
         uint32(block_height),
     )

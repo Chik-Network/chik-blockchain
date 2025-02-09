@@ -30,8 +30,8 @@ from chik.server.ws_connection import WSChikConnection
 from chik.simulator.block_tools import BlockTools
 from chik.types.aliases import FarmerService, HarvesterService
 from chik.types.blockchain_format.sized_bytes import bytes32
+from chik.util.batches import to_batches
 from chik.util.ints import int16, uint8, uint64
-from chik.util.misc import to_batches
 
 log = logging.getLogger(__name__)
 

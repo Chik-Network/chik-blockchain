@@ -3,13 +3,13 @@ from __future__ import annotations
 from typing import Tuple
 
 from chik.consensus.block_record import BlockRecord
-from chik.consensus.blockchain_interface import BlockchainInterface
+from chik.consensus.blockchain_interface import BlockRecordsProtocol
 from chik.util.ints import uint128
 
 
 def get_prev_transaction_block(
     curr: BlockRecord,
-    blocks: BlockchainInterface,
+    blocks: BlockRecordsProtocol,
     total_iters_sp: uint128,
 ) -> Tuple[bool, BlockRecord]:
     prev_transaction_block = curr

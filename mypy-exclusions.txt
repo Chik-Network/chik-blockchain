@@ -62,7 +62,6 @@ chik._tests.core.full_node.test_full_node
 chik._tests.core.full_node.test_node_load
 chik._tests.core.full_node.test_performance
 chik._tests.core.full_node.test_transactions
-chik._tests.core.mempool.test_mempool
 chik._tests.core.server.test_dos
 chik._tests.core.server.test_rate_limits
 chik._tests.core.ssl.test_ssl
@@ -79,7 +78,6 @@ chik._tests.core.util.test_keychain
 chik._tests.core.util.test_keyring_wrapper
 chik._tests.core.util.test_lru_cache
 chik._tests.core.util.test_significant_bits
-chik._tests.generator.test_scan
 chik._tests.plotting.test_plot_manager
 chik._tests.pools.test_pool_cmdline
 chik._tests.pools.test_pool_config
@@ -93,11 +91,8 @@ chik._tests.util.test_full_block_utils
 chik._tests.util.test_misc
 chik._tests.util.test_network
 chik._tests.util.time_out_assert
-chik._tests.wallet.cat_wallet.test_trades
 chik._tests.wallet.did_wallet.test_did
 chik._tests.wallet.rpc.test_wallet_rpc
 chik._tests.wallet.test_taproot
-chik._tests.wallet.test_wallet_interested_store
-chik._tests.wallet.test_wallet_key_val_store
 tools.analyze-chain
 tools.run_block

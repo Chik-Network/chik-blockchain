@@ -28,7 +28,7 @@ from chik.plotting.util import (
 from chik.simulator.block_tools import get_plot_dir
 from chik.util.config import create_default_chik_config, lock_and_load_config, save_config
 from chik.util.ints import uint16, uint32
-from chik.util.misc import VersionedBlob
+from chik.util.streamable import VersionedBlob
 
 log = logging.getLogger(__name__)
 

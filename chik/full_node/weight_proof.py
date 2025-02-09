@@ -39,10 +39,10 @@ from chik.types.weight_proof import (
     SubSlotData,
     WeightProof,
 )
+from chik.util.batches import to_batches
 from chik.util.block_cache import BlockCache
 from chik.util.hash import std_hash
 from chik.util.ints import uint8, uint32, uint64, uint128
-from chik.util.misc import to_batches
 from chik.util.setproctitle import getproctitle, setproctitle
 
 log = logging.getLogger(__name__)
@@ -1249,7 +1249,7 @@ def validate_recent_blocks(
                 prev_block_record = prev_block_record.replace(
                     deficit=uint8(deficit % constants.MIN_BLOCKS_PER_CHALLENGE_BLOCK)
                 )
-                sub_blocks.add_block_record(prev_block_record)
+                sub_blocks.add_block(prev_block_record)
                 adjusted = True
             deficit = get_deficit(constants, deficit, prev_block_record, overflow, len(block.finished_sub_slots))
             if sub_slots > 2 and transaction_blocks > 11 and (tip_height - block.height < last_blocks_to_validate):
@@ -1273,7 +1273,7 @@ def validate_recent_blocks(
             constants, required_iters, block, ssi, overflow, deficit, height, curr_block_ses
         )
         log.debug(f"add block {block_record.height} to tmp sub blocks")
-        sub_blocks.add_block_record(block_record)
+        sub_blocks.add_block(block_record)
 
         if block.first_in_sub_slot:
             sub_slots += 1

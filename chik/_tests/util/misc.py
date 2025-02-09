@@ -15,6 +15,7 @@ import sys
 from concurrent.futures import Future
 from dataclasses import dataclass, field
 from enum import Enum
+from inspect import getframeinfo, stack
 from pathlib import Path
 from statistics import mean
 from textwrap import dedent
@@ -28,6 +29,7 @@ from typing import (
     ClassVar,
     Collection,
     Dict,
+    Iterable,
     Iterator,
     List,
     Optional,
@@ -53,12 +55,16 @@ import chik
 import chik._tests
 from chik._tests import ether
 from chik._tests.core.data_layer.util import ChikRoot
+from chik.consensus.difficulty_adjustment import get_next_sub_slot_iters_and_difficulty
+from chik.full_node.full_node import FullNode
 from chik.full_node.mempool import Mempool
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.condition_opcodes import ConditionOpcode
+from chik.types.full_block import FullBlock
+from chik.types.peer_info import PeerInfo
+from chik.util.batches import to_batches
 from chik.util.hash import std_hash
 from chik.util.ints import uint16, uint32, uint64
-from chik.util.misc import caller_file_and_line
 from chik.util.network import WebServer
 from chik.wallet.util.compute_hints import HintedCoin
 from chik.wallet.wallet_node import WalletNode
@@ -493,19 +499,10 @@ def create_logger(file: TextIO = sys.stdout) -> logging.Logger:
 
 
 def invariant_check_mempool(mempool: Mempool) -> None:
-    with mempool._db_conn:
-        cursor = mempool._db_conn.execute("SELECT SUM(cost) FROM tx")
-        val = cursor.fetchone()[0]
-        if val is None:
-            val = 0
-    assert mempool._total_cost == val
-
-    with mempool._db_conn:
-        cursor = mempool._db_conn.execute("SELECT SUM(fee) FROM tx")
-        val = cursor.fetchone()[0]
-        if val is None:
-            val = 0
-    assert mempool._total_fee == val
+    with mempool._db_conn as conn:
+        cursor = conn.execute("SELECT COALESCE(SUM(cost), 0), COALESCE(SUM(fee), 0) FROM tx")
+        val = cursor.fetchone()
+        assert (mempool._total_cost, mempool._total_fee) == val
 
 
 async def wallet_height_at_least(wallet_node: WalletNode, h: uint32) -> bool:
@@ -679,3 +676,47 @@ class ComparableEnum(Enum):
             return NotImplemented
 
         return self.value.__ge__(other.value)
+
+
+def caller_file_and_line(distance: int = 1, relative_to: Iterable[Path] = ()) -> Tuple[str, int]:
+    caller = getframeinfo(stack()[distance + 1][0])
+
+    caller_path = Path(caller.filename)
+    options: List[str] = [caller_path.as_posix()]
+    for path in relative_to:
+        try:
+            options.append(caller_path.relative_to(path).as_posix())
+        except ValueError:
+            pass
+
+    return min(options, key=len), caller.lineno
+
+
+async def add_blocks_in_batches(
+    blocks: List[FullBlock],
+    full_node: FullNode,
+    header_hash: Optional[bytes32] = None,
+) -> None:
+    if header_hash is None:
+        diff = full_node.constants.DIFFICULTY_STARTING
+        ssi = full_node.constants.SUB_SLOT_ITERS_STARTING
+    else:
+        block_record = await full_node.blockchain.get_block_record_from_db(header_hash)
+        ssi, diff = get_next_sub_slot_iters_and_difficulty(
+            full_node.constants, True, block_record, full_node.blockchain
+        )
+    prev_ses_block = None
+    for block_batch in to_batches(blocks, 64):
+        b = block_batch.entries[0]
+        if (b.height % 128) == 0:
+            print(f"main chain: {b.height:4} weight: {b.weight}")
+        success, _, ssi, diff, prev_ses_block, err = await full_node.add_block_batch(
+            block_batch.entries,
+            PeerInfo("0.0.0.0", 0),
+            None,
+            current_ssi=ssi,
+            current_difficulty=diff,
+            prev_ses_block=prev_ses_block,
+        )
+        assert err is None
+        assert success is True

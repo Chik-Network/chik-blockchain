@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 from os.path import exists
 
@@ -42,7 +43,7 @@ def make_semver(version_str: str) -> str:
     version = f"{major}.{minor}.{patch}"
 
     if prerelease:
-        version += "-{}".format(".".join(prerelease))
+        version += f"-{'.'.join(prerelease)}"
     if local:
         version += f"+{local}"
 
@@ -51,7 +52,10 @@ def make_semver(version_str: str) -> str:
 
 def get_chik_version() -> str:
     version: str = "0.0"
-    output = subprocess.run(["chik", "version"], capture_output=True)
+    chik_executable = shutil.which("chik")
+    if chik_executable is None:
+        chik_executable = "chik"
+    output = subprocess.run([chik_executable, "version"], capture_output=True)
     if output.returncode == 0:
         version = str(output.stdout.strip(), "utf-8").splitlines()[-1]
     return make_semver(version)

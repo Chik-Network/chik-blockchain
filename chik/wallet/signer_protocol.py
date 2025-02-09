@@ -13,7 +13,7 @@ from chik.util.streamable import Streamable
 from chik.wallet.util.klvm_streamable import klvm_streamable
 
 # This file contains the base types for communication between a wallet and an offline transaction signer.
-# These types should be compliant with CHIP-TBD
+# These types should be compliant with CHIP-0028
 
 
 @klvm_streamable

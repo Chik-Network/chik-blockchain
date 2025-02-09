@@ -11,7 +11,6 @@ from chik.plot_sync.receiver import Receiver
 from chik.protocols.harvester_protocol import Plot
 from chik.rpc.rpc_server import Endpoint, EndpointResult
 from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.byte_types import hexstr_to_bytes
 from chik.util.ints import uint32
 from chik.util.paginator import Paginator
 from chik.util.streamable import Streamable, streamable
@@ -354,7 +353,7 @@ class FarmerRpcApi:
         return self.paginated_plot_path_request(Receiver.duplicates, request_dict)
 
     async def get_pool_login_link(self, request: Dict[str, Any]) -> EndpointResult:
-        launcher_id: bytes32 = bytes32(hexstr_to_bytes(request["launcher_id"]))
+        launcher_id: bytes32 = bytes32.from_hexstr(request["launcher_id"])
         login_link: Optional[str] = await self.service.generate_login_link(launcher_id)
         if login_link is None:
             raise ValueError(f"Failed to generate login link for {launcher_id.hex()}")

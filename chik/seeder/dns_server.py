@@ -17,10 +17,10 @@ import aiosqlite
 from dnslib import AAAA, EDNS0, NS, QTYPE, RCODE, RD, RR, SOA, A, DNSError, DNSHeader, DNSQuestion, DNSRecord
 
 from chik.seeder.crawl_store import CrawlStore
+from chik.server.signal_handlers import SignalHandlers
 from chik.util.chik_logging import initialize_service_logging
 from chik.util.config import load_config, load_config_cli
 from chik.util.default_root import DEFAULT_ROOT_PATH
-from chik.util.misc import SignalHandlers
 from chik.util.path import path_from_root
 
 SERVICE_NAME = "seeder"

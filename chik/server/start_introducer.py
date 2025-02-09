@@ -7,12 +7,12 @@ from typing import Any, Dict, Optional
 from chik.introducer.introducer import Introducer
 from chik.introducer.introducer_api import IntroducerAPI
 from chik.server.outbound_message import NodeType
+from chik.server.signal_handlers import SignalHandlers
 from chik.server.start_service import Service, async_run
 from chik.types.aliases import IntroducerService
 from chik.util.chik_logging import initialize_service_logging
 from chik.util.config import load_config, load_config_cli
 from chik.util.default_root import DEFAULT_ROOT_PATH
-from chik.util.misc import SignalHandlers
 
 # See: https://bugs.python.org/issue29288
 "".encode("idna")

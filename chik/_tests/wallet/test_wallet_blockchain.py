@@ -5,16 +5,15 @@ from typing import List
 import pytest
 
 from chik._tests.util.db_connection import DBConnection
+from chik._tests.util.misc import add_blocks_in_batches
 from chik._tests.util.setup_nodes import OldSimulatorsAndWallets
 from chik.consensus.blockchain import AddBlockResult
 from chik.protocols import full_node_protocol
 from chik.types.blockchain_format.vdf import VDFProof
 from chik.types.full_block import FullBlock
 from chik.types.header_block import HeaderBlock
-from chik.types.peer_info import PeerInfo
 from chik.util.generator_tools import get_block_header
 from chik.util.ints import uint8, uint32
-from chik.util.misc import to_batches
 from chik.wallet.key_val_store import KeyValStore
 from chik.wallet.wallet_blockchain import WalletBlockchain
 
@@ -26,9 +25,7 @@ async def test_wallet_blockchain(
 ) -> None:
     [full_node_api], [(wallet_node, _)], bt = simulator_and_wallet
 
-    for block_batch in to_batches(default_1000_blocks[:600], 64):
-        await full_node_api.full_node.add_block_batch(block_batch.entries, PeerInfo("0.0.0.0", 0), None)
-
+    await add_blocks_in_batches(default_1000_blocks[:600], full_node_api.full_node)
     resp = await full_node_api.request_proof_of_weight(
         full_node_protocol.RequestProofOfWeight(
             uint32(default_1000_blocks[499].height + 1), default_1000_blocks[499].header_hash

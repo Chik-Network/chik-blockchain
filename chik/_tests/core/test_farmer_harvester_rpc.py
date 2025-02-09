@@ -20,7 +20,7 @@ from chik._tests.util.rpc import validate_get_routes
 from chik._tests.util.time_out_assert import time_out_assert, time_out_assert_custom_interval
 from chik.consensus.coinbase import create_puzzlehash_for_pk
 from chik.farmer.farmer import Farmer
-from chik.plot_sync.receiver import Receiver
+from chik.plot_sync.receiver import Receiver, get_list_or_len
 from chik.plotting.util import add_plot_directory
 from chik.protocols import farmer_protocol
 from chik.protocols.harvester_protocol import Plot
@@ -38,7 +38,6 @@ from chik.util.bech32m import decode_puzzle_hash, encode_puzzle_hash
 from chik.util.config import load_config, lock_and_load_config, save_config
 from chik.util.hash import std_hash
 from chik.util.ints import uint8, uint32, uint64
-from chik.util.misc import get_list_or_len
 from chik.wallet.derive_keys import master_sk_to_wallet_sk, master_sk_to_wallet_sk_unhardened
 
 log = logging.getLogger(__name__)

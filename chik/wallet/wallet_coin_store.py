@@ -11,8 +11,7 @@ from chik.util.db_wrapper import DBWrapper2, execute_fetchone
 from chik.util.hash import std_hash
 from chik.util.ints import uint8, uint32, uint64
 from chik.util.lru_cache import LRUCache
-from chik.util.misc import UInt32Range, UInt64Range, VersionedBlob
-from chik.util.streamable import Streamable, streamable
+from chik.util.streamable import Streamable, UInt32Range, UInt64Range, VersionedBlob, streamable
 from chik.wallet.util.query_filter import AmountFilter, FilterMode, HashFilter
 from chik.wallet.util.wallet_types import CoinType, WalletType
 from chik.wallet.wallet_coin_record import WalletCoinRecord
@@ -23,6 +22,7 @@ unspent_range = UInt32Range(stop=uint32(0))
 class CoinRecordOrder(IntEnum):
     confirmed_height = 1
     spent_height = 2
+    amount = 3
 
 
 @streamable

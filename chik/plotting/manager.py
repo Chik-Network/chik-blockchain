@@ -21,7 +21,7 @@ from chik.plotting.util import (
     PlotsRefreshParameter,
     get_plot_filenames,
 )
-from chik.util.misc import to_batches
+from chik.util.batches import to_batches
 
 log = logging.getLogger(__name__)
 

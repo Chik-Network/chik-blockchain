@@ -1,13 +1,9 @@
 from __future__ import annotations
 
-from typing import Dict
 from unittest import TestCase
 
-from chik.full_node.generator import create_block_generator
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.generator_types import GeneratorBlockCacheInterface
-from chik.util.ints import uint32
 
 gen0 = SerializedProgram.from_bytes(
     bytes.fromhex(
@@ -28,20 +24,7 @@ gen2 = SerializedProgram.from_bytes(
 )
 
 
-class BlockDict(GeneratorBlockCacheInterface):
-    def __init__(self, d: Dict[uint32, SerializedProgram]):
-        self.d = d
-
-    def get_generator_for_block_height(self, index: uint32) -> SerializedProgram:
-        return self.d[index]
-
-
 class TestGeneratorTypes(TestCase):
-    def test_make_generator(self) -> None:
-        block_dict = BlockDict({uint32(1): gen1})
-        gen = create_block_generator(gen2, [uint32(1)], block_dict)
-        print(gen)
-
     def test_make_generator_args(self) -> None:
         gen_args = Program.to([[bytes(gen1)]])
 

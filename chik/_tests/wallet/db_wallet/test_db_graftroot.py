@@ -11,10 +11,10 @@ from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import make_spend
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
-from chik.types.spend_bundle import SpendBundle
 from chik.util.errors import Err
 from chik.wallet.puzzles.load_klvm import load_klvm
 from chik.wallet.util.merkle_utils import build_merkle_tree, build_merkle_tree_from_binary_tree, simplify_merkle_proof
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 GRAFTROOT_MOD = load_klvm("graftroot_dl_offers.clsp", package_or_requirement="chik.data_layer.puzzles")
 
@@ -112,7 +112,7 @@ async def test_graftroot(cost_logger: CostLogger) -> None:
                 ),
             )
 
-            final_bundle = SpendBundle([fake_spend, graftroot_spend], G2Element())
+            final_bundle = WalletSpendBundle([fake_spend, graftroot_spend], G2Element())
             result = await sim_client.push_tx(final_bundle)
 
             # If this is the satisfactory merkle tree
@@ -134,7 +134,7 @@ async def test_graftroot(cost_logger: CostLogger) -> None:
                     ACS.curry(fake_struct, ACS.curry(ACS_PH, (bytes32([0] * 32), None), None, None)),
                     Program.to([[[62, "$"]]]),
                 )
-                new_final_bundle = SpendBundle([new_fake_spend, graftroot_spend], G2Element())
+                new_final_bundle = WalletSpendBundle([new_fake_spend, graftroot_spend], G2Element())
                 result = await sim_client.push_tx(new_final_bundle)
                 assert result == (MempoolInclusionStatus.FAILED, Err.ASSERT_ANNOUNCE_CONSUMED_FAILED)
             else:

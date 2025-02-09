@@ -10,20 +10,21 @@ from chik_rs import AugSchemeMPL
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.coin_spend import CoinSpend
-from chik.types.spend_bundle import SpendBundle
 from chik.util.json_util import obj_to_response
 from chik.util.streamable import Streamable
 from chik.wallet.conditions import Condition, ConditionValidTimes, conditions_from_json_dicts, parse_timelock_info
 from chik.wallet.trade_record import TradeRecord
 from chik.wallet.trading.offer import Offer
 from chik.wallet.transaction_record import TransactionRecord
+from chik.wallet.util.blind_signer_tl import BLIND_SIGNER_TRANSLATION
 from chik.wallet.util.klvm_streamable import (
-    byte_serialize_klvm_streamable,
+    TranslationLayer,
     json_deserialize_with_klvm_streamable,
     json_serialize_with_klvm_streamable,
 )
 from chik.wallet.util.transaction_type import TransactionType
 from chik.wallet.util.tx_config import TXConfig, TXConfigLoader
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +33,9 @@ log = logging.getLogger(__name__)
 # This definition is weaker than that one however because the arguments can be anything
 RpcEndpoint = Callable[..., Awaitable[Dict[str, Any]]]
 MarshallableRpcEndpoint = Callable[..., Awaitable[Streamable]]
+
+
+ALL_TRANSLATION_LAYERS: Dict[str, TranslationLayer] = {"CHIP-0028": BLIND_SIGNER_TRANSLATION}
 
 
 def marshal(func: MarshallableRpcEndpoint) -> RpcEndpoint:
@@ -46,7 +50,13 @@ def marshal(func: MarshallableRpcEndpoint) -> RpcEndpoint:
             (
                 request_class.from_json_dict(request)
                 if not request.get("CHIP-0029", False)
-                else json_deserialize_with_klvm_streamable(request, request_hint)
+                else json_deserialize_with_klvm_streamable(
+                    request,
+                    request_hint,
+                    translation_layer=(
+                        ALL_TRANSLATION_LAYERS[request["translation"]] if "translation" in request else None
+                    ),
+                )
             ),
             *args,
             **kwargs,
@@ -54,7 +64,12 @@ def marshal(func: MarshallableRpcEndpoint) -> RpcEndpoint:
         if not request.get("CHIP-0029", False):
             return response_obj.to_json_dict()
         else:
-            response_dict = json_serialize_with_klvm_streamable(response_obj)
+            response_dict = json_serialize_with_klvm_streamable(
+                response_obj,
+                translation_layer=(
+                    ALL_TRANSLATION_LAYERS[request["translation"]] if "translation" in request else None
+                ),
+            )
             if isinstance(response_dict, str):  # pragma: no cover
                 raise ValueError("Internal Error. Marshalled endpoint was made with klvm_streamable.")
             return response_dict
@@ -87,8 +102,6 @@ def wrap_http_handler(f) -> Callable:
 def tx_endpoint(
     push: bool = False,
     merge_spends: bool = True,
-    # The purpose of this is in case endpoints need to raise based on certain non default values
-    requires_default_information: bool = False,
 ) -> Callable[[RpcEndpoint], RpcEndpoint]:
     def _inner(func: RpcEndpoint) -> RpcEndpoint:
         async def rpc_endpoint(self, request: Dict[str, Any], *args, **kwargs) -> Dict[str, Any]:
@@ -137,52 +150,52 @@ def tx_endpoint(
             ):
                 raise ValueError("Relative timelocks are not currently supported in the RPC")
 
-            response: Dict[str, Any] = await func(
-                self,
-                request,
-                *args,
-                *([push] if requires_default_information else []),
-                tx_config=tx_config,
-                extra_conditions=extra_conditions,
-                **kwargs,
-            )
+            async with self.service.wallet_state_manager.new_action_scope(
+                tx_config,
+                push=request.get("push", push),
+                merge_spends=request.get("merge_spends", merge_spends),
+                sign=request.get("sign", self.service.config.get("auto_sign_txs", True)),
+            ) as action_scope:
+                response: Dict[str, Any] = await func(
+                    self,
+                    request,
+                    *args,
+                    action_scope,
+                    extra_conditions=extra_conditions,
+                    **kwargs,
+                )
 
             if func.__name__ == "create_new_wallet" and "transactions" not in response:
                 # unfortunately, this API isn't solely a tx endpoint
                 return response
 
-            tx_records: List[TransactionRecord] = [
-                TransactionRecord.from_json_dict_convenience(tx) for tx in response["transactions"]
-            ]
-            unsigned_txs = await self.service.wallet_state_manager.gather_signing_info_for_txs(tx_records)
+            unsigned_txs = await self.service.wallet_state_manager.gather_signing_info_for_txs(
+                action_scope.side_effects.transactions
+            )
 
-            if not request.get("CHIP-0029", False):
+            if request.get("CHIP-0029", False):
+                response["unsigned_transactions"] = [
+                    json_serialize_with_klvm_streamable(
+                        tx,
+                        translation_layer=(
+                            ALL_TRANSLATION_LAYERS[request["translation"]] if "translation" in request else None
+                        ),
+                    )
+                    for tx in unsigned_txs
+                ]
+            else:
                 response["unsigned_transactions"] = [tx.to_json_dict() for tx in unsigned_txs]
-            else:
-                response["unsigned_transactions"] = [byte_serialize_klvm_streamable(tx).hex() for tx in unsigned_txs]
-
-            new_txs: List[TransactionRecord] = []
-            if request.get("sign", self.service.config.get("auto_sign_txs", True)):
-                new_txs, signing_responses = await self.service.wallet_state_manager.sign_transactions(
-                    tx_records, response.get("signing_responses", []), "signing_responses" in response
-                )
-                response["signing_responses"] = [byte_serialize_klvm_streamable(r).hex() for r in signing_responses]
-            else:
-                new_txs = tx_records  # pragma: no cover
-
-            if request.get("push", push):
-                new_txs = await self.service.wallet_state_manager.add_pending_transactions(
-                    new_txs, merge_spends=merge_spends, sign=False
-                )
 
             response["transactions"] = [
-                TransactionRecord.to_json_dict_convenience(tx, self.service.config) for tx in new_txs
+                TransactionRecord.to_json_dict_convenience(tx, self.service.config)
+                for tx in action_scope.side_effects.transactions
             ]
 
             # Some backwards compatibility code here because transaction information being returned was not uniform
             # until the "transactions" key was applied to all of them. Unfortunately, since .add_pending_transactions
             # now applies transformations to the transactions, we have to special case edit all of the previous
             # spots where the information was being surfaced outside of the knowledge of this wrapper.
+            new_txs = action_scope.side_effects.transactions
             if "transaction" in response:
                 if (
                     func.__name__ == "create_new_wallet"
@@ -192,14 +205,18 @@ def tx_endpoint(
                     or func.__name__ == "pw_absorb_rewards"
                 ):
                     # Theses RPCs return not "convenience" for some reason
-                    response["transaction"] = new_txs[0].to_json_dict()
+                    response["transaction"] = new_txs[-1].to_json_dict()
                 else:
                     response["transaction"] = response["transactions"][0]
             if "tx_record" in response:
                 response["tx_record"] = response["transactions"][0]
-            if "fee_transaction" in response and response["fee_transaction"] is not None:
+            if "fee_transaction" in response:
                 # Theses RPCs return not "convenience" for some reason
-                response["fee_transaction"] = new_txs[1].to_json_dict()
+                fee_transactions = [tx for tx in new_txs if tx.wallet_id == 1]
+                if len(fee_transactions) == 0:
+                    response["fee_transaction"] = None
+                else:
+                    response["fee_transaction"] = fee_transactions[0].to_json_dict()
             if "transaction_id" in response:
                 response["transaction_id"] = new_txs[0].name
             if "transaction_ids" in response:
@@ -207,7 +224,7 @@ def tx_endpoint(
                     tx.name.hex() for tx in new_txs if tx.type == TransactionType.OUTGOING_CLAWBACK.value
                 ]
             if "spend_bundle" in response:
-                response["spend_bundle"] = SpendBundle.aggregate(
+                response["spend_bundle"] = WalletSpendBundle.aggregate(
                     [tx.spend_bundle for tx in new_txs if tx.spend_bundle is not None]
                 )
             if "signed_txs" in response:
@@ -235,7 +252,7 @@ def tx_endpoint(
                 signed_coin_spends.extend(
                     [spend for spend in old_offer._bundle.coin_spends if spend.coin not in involved_coins]
                 )
-                new_offer_bundle: SpendBundle = SpendBundle(
+                new_offer_bundle = WalletSpendBundle(
                     signed_coin_spends,
                     AugSchemeMPL.aggregate(
                         [tx.spend_bundle.aggregated_signature for tx in new_txs if tx.spend_bundle is not None]

@@ -9,8 +9,8 @@ from chik.types.blockchain_format.program import INFINITE_COST
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend
 from chik.types.condition_opcodes import ConditionOpcode
-from chik.types.spend_bundle import SpendBundle
 from chik.util.ints import uint64
+from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 
 def compute_memos_for_spend(coin_spend: CoinSpend) -> Dict[bytes32, List[bytes]]:
@@ -27,7 +27,7 @@ def compute_memos_for_spend(coin_spend: CoinSpend) -> Dict[bytes32, List[bytes]]
     return memos
 
 
-def compute_memos(bundle: SpendBundle) -> Dict[bytes32, List[bytes]]:
+def compute_memos(bundle: WalletSpendBundle) -> Dict[bytes32, List[bytes]]:
     """
     Retrieves the memos for additions in this spend_bundle, which are formatted as a list in the 3rd parameter of
     CREATE_COIN. If there are no memos, the addition coin_id is not included. If they are not formatted as a list

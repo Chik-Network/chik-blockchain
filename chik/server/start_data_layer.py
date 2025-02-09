@@ -8,9 +8,11 @@ from typing import Any, Dict, List, Optional, cast
 from chik.data_layer.data_layer import DataLayer
 from chik.data_layer.data_layer_api import DataLayerAPI
 from chik.data_layer.data_layer_util import PluginRemote
+from chik.data_layer.util.plugin import load_plugin_configurations
 from chik.rpc.data_layer_rpc_api import DataLayerRpcApi
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.server.outbound_message import NodeType
+from chik.server.signal_handlers import SignalHandlers
 from chik.server.start_service import RpcInfo, Service, async_run
 from chik.ssl.create_ssl import create_all_ssl
 from chik.types.aliases import DataLayerService, WalletService
@@ -18,7 +20,6 @@ from chik.util.chik_logging import initialize_logging
 from chik.util.config import load_config, load_config_cli
 from chik.util.default_root import DEFAULT_ROOT_PATH
 from chik.util.ints import uint16
-from chik.util.misc import SignalHandlers
 
 # See: https://bugs.python.org/issue29288
 "".encode("idna")
@@ -100,19 +101,24 @@ async def async_main() -> int:
     )
 
     plugins_config = config["data_layer"].get("plugins", {})
+    service_dir = DEFAULT_ROOT_PATH / SERVICE_NAME
 
     old_uploaders = config["data_layer"].get("uploaders", [])
     new_uploaders = plugins_config.get("uploaders", [])
+    conf_file_uploaders = await load_plugin_configurations(service_dir, "uploaders", log)
     uploaders: List[PluginRemote] = [
         *(PluginRemote(url=url) for url in old_uploaders),
         *(PluginRemote.unmarshal(marshalled=marshalled) for marshalled in new_uploaders),
+        *conf_file_uploaders,
     ]
 
     old_downloaders = config["data_layer"].get("downloaders", [])
     new_downloaders = plugins_config.get("downloaders", [])
+    conf_file_uploaders = await load_plugin_configurations(service_dir, "downloaders", log)
     downloaders: List[PluginRemote] = [
         *(PluginRemote(url=url) for url in old_downloaders),
         *(PluginRemote.unmarshal(marshalled=marshalled) for marshalled in new_downloaders),
+        *conf_file_uploaders,
     ]
 
     service = create_data_layer_service(DEFAULT_ROOT_PATH, config, downloaders, uploaders)
