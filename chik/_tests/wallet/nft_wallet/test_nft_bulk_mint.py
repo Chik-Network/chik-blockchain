@@ -97,7 +97,10 @@ async def test_nft_mint_from_did(
     metadata_list = [
         {
             "program": Program.to(
-                [("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]), ("h", bytes32.random(seeded_random).hex())]
+                [
+                    ("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]),
+                    ("h", bytes32.random(seeded_random).hex()),
+                ]
             ),
             "royalty_pc": royalty_pc,
             "royalty_ph": royalty_addr,
@@ -682,7 +685,10 @@ async def test_nft_mint_from_xck(
     metadata_list = [
         {
             "program": Program.to(
-                [("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]), ("h", bytes32.random(seeded_random).hex())]
+                [
+                    ("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]),
+                    ("h", bytes32.random(seeded_random).hex()),
+                ]
             ),
             "royalty_pc": royalty_pc,
             "royalty_ph": royalty_addr,
