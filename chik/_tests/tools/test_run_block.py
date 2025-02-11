@@ -15,7 +15,7 @@ from chik.util.ints import uint8, uint32, uint64, uint128
 AGG_SIG_DATA = bytes32.fromhex("ae83525ba8d1dd3f09b277de18ca3e43fc0af20d20c4b3e92ef2a48bd291ccb2")
 
 constants = DEFAULT_CONSTANTS.replace(
-    AGG_SIG_ME_ADDITIONAL_DATA=bytes32.fromhex("ae83525ba8d1dd3f09b277de18ca3e43fc0af20d20c4b3e92ef2a48bd291ccb2"),
+    AGG_SIG_ME_ADDITIONAL_DATA=AGG_SIG_DATA,
     AGG_SIG_PARENT_ADDITIONAL_DATA=std_hash(AGG_SIG_DATA + bytes([43])),
     AGG_SIG_PUZZLE_ADDITIONAL_DATA=std_hash(AGG_SIG_DATA + bytes([44])),
     AGG_SIG_AMOUNT_ADDITIONAL_DATA=std_hash(AGG_SIG_DATA + bytes([45])),

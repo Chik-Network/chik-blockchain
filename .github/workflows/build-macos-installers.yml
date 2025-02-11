@@ -272,10 +272,10 @@ jobs:
                 matrix: cli
                 glue-name: cli
             arch:
-              - name: ARM64
-                matrix: arm
-                artifact-name: arm
-                glue-name: arm
+#              - name: ARM64
+#                matrix: arm
+#                artifact-name: arm
+#                glue-name: arm
               - name: Intel
                 matrix: intel
                 artifact-name: intel
@@ -285,10 +285,6 @@ jobs:
                   matrix: macos
                 mode:
                   matrix: cli
-              - os:
-                  matrix: macos
-                arch:
-                  matrix: arm
 
   test:
     name: Test ${{ matrix.os.name }} ${{ matrix.arch.name }}

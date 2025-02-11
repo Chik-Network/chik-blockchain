@@ -323,7 +323,7 @@ async def test_cat_spend(wallet_environments: WalletTestFramework) -> None:
         await cat_wallet.generate_signed_transaction([uint64(60)], [cat_2_hash], action_scope, fee=uint64(1))
     tx_id = None
     for tx_record in action_scope.side_effects.transactions:
-        if tx_record.wallet_id is cat_wallet.id():
+        if tx_record.wallet_id == cat_wallet.id():
             assert tx_record.to_puzzle_hash == cat_2_hash
         if tx_record.spend_bundle is not None:
             tx_id = tx_record.name
