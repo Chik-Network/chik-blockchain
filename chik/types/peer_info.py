@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Union
 
 from chik.util.ints import uint16, uint64
-from chik.util.network import IPAddress
+from chik.util.ip_address import IPAddress
 from chik.util.streamable import Streamable, streamable
 
 

@@ -4,6 +4,7 @@ from typing import Optional
 
 import click
 
+from chik.cmds.cmd_classes import ChikCliContext
 from chik.cmds.cmds_util import NODE_TYPES
 from chik.cmds.peer_funcs import peer_async
 
@@ -42,7 +43,7 @@ def peer_cmd(
         peer_async(
             node_type,
             rpc_port,
-            ctx.obj["root_path"],
+            ChikCliContext.set_default(ctx).root_path,
             connections,
             add_connection,
             remove_connection,

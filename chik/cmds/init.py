@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import click
 
+from chik.cmds.cmd_classes import ChikCliContext
+
 
 @click.command("init", help="Create or migrate the configuration")
 @click.option(
@@ -46,25 +48,16 @@ def init_cmd(
     """
     from pathlib import Path
 
+    from chik.cmds.init_funcs import init
     from chik.cmds.passphrase_funcs import initialize_passphrase
-
-    from .init_funcs import init
 
     if set_passphrase:
         initialize_passphrase()
 
     init(
         Path(create_certs) if create_certs is not None else None,
-        ctx.obj["root_path"],
+        ChikCliContext.set_default(ctx).root_path,
         fix_ssl_permissions,
         testnet,
         v1_db,
     )
-
-
-if __name__ == "__main__":
-    from chik.util.default_root import DEFAULT_ROOT_PATH
-
-    from .init_funcs import chik_init
-
-    chik_init(DEFAULT_ROOT_PATH)

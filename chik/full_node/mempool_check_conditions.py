@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Optional
 
-from chik_rs import DONT_VALIDATE_SIGNATURE, MEMPOOL_MODE, G2Element, get_flags_for_height_and_constants
+from chik_rs import (
+    get_flags_for_height_and_constants,
+    run_chik_program,
+)
 from chik_rs import get_puzzle_and_solution_for_coin2 as get_puzzle_and_solution_for_coin_rust
-from chik_rs import run_block_generator, run_block_generator2, run_chik_program
 
 from chik.consensus.constants import ConsensusConstants
-from chik.consensus.cost_calculator import NPCResult
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.sized_bytes import bytes32
@@ -18,7 +19,7 @@ from chik.types.generator_types import BlockGenerator
 from chik.types.spend_bundle_conditions import SpendBundleConditions
 from chik.util.condition_tools import conditions_for_solution
 from chik.util.errors import Err
-from chik.util.ints import uint16, uint32, uint64
+from chik.util.ints import uint32, uint64
 from chik.wallet.puzzles.load_klvm import load_serialized_klvm_maybe_recompile
 
 DESERIALIZE_MOD = load_serialized_klvm_maybe_recompile(
@@ -26,38 +27,6 @@ DESERIALIZE_MOD = load_serialized_klvm_maybe_recompile(
 )
 
 log = logging.getLogger(__name__)
-
-
-def get_name_puzzle_conditions(
-    generator: BlockGenerator,
-    max_cost: int,
-    *,
-    mempool_mode: bool,
-    height: uint32,
-    constants: ConsensusConstants,
-) -> NPCResult:
-    flags = get_flags_for_height_and_constants(height, constants) | DONT_VALIDATE_SIGNATURE
-
-    if mempool_mode:
-        flags = flags | MEMPOOL_MODE
-
-    if height >= constants.HARD_FORK_HEIGHT:
-        run_block = run_block_generator2
-    else:
-        run_block = run_block_generator
-
-    try:
-        block_args = generator.generator_refs
-        err, result = run_block(bytes(generator.program), block_args, max_cost, flags, G2Element(), None, constants)
-        assert (err is None) != (result is None)
-        if err is not None:
-            return NPCResult(uint16(err), None)
-        else:
-            assert result is not None
-            return NPCResult(None, result)
-    except BaseException:
-        log.exception("get_name_puzzle_condition failed")
-        return NPCResult(uint16(Err.GENERATOR_RUNTIME_ERROR.value), None)
 
 
 def get_puzzle_and_solution_for_coin(
@@ -76,7 +45,7 @@ def get_puzzle_and_solution_for_coin(
         raise ValueError(f"Failed to get puzzle and solution for coin {coin}, error: {e}") from e
 
 
-def get_spends_for_block(generator: BlockGenerator, height: int, constants: ConsensusConstants) -> List[CoinSpend]:
+def get_spends_for_block(generator: BlockGenerator, height: int, constants: ConsensusConstants) -> list[CoinSpend]:
     args = bytearray(b"\xff")
     args += bytes(DESERIALIZE_MOD)
     args += b"\xff"
@@ -90,7 +59,7 @@ def get_spends_for_block(generator: BlockGenerator, height: int, constants: Cons
         get_flags_for_height_and_constants(height, constants),
     )
 
-    spends: List[CoinSpend] = []
+    spends: list[CoinSpend] = []
 
     for spend in Program.to(ret).first().as_iter():
         parent, puzzle, amount, solution = spend.as_iter()
@@ -103,7 +72,7 @@ def get_spends_for_block(generator: BlockGenerator, height: int, constants: Cons
 
 def get_spends_for_block_with_conditions(
     generator: BlockGenerator, height: int, constants: ConsensusConstants
-) -> List[CoinSpendWithConditions]:
+) -> list[CoinSpendWithConditions]:
     args = bytearray(b"\xff")
     args += bytes(DESERIALIZE_MOD)
     args += b"\xff"
@@ -119,7 +88,7 @@ def get_spends_for_block_with_conditions(
         flags,
     )
 
-    spends: List[CoinSpendWithConditions] = []
+    spends: list[CoinSpendWithConditions] = []
 
     for spend in Program.to(ret).first().as_iter():
         parent, puzzle, amount, solution = spend.as_iter()
@@ -133,7 +102,7 @@ def get_spends_for_block_with_conditions(
 
 
 def mempool_check_time_locks(
-    removal_coin_records: Dict[bytes32, CoinRecord],
+    removal_coin_records: dict[bytes32, CoinRecord],
     bundle_conds: SpendBundleConditions,
     prev_transaction_block_height: uint32,
     timestamp: uint64,

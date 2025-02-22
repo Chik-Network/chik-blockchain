@@ -2,7 +2,15 @@ name: identify version
 
 on:
   workflow_call:
+    inputs:
+      release_type:
+        description: "Tagged release testing scenario"
+        required: false
+        type: string
+        default: ""
     outputs:
+      chik-dev-version:
+        value: ${{ jobs.version.outputs.chik-dev-version }}
       chik-installer-version:
         value: ${{ jobs.version.outputs.chik-installer-version }}
       tag-type:

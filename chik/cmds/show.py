@@ -4,6 +4,7 @@ from typing import Optional
 
 import click
 
+from chik.cmds.cmd_classes import ChikCliContext
 from chik.cmds.show_funcs import show_async
 
 
@@ -62,7 +63,7 @@ def show_cmd(
     asyncio.run(
         show_async(
             rpc_port,
-            ctx.obj["root_path"],
+            ChikCliContext.set_default(ctx).root_path,
             fee,
             state,
             block_header_hash_by_height,

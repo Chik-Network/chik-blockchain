@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
 
 from chik.util.ints import uint8, uint32
 from chik.util.streamable import Streamable, streamable
@@ -33,4 +32,4 @@ class WalletInfoBackup(Streamable):
     Used for transforming list of WalletInfo objects into bytes.
     """
 
-    wallet_list: List[WalletInfo]
+    wallet_list: list[WalletInfo]

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any
 
+from chik.consensus.constants import ConsensusConstants
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.hash import std_hash
 from chik.util.ints import uint8, uint16, uint32, uint64, uint128
-
-from .constants import ConsensusConstants
 
 AGG_SIG_DATA = bytes32.fromhex("6952ce05c863008c10b211baab87ee58e11c52fda1b9a13d0190d48d6b18354b")
 
@@ -84,7 +83,7 @@ DEFAULT_CONSTANTS = ConsensusConstants(
 )
 
 
-def update_testnet_overrides(network_id: str, overrides: Dict[str, Any]) -> None:
+def update_testnet_overrides(network_id: str, overrides: dict[str, Any]) -> None:
     if network_id == "testnet11":
         if "SOFT_FORK6_HEIGHT" not in overrides:
             overrides["SOFT_FORK6_HEIGHT"] = 2000000

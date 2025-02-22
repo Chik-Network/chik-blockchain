@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from typing import List
-
 import pytest
 
 from chik._tests.util.db_connection import DBConnection
-from chik._tests.util.misc import add_blocks_in_batches
 from chik._tests.util.setup_nodes import OldSimulatorsAndWallets
 from chik.consensus.blockchain import AddBlockResult
 from chik.protocols import full_node_protocol
+from chik.simulator.add_blocks_in_batches import add_blocks_in_batches
 from chik.types.blockchain_format.vdf import VDFProof
 from chik.types.full_block import FullBlock
 from chik.types.header_block import HeaderBlock
@@ -21,7 +19,7 @@ from chik.wallet.wallet_blockchain import WalletBlockchain
 @pytest.mark.anyio
 @pytest.mark.standard_block_tools
 async def test_wallet_blockchain(
-    simulator_and_wallet: OldSimulatorsAndWallets, default_1000_blocks: List[FullBlock]
+    simulator_and_wallet: OldSimulatorsAndWallets, default_1000_blocks: list[FullBlock]
 ) -> None:
     [full_node_api], [(wallet_node, _)], bt = simulator_and_wallet
 
@@ -75,9 +73,9 @@ async def test_wallet_blockchain(
         assert peak_block is not None
         assert peak_block.height == 505
 
-        header_blocks: List[HeaderBlock] = []
+        header_blocks: list[HeaderBlock] = []
         for block in default_1000_blocks:
-            header_block = get_block_header(block, [], [])
+            header_block = get_block_header(block)
             header_blocks.append(header_block)
 
         res, err = await chain.add_block(header_blocks[50])

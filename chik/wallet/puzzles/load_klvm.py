@@ -6,7 +6,6 @@ import os
 import pathlib
 import sys
 import tempfile
-from typing import List
 
 import importlib_resources
 from klvm_tools_rs import compile_klvm as compile_klvm_rust
@@ -40,7 +39,7 @@ if "KLVM_TOOLS" in os.environ:
     compile_klvm_py = compile_klvm_py_candidate
 
 
-def compile_klvm_in_lock(full_path: pathlib.Path, output: pathlib.Path, search_paths: List[pathlib.Path]):
+def compile_klvm_in_lock(full_path: pathlib.Path, output: pathlib.Path, search_paths: list[pathlib.Path]):
     # Compile using rust (default)
 
     # Ensure path translation is done in the idiomatic way currently
@@ -75,7 +74,7 @@ def compile_klvm_in_lock(full_path: pathlib.Path, output: pathlib.Path, search_p
     return res
 
 
-def compile_klvm(full_path: pathlib.Path, output: pathlib.Path, search_paths: List[pathlib.Path] = []):
+def compile_klvm(full_path: pathlib.Path, output: pathlib.Path, search_paths: list[pathlib.Path] = []):
     with Lockfile.create(pathlib.Path(tempfile.gettempdir()) / "klvm_compile" / full_path.name):
         compile_klvm_in_lock(full_path, output, search_paths)
 

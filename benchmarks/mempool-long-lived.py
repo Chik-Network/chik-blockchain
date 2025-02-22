@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Collection
 from dataclasses import dataclass
 from time import monotonic
-from typing import Collection, Dict, List, Optional
+from typing import Optional
 
 from chik_rs import G2Element
 from klvm.casts import int_to_bytes
@@ -16,6 +17,7 @@ from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.coin_spend import CoinSpend
 from chik.types.condition_opcodes import ConditionOpcode
+from chik.types.eligible_coin_spends import UnspentLineageInfo
 from chik.types.spend_bundle import SpendBundle
 from chik.util.ints import uint32, uint64
 
@@ -79,19 +81,25 @@ def fake_block_record(block_height: uint32, timestamp: uint64) -> BenchBlockReco
 
 
 async def run_mempool_benchmark() -> None:
-    coin_records: Dict[bytes32, CoinRecord] = {}
+    coin_records: dict[bytes32, CoinRecord] = {}
 
-    async def get_coin_record(coin_ids: Collection[bytes32]) -> List[CoinRecord]:
-        ret: List[CoinRecord] = []
+    async def get_coin_record(coin_ids: Collection[bytes32]) -> list[CoinRecord]:
+        ret: list[CoinRecord] = []
         for name in coin_ids:
             r = coin_records.get(name)
             if r is not None:
                 ret.append(r)
         return ret
 
+    # We currently don't need to keep track of these for our purpose
+    async def get_unspent_lineage_info_for_puzzle_hash(_: bytes32) -> Optional[UnspentLineageInfo]:
+        assert False
+
     timestamp = uint64(1631794488)
 
-    mempool = MempoolManager(get_coin_record, DEFAULT_CONSTANTS, single_threaded=True)
+    mempool = MempoolManager(
+        get_coin_record, get_unspent_lineage_info_for_puzzle_hash, DEFAULT_CONSTANTS, single_threaded=True
+    )
 
     print("\nrunning add_spend_bundle() + new_peak()")
 

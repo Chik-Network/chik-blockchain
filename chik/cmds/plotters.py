@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import click
 
+from chik.cmds.cmd_classes import ChikCliContext
 from chik.plotters.plotters import call_plotters
 
 
@@ -14,4 +15,4 @@ from chik.plotters.plotters import call_plotters
 @click.pass_context
 @click.argument("args", nargs=-1)
 def plotters_cmd(ctx: click.Context, args: tuple[click.Argument]) -> None:
-    call_plotters(ctx.obj["root_path"], args)
+    call_plotters(ChikCliContext.set_default(ctx).root_path, args)

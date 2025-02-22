@@ -10,7 +10,6 @@ chik.plotters.plotters_util
 chik.plotting.manager
 chik.plotting.util
 chik.rpc.rpc_client
-chik.rpc.util
 chik.simulator.full_node_simulator
 chik.simulator.keyring
 chik.simulator.wallet_tools
@@ -70,7 +69,6 @@ chik._tests.core.test_daemon_rpc
 chik._tests.core.test_db_conversion
 chik._tests.core.test_filter
 chik._tests.core.test_full_node_rpc
-chik._tests.core.util.test_cached_bls
 chik._tests.core.util.test_config
 chik._tests.core.util.test_file_keyring_synchronization
 chik._tests.core.util.test_files
@@ -79,20 +77,15 @@ chik._tests.core.util.test_keyring_wrapper
 chik._tests.core.util.test_lru_cache
 chik._tests.core.util.test_significant_bits
 chik._tests.plotting.test_plot_manager
-chik._tests.pools.test_pool_cmdline
 chik._tests.pools.test_pool_config
 chik._tests.pools.test_pool_puzzles_lifecycle
 chik._tests.pools.test_wallet_pool_store
 chik._tests.simulation.test_simulation
 chik._tests.tools.test_run_block
 chik._tests.util.benchmark_cost
-chik._tests.util.generator_tools_testing
 chik._tests.util.test_full_block_utils
 chik._tests.util.test_misc
-chik._tests.util.test_network
 chik._tests.util.time_out_assert
 chik._tests.wallet.did_wallet.test_did
 chik._tests.wallet.rpc.test_wallet_rpc
-chik._tests.wallet.test_taproot
 tools.analyze-chain
-tools.run_block

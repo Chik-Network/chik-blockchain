@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Tuple
 
 from chik.types.coin_spend import CoinSpend
 from chik.util.db_wrapper import DBWrapper2
@@ -89,7 +88,7 @@ class WalletPoolStore:
             )
             await cursor.close()
 
-    async def get_spends_for_wallet(self, wallet_id: int) -> List[Tuple[uint32, CoinSpend]]:
+    async def get_spends_for_wallet(self, wallet_id: int) -> list[tuple[uint32, CoinSpend]]:
         """
         Retrieves all entries for a wallet ID.
         """

@@ -13,8 +13,7 @@ the doctor ordered.
 from __future__ import annotations
 
 from chik.types.blockchain_format.program import Program
-
-from .load_klvm import load_klvm_maybe_recompile
+from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
 
 MOD = load_klvm_maybe_recompile("p2_conditions.clsp")
 

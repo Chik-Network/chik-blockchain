@@ -5,9 +5,8 @@ from typing import TypeVar
 import chik_rs
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
+from chik.types.coin_spend import compute_additions_with_cost
 from chik.util.errors import Err, ValidationError
-
-from .coin_spend import compute_additions_with_cost
 
 SpendBundle = chik_rs.SpendBundle
 T_SpendBundle = TypeVar("T_SpendBundle", bound="SpendBundle")

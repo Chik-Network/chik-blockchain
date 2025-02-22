@@ -55,7 +55,7 @@ def get_chik_version() -> str:
     chik_executable = shutil.which("chik")
     if chik_executable is None:
         chik_executable = "chik"
-    output = subprocess.run([chik_executable, "version"], capture_output=True)
+    output = subprocess.run([chik_executable, "version"], capture_output=True, check=False)
     if output.returncode == 0:
         version = str(output.stdout.strip(), "utf-8").splitlines()[-1]
     return make_semver(version)

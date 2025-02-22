@@ -7,6 +7,7 @@ import click
 
 from chik import __version__
 from chik.cmds.beta import beta_cmd
+from chik.cmds.cmd_classes import ChikCliContext
 from chik.cmds.completion import completion
 from chik.cmds.configure import configure_cmd
 from chik.cmds.dao import dao_cmd
@@ -27,12 +28,15 @@ from chik.cmds.show import show_cmd
 from chik.cmds.start import start_cmd
 from chik.cmds.stop import stop_cmd
 from chik.cmds.wallet import wallet_cmd
-from chik.util.default_root import DEFAULT_KEYS_ROOT_PATH, DEFAULT_ROOT_PATH
+from chik.util.default_root import DEFAULT_KEYS_ROOT_PATH, resolve_root_path
 from chik.util.errors import KeychainCurrentPassphraseIsInvalid
 from chik.util.keychain import Keychain, set_keys_root_path
 from chik.util.ssl_check import check_ssl
 
-CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+CONTEXT_SETTINGS = {
+    "help_option_names": ["-h", "--help"],
+    "show_default": True,
+}
 
 
 @click.group(
@@ -40,7 +44,13 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     epilog="Try 'chik start node', 'chik netspace -d 192', or 'chik show -s'",
     context_settings=CONTEXT_SETTINGS,
 )
-@click.option("--root-path", default=DEFAULT_ROOT_PATH, help="Config file root", type=click.Path(), show_default=True)
+@click.option(
+    "--root-path",
+    default=resolve_root_path(override=None),
+    help="Config file root",
+    type=click.Path(),
+    show_default=True,
+)
 @click.option(
     "--keys-root-path", default=DEFAULT_KEYS_ROOT_PATH, help="Keyring file root", type=click.Path(), show_default=True
 )
@@ -54,8 +64,8 @@ def cli(
 ) -> None:
     from pathlib import Path
 
-    ctx.ensure_object(dict)
-    ctx.obj["root_path"] = Path(root_path)
+    context = ChikCliContext.set_default(ctx=ctx)
+    context.root_path = Path(root_path)
 
     # keys_root_path and passphrase_file will be None if the passphrase options have been
     # scrubbed from the CLI options
@@ -107,7 +117,7 @@ def run_daemon_cmd(ctx: click.Context, wait_for_unlock: bool) -> None:
 
     wait_for_unlock = wait_for_unlock and Keychain.is_keyring_locked()
 
-    asyncio.run(async_run_daemon(ctx.obj["root_path"], wait_for_unlock=wait_for_unlock))
+    asyncio.run(async_run_daemon(ChikCliContext.set_default(ctx).root_path, wait_for_unlock=wait_for_unlock))
 
 
 cli.add_command(keys_cmd)
@@ -134,9 +144,7 @@ cli.add_command(dev_cmd)
 
 
 def main() -> None:
-    import chik.cmds.signer  # noqa
-
-    cli()  # pylint: disable=no-value-for-parameter
+    cli()
 
 
 if __name__ == "__main__":

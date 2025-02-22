@@ -4,6 +4,8 @@ from typing import Optional
 
 import click
 
+from chik.cmds.cmd_classes import ChikCliContext
+
 
 @click.group("farm", help="Manage your farm")
 def farm_cmd() -> None:
@@ -49,7 +51,9 @@ def farm_cmd() -> None:
     default=None,
     show_default=True,
 )
+@click.pass_context
 def summary_cmd(
+    ctx: click.Context,
     rpc_port: Optional[int],
     wallet_rpc_port: Optional[int],
     harvester_rpc_port: Optional[int],
@@ -57,9 +61,17 @@ def summary_cmd(
 ) -> None:
     import asyncio
 
-    from .farm_funcs import summary
+    from chik.cmds.farm_funcs import summary
 
-    asyncio.run(summary(rpc_port, wallet_rpc_port, harvester_rpc_port, farmer_rpc_port))
+    asyncio.run(
+        summary(
+            rpc_port,
+            wallet_rpc_port,
+            harvester_rpc_port,
+            farmer_rpc_port,
+            root_path=ChikCliContext.set_default(ctx).root_path,
+        )
+    )
 
 
 @farm_cmd.command("challenges", help="Show the latest challenges")
@@ -79,9 +91,10 @@ def summary_cmd(
     default=20,
     show_default=True,
 )
-def challenges_cmd(farmer_rpc_port: Optional[int], limit: int) -> None:
+@click.pass_context
+def challenges_cmd(ctx: click.Context, farmer_rpc_port: Optional[int], limit: int) -> None:
     import asyncio
 
-    from .farm_funcs import challenges
+    from chik.cmds.farm_funcs import challenges
 
-    asyncio.run(challenges(farmer_rpc_port, limit))
+    asyncio.run(challenges(ChikCliContext.set_default(ctx).root_path, farmer_rpc_port, limit))

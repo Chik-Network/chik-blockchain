@@ -2,18 +2,19 @@ from __future__ import annotations
 
 import logging
 import pathlib
-from typing import List
 
 import pytest
 from chik_rs import G1Element
 from klvm_tools import binutils
 
+from chik._tests.core.make_block_generator import make_block_generator
+from chik._tests.util.get_name_puzzle_conditions import get_name_puzzle_conditions
 from chik._tests.util.misc import BenchmarkRunner
 from chik.consensus.condition_costs import ConditionCost
 from chik.consensus.cost_calculator import NPCResult
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.full_node.bundle_tools import simple_solution_generator
-from chik.full_node.mempool_check_conditions import get_name_puzzle_conditions, get_puzzle_and_solution_for_coin
+from chik.full_node.mempool_check_conditions import get_puzzle_and_solution_for_coin
 from chik.simulator.block_tools import BlockTools, test_constants
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
@@ -22,8 +23,6 @@ from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.generator_types import BlockGenerator
 from chik.util.ints import uint32, uint64
 from chik.wallet.puzzles import p2_delegated_puzzle_or_hidden_puzzle
-
-from .make_block_generator import make_block_generator
 
 BURN_PUZZLE_HASH = bytes32(b"0" * 32)
 SMALL_BLOCK_GENERATOR = make_block_generator(1)
@@ -277,7 +276,7 @@ async def test_standard_tx(benchmark_runner: BenchmarkRunner) -> None:
     with benchmark_runner.assert_runtime(seconds=0.1):
         total_cost = 0
         for i in range(0, 1000):
-            cost, result = puzzle_program.run_with_cost(test_constants.MAX_BLOCK_COST_KLVM, solution_program)
+            cost, _result = puzzle_program.run_with_cost(test_constants.MAX_BLOCK_COST_KLVM, solution_program)
             total_cost += cost
 
 
@@ -293,7 +292,7 @@ async def test_get_puzzle_and_solution_for_coin_performance(benchmark_runner: Be
     )
 
     coin_spends = result.first()
-    spent_coins: List[Coin] = []
+    spent_coins: list[Coin] = []
     for spend in coin_spends.as_iter():
         parent, puzzle, amount_program, _ = spend.as_iter()
         parent_coin_info = parent.as_atom()

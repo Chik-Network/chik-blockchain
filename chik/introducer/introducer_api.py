@@ -1,22 +1,28 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, ClassVar, Optional, cast
 
 from chik.introducer.introducer import Introducer
 from chik.protocols.introducer_protocol import RequestPeersIntroducer, RespondPeersIntroducer
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.rpc.rpc_server import StateChangedProtocol
+from chik.server.api_protocol import ApiMetadata
 from chik.server.outbound_message import Message, make_msg
 from chik.server.ws_connection import WSChikConnection
 from chik.types.peer_info import TimestampedPeerInfo
-from chik.util.api_decorators import api_request
 from chik.util.ints import uint64
 
 
 class IntroducerAPI:
+    if TYPE_CHECKING:
+        from chik.server.api_protocol import ApiProtocol
+
+        _protocol_check: ClassVar[ApiProtocol] = cast("IntroducerAPI", None)
+
     log: logging.Logger
     introducer: Introducer
+    metadata: ClassVar[ApiMetadata] = ApiMetadata()
 
     def __init__(self, introducer) -> None:
         self.log = logging.getLogger(__name__)
@@ -28,7 +34,7 @@ class IntroducerAPI:
     def _set_state_changed_callback(self, callback: StateChangedProtocol) -> None:
         pass
 
-    @api_request(peer_required=True)
+    @metadata.request(peer_required=True)
     async def request_peers_introducer(
         self,
         request: RequestPeersIntroducer,

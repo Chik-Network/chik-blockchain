@@ -5,15 +5,17 @@ import logging
 import shutil
 import tempfile
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, Iterator, List, Optional, cast
+from typing import Callable, Optional, cast
 
 import aiosqlite
 import zstd
 
 from chik._tests.util.constants import test_constants as TEST_CONSTANTS
 from chik.cmds.init_funcs import chik_init
+from chik.consensus.block_body_validation import ForkInfo
 from chik.consensus.constants import replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.consensus.difficulty_adjustment import get_next_sub_slot_iters_and_difficulty
@@ -25,6 +27,7 @@ from chik.simulator.block_tools import make_unfinished_block
 from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.full_block import FullBlock
 from chik.types.peer_info import PeerInfo
+from chik.types.validation_state import ValidationState
 from chik.util.config import load_config
 from chik.util.ints import uint16
 
@@ -57,13 +60,13 @@ def enable_profiler(profile: bool, counter: int) -> Iterator[None]:
 
 class FakeServer:
     async def send_to_all(
-        self, messages: List[Message], node_type: NodeType, exclude: Optional[bytes32] = None
+        self, messages: list[Message], node_type: NodeType, exclude: Optional[bytes32] = None
     ) -> None:
         pass
 
     async def send_to_all_if(
         self,
-        messages: List[Message],
+        messages: list[Message],
         node_type: NodeType,
         predicate: Callable[[WSChikConnection], bool],
         exclude: Optional[bytes32] = None,
@@ -78,7 +81,7 @@ class FakeServer:
 
     def get_connections(
         self, node_type: Optional[NodeType] = None, *, outbound: Optional[bool] = False
-    ) -> List[WSChikConnection]:
+    ) -> list[WSChikConnection]:
         return []
 
     def is_duplicate_or_self_connection(self, target_node: PeerInfo) -> bool:
@@ -206,8 +209,13 @@ async def run_sync_test(
                             ssi, diff = get_next_sub_slot_iters_and_difficulty(
                                 full_node.constants, True, block_record, full_node.blockchain
                             )
-                            success, summary, _, _, _, _ = await full_node.add_block_batch(
-                                block_batch, peer_info, None, current_ssi=ssi, current_difficulty=diff
+                            fork_height = block_batch[0].height - 1
+                            header_hash = block_batch[0].prev_header_hash
+                            success, summary = await full_node.add_block_batch(
+                                block_batch,
+                                peer_info,
+                                ForkInfo(fork_height, fork_height, header_hash),
+                                ValidationState(ssi, diff, None),
                             )
                             end_height = block_batch[-1].height
                             full_node.blockchain.clean_block_record(end_height - full_node.constants.BLOCKS_CACHE_SIZE)
