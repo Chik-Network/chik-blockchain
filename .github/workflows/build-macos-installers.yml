@@ -57,10 +57,10 @@ jobs:
             name: intel
             bladebit-suffix: macos-x86-64.tar.gz
             arch-artifact-name: intel
-#          - runs-on: macos-14
-#            name: m1
-#            bladebit-suffix: macos-arm64.tar.gz
-#            arch-artifact-name: arm
+          - runs-on: macos-14
+            name: m1
+            bladebit-suffix: macos-arm64.tar.gz
+            arch-artifact-name: arm
 
     env:
       CHIK_INSTALLER_VERSION: ${{ needs.version.outputs.chik-installer-version }}
@@ -274,10 +274,10 @@ jobs:
                 matrix: cli
                 glue-name: cli
             arch:
-#              - name: ARM64
-#                matrix: arm
-#                artifact-name: arm
-#                glue-name: arm
+              - name: ARM64
+                matrix: arm
+                artifact-name: arm
+                glue-name: arm
               - name: Intel
                 matrix: intel
                 artifact-name: intel
@@ -307,9 +307,9 @@ jobs:
             runs-on:
               arm: macos-14
         arch:
-#          - name: ARM64
-#            matrix: arm
-#            artifact-name: arm
+          - name: ARM64
+            matrix: arm
+            artifact-name: arm
           - name: Intel
             matrix: intel
             artifact-name: intel
