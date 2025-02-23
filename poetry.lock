@@ -734,110 +734,51 @@ files = [
 ]
 
 [[package]]
-name = "chia-base"
+name = "chik-base"
 version = "0.1.7"
-description = "Common types and simple utilities used through chia code base"
+description = "Common types and simple utilities used through chik code base"
 optional = false
 python-versions = "*"
 files = [
-    {file = "chia_base-0.1.7.tar.gz", hash = "sha256:d7bc3ab3c550ea2d0defb488d1e480b12abcf2c8966de616e6dc2e49e33e8456"},
+    {file = "chik_base-0.1.7-py3-none-any.whl", hash = "sha256:f0dfd672a966d06856176a6be0e09eca578a6b12009e082900d45e0a62e741f1"},
+    {file = "chik_base-0.1.7.tar.gz", hash = "sha256:625d6f9b3bc0552a16253d7122be412879fc24b73fe11f018d7057dbccc35d8c"},
 ]
 
 [package.dependencies]
-chia_rs = ">=0.5.2"
-clvm_rs = "0.2.5"
+chik-rs = ">=0.5.2"
+klvm-rs = "0.2.5"
 
 [package.extras]
 dev = ["black (>=23.1.0)", "pytest (>=7.2.1)", "ruff (>=0.0.252)"]
 
 [[package]]
-name = "chia-rs"
-version = "0.20.0"
-description = "Code useful for implementing chia consensus."
-optional = false
-python-versions = "*"
-files = [
-    {file = "chia_rs-0.20.0-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:06be5a69ba9c03b7abb2b354c6a110863213212436fa5afa66a615f520a58132"},
-    {file = "chia_rs-0.20.0-cp310-cp310-macosx_13_0_x86_64.whl", hash = "sha256:edf9083212a8a2dab725d2952769d862de22f7b04e90488362111354ceac7572"},
-    {file = "chia_rs-0.20.0-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:65a6030fec172fa01c1128d2b9097f620298dfa3c4c827b5efaf37390487dd28"},
-    {file = "chia_rs-0.20.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:c230174b7e0b569a210cfe59a2fae3e1a87508dd05752af3aaad1abb68322586"},
-    {file = "chia_rs-0.20.0-cp310-cp310-win_amd64.whl", hash = "sha256:831b541f0e8927d717a0e5c1897803be658e052395b49ef2ed488e9b18300b34"},
-    {file = "chia_rs-0.20.0-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:47e594e22c9ddafb3a2111474f0e834eefdd89dc589718f6127f12d8dca7cdea"},
-    {file = "chia_rs-0.20.0-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:9160586d99ea64e17a438c8465ba63d3f60218e857915fd88ae3b5707cd90be4"},
-    {file = "chia_rs-0.20.0-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:4a72b9491fd1434c89f71d30fc102b98fc6b4bdb9a5e0b063267bb03a31f5842"},
-    {file = "chia_rs-0.20.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:65cd12ce7f18488bc9a35d1557b27c5a5370d140dd363ae09ae9fbfad40b4bc6"},
-    {file = "chia_rs-0.20.0-cp311-cp311-win_amd64.whl", hash = "sha256:bf5bd988ea1b10d2ca8ab5f70ee3153ce022ae7dc5e22e5be8b267980a386ebb"},
-    {file = "chia_rs-0.20.0-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:60d67f80a171003f4596423c52ba2bf525f016b6613c687843535cdeb74d68ca"},
-    {file = "chia_rs-0.20.0-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:abc87ec3671dbdcba393903637669b6fce5853e7a218dc0a63eef5d2b1edd01c"},
-    {file = "chia_rs-0.20.0-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:8f30e039b0b5a3cf0e369bacccf94a9b5a5f4006b9b85088c9cdc6404cd55cfc"},
-    {file = "chia_rs-0.20.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:3e4b2c474ea83c996a5d13179de1ab1bf20df8d29a8a7a95318384b5b5c943af"},
-    {file = "chia_rs-0.20.0-cp312-cp312-win_amd64.whl", hash = "sha256:f8c6471f26e9f3aa49b71938670c483225886432b898f0aa057511be2d529cdc"},
-    {file = "chia_rs-0.20.0-cp39-cp39-macosx_13_0_arm64.whl", hash = "sha256:ef7b3d937ff3c1b4fbe962b5b268c7463bd1498554ce4bd27786f1e772d26df9"},
-    {file = "chia_rs-0.20.0-cp39-cp39-macosx_13_0_x86_64.whl", hash = "sha256:13cf9971c18d00945c567d4a726786b40d8bb4adcb881539a44075322fd8e4b8"},
-    {file = "chia_rs-0.20.0-cp39-cp39-manylinux_2_28_aarch64.whl", hash = "sha256:6787a107dc2d9fec46bbd092dbd54366bd9e4199bfab40916abd48c71b867a1d"},
-    {file = "chia_rs-0.20.0-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:3390cb1cfb172ed866634eef9a8a3abbdce4d758f2800aae757af1b9a0057329"},
-    {file = "chia_rs-0.20.0-cp39-cp39-win_amd64.whl", hash = "sha256:3307959b4b6887525e33199f75911c8bf9ae7e22274ac39a618a1fc01f5a8e61"},
-    {file = "chia_rs-0.20.0.tar.gz", hash = "sha256:ee6d2ed40719a6e1847cac92646e844ac27780986a2319bf53ab948f77fde113"},
-]
-
-[package.dependencies]
-typing-extensions = "*"
-
-[[package]]
-name = "chialisp-loader"
-version = "0.1.2"
-description = "Provides `load_puzzle` which dynamic rebuilds if `chialisp_builder` is available."
-optional = false
-python-versions = "*"
-files = [
-    {file = "chialisp_loader-0.1.2.tar.gz", hash = "sha256:085080fc7d4a3fab90fe93db3c599391b869047846608da1ae92b54b4100e8a6"},
-]
-
-[package.dependencies]
-clvm_rs = "*"
-importlib_resources = "*"
-
-[[package]]
-name = "chialisp-puzzles"
-version = "0.1.1"
-description = "Some canonical puzzles deployed on chia-blockchain"
-optional = false
-python-versions = "*"
-files = [
-    {file = "chialisp_puzzles-0.1.1.tar.gz", hash = "sha256:d474fa44d070da6a44e236bbabb6baefb38ff6b24049399924d2d9e638fa66a8"},
-]
-
-[package.dependencies]
-chialisp_loader = ">=0.1.2"
-
-[[package]]
 name = "chik-rs"
-version = "0.18.0"
+version = "0.20.0"
 description = "Code useful for implementing chik consensus."
 optional = false
 python-versions = "*"
 files = [
-    {file = "chik_rs-0.18.0-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:5a3da0aa1f0d21bded0a8c5d34197f931ca9e46688aec3ec05771cca0ba0af5f"},
-    {file = "chik_rs-0.18.0-cp310-cp310-macosx_13_0_x86_64.whl", hash = "sha256:2226a3d12ef37fc2c5d508139a32ed74f95cdac88022685c995cb4d24d83c313"},
-    {file = "chik_rs-0.18.0-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:825835641ba4c12c732da92e238c05e3b19d2477bfbd8e181232f18b3f1f6c16"},
-    {file = "chik_rs-0.18.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:9f417f202fdaf7094e8fcaa74aa5395ae64b5a11efbee5b14d1387e105d12dd9"},
-    {file = "chik_rs-0.18.0-cp310-cp310-win_amd64.whl", hash = "sha256:2dc6ac228c937ec64038b02381ef4cbd926ccdfcea5a569d20b85abb5610f876"},
-    {file = "chik_rs-0.18.0-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:6ba5531243ebefb75726b2f80bc924426b169941d7a6db1cc0833a6d02c344da"},
-    {file = "chik_rs-0.18.0-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:9525a55c549d4c27535207bc3798606be1b3e1df4f00a7f4de841c7dee8e1a83"},
-    {file = "chik_rs-0.18.0-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:0166b6671695751f7d09f0ad00b849ac6896d4bada1cfb93fb3624ca42a574f6"},
-    {file = "chik_rs-0.18.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:58dfbc1f48065961a83b7834a93a581d06215d18b91c6a228f7b100ec3d408f7"},
-    {file = "chik_rs-0.18.0-cp311-cp311-win_amd64.whl", hash = "sha256:a6da4cddb8289b3df4b4ff87e7c18376f69cc07e3797ce650eca0b5e46a83c25"},
-    {file = "chik_rs-0.18.0-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:6cc9baec567dad96c435a7ac3d2058898ef609e9de367b3d058eaf4157e32b90"},
-    {file = "chik_rs-0.18.0-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:4033c26b09e0e048921184bf791a3278476f9a76c1f90be215e6066fb5629e02"},
-    {file = "chik_rs-0.18.0-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:9af1257f16db7be90d54797dbc11f1ccf5060cb79a388e2c65c49d1eebbcc840"},
-    {file = "chik_rs-0.18.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:5023aa5ccc8d49189dc5c76c2d3faf087c5554f1a341e31d543a0a00dd3a0eb8"},
-    {file = "chik_rs-0.18.0-cp312-cp312-win_amd64.whl", hash = "sha256:3ae8cd4a1198966284f53274914dfab2decafcd49a6454c1891ba8688300b8c7"},
-    {file = "chik_rs-0.18.0-cp39-cp39-macosx_13_0_arm64.whl", hash = "sha256:433c0e9909d56de796394feb69dfc9ecbd02e9ddf241a07effd86058d9aaf941"},
-    {file = "chik_rs-0.18.0-cp39-cp39-macosx_13_0_x86_64.whl", hash = "sha256:c28da5d51b3b04efd07862fbfbd79c6a79b2f0f13942f21c340b492fe197db46"},
-    {file = "chik_rs-0.18.0-cp39-cp39-manylinux_2_28_aarch64.whl", hash = "sha256:9414452351de9630489bccc0b31cb64ad84850232dcdb67c80cf7adf7b2b7970"},
-    {file = "chik_rs-0.18.0-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:6ede18e8891697dc8d11a017df8af346ebec1e74ecc6caeca7286ad613259823"},
-    {file = "chik_rs-0.18.0-cp39-cp39-win_amd64.whl", hash = "sha256:32d51d4aa65d0a442639f0ec273d9a6f5e5685cdd03a4d9bdaf2f550c14825b3"},
-    {file = "chik_rs-0.18.0.tar.gz", hash = "sha256:fe9372e44bf2d1546a37c2fb3c8e14cdf820297c4c626c4288f847ddab91a5d5"},
+    {file = "chik_rs-0.20.0-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:6337bcc273f2494d83f0a6c2014355a5e4b7b83acecf5ef9aab3ca6c887e8f03"},
+    {file = "chik_rs-0.20.0-cp310-cp310-macosx_13_0_x86_64.whl", hash = "sha256:c56b10dd68b13ecc9a5baba3f203d878a9fa7d5e108587e5eb695783d5d83963"},
+    {file = "chik_rs-0.20.0-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:6e58b53b3b0511ac9541a20bcd6331621b5c6af4da94d28e43d169d2215e6fb4"},
+    {file = "chik_rs-0.20.0-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:39c5f1dc66e3061984ee11baac15ff64d0bff2b6a92d279404b417286963b0d7"},
+    {file = "chik_rs-0.20.0-cp310-cp310-win_amd64.whl", hash = "sha256:971d88991da9b8bad5f759673d242ff5e4e7a81b35ef6f4aef4833aca4fa1c09"},
+    {file = "chik_rs-0.20.0-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:ea8ed72b3da2cff75c18d0e01c38a2ccc30a952d1f992c677243dc1e5505f054"},
+    {file = "chik_rs-0.20.0-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:d226da65beecad26611e940b14729977c313e8068a547d429afb96ff8ea97efd"},
+    {file = "chik_rs-0.20.0-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:ed4d715ab0a15f46555cdc27586d541b46bf4f5b2c410f4932fcfef1299e3b8e"},
+    {file = "chik_rs-0.20.0-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:6cb7c7551555c42bf150e07e7f1ecfe13b95bd6a76aae41508c24b499d2622d7"},
+    {file = "chik_rs-0.20.0-cp311-cp311-win_amd64.whl", hash = "sha256:11ba325e0de251af128d6a68bd05906ce2aee85bc55883cc06b9391668c328a3"},
+    {file = "chik_rs-0.20.0-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:43f93616d53fc73f55b0149c63a554f1a6e2477ee7b23d4c224eb36d99ac33a0"},
+    {file = "chik_rs-0.20.0-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:138fcf71401f545ac96cfc999065ca33b43e446189039838fb424c034682f615"},
+    {file = "chik_rs-0.20.0-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:f6425d4fbeea7b9a5c0ad3202d6beff891c2d0388488cbdcbe6f8a2f743a1e4d"},
+    {file = "chik_rs-0.20.0-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:3ea96e285d218bc762a165b837fb7c94c4cf67db5c5ae3e9ebbab25056a34322"},
+    {file = "chik_rs-0.20.0-cp312-cp312-win_amd64.whl", hash = "sha256:ea8cd2e4393fd52a0a4131fea5812df824a157907c1e0bebd674cf1b5ec23191"},
+    {file = "chik_rs-0.20.0-cp39-cp39-macosx_13_0_arm64.whl", hash = "sha256:f9c9df27f7b8009f76b9d740f4880b5d67e94d3492e1c582b0f715e6ec268a68"},
+    {file = "chik_rs-0.20.0-cp39-cp39-macosx_13_0_x86_64.whl", hash = "sha256:935d76292a40b5e85a270b8f03f70e31839436349ffc9b63c5488598ad2795b9"},
+    {file = "chik_rs-0.20.0-cp39-cp39-manylinux_2_28_aarch64.whl", hash = "sha256:e648e25b1a6e4f3420dd9ddd5f563e3485b753e771f9e4d89aa0a202e7f19a9d"},
+    {file = "chik_rs-0.20.0-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:875ae25d01c966057629a1c59155fac81749bd759358ee77ed5da092b28c0b34"},
+    {file = "chik_rs-0.20.0-cp39-cp39-win_amd64.whl", hash = "sha256:99b8dd9fe57e3168b7d6b03c5b863e8b23627f9dcc9112d3ea276ebee404d8ac"},
+    {file = "chik_rs-0.20.0.tar.gz", hash = "sha256:94aad568fad59a9dc1e6d10d88ae080706795615f82b5b57b4d526b30732098a"},
 ]
 
 [package.dependencies]
@@ -871,6 +812,35 @@ files = [
     {file = "chikbip158-1.5.2-cp39-cp39-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:65b9c41cd59970aa1537d1703cafd7590b63f1cefa8e61e34efc010f4a15c822"},
     {file = "chikbip158-1.5.2-cp39-cp39-win_amd64.whl", hash = "sha256:ebb1fe6fc79cacb93bab004a70ea8269c8c212f070c7dc831392095e4069c83c"},
 ]
+
+[[package]]
+name = "chiklisp-loader"
+version = "0.1.2"
+description = "Provides `load_puzzle` which dynamic rebuilds if `chiklisp_builder` is available."
+optional = false
+python-versions = "*"
+files = [
+    {file = "chiklisp_loader-0.1.2-py3-none-any.whl", hash = "sha256:db53b7c6ccdf5e8fffe8f50f32613a2ce82b94e004389441a1871924ee77ee36"},
+    {file = "chiklisp_loader-0.1.2.tar.gz", hash = "sha256:9298faa96d2ce49b09c99db7addb0e982b0b022377f6015f44ffbdd57e0bf28e"},
+]
+
+[package.dependencies]
+importlib-resources = "*"
+klvm-rs = "*"
+
+[[package]]
+name = "chiklisp-puzzles"
+version = "0.1.1"
+description = "Some canonical puzzles deployed on chik-blockchain"
+optional = false
+python-versions = "*"
+files = [
+    {file = "chiklisp_puzzles-0.1.1-py3-none-any.whl", hash = "sha256:ffa3059b011d2b3692a7ace2a1864f948238c3793ae7d16da454034d3a3bb0e4"},
+    {file = "chiklisp_puzzles-0.1.1.tar.gz", hash = "sha256:221893b09ee51069af1f4baafbb668c1797273b4beda40a03a197f64ce3b5088"},
+]
+
+[package.dependencies]
+chiklisp-loader = ">=0.1.2"
 
 [[package]]
 name = "chikpos"
@@ -949,21 +919,6 @@ files = [
 
 [package.dependencies]
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
-
-[[package]]
-name = "clvm-rs"
-version = "0.2.5"
-description = "Implementation of `clvm` for Chia Network's cryptocurrency"
-optional = false
-python-versions = "*"
-files = [
-    {file = "clvm_rs-0.2.5-cp37-abi3-macosx_10_14_x86_64.whl", hash = "sha256:980933a048779a9e587194385bd86b806fa05931b92ec75350bb433344a23ba8"},
-    {file = "clvm_rs-0.2.5-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:38cffe8a97acb6aebef758be8bce18a007e79328c76e732b2cf9e1a4f22c02c7"},
-    {file = "clvm_rs-0.2.5-cp37-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e7c48294f4211159fbfc40a62655713f03867104f9892d875f3dae2515bdd6b8"},
-    {file = "clvm_rs-0.2.5-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:403b8c82ee5c0137792fd975649b1d1fc92170669d787e501978242a72ac0361"},
-    {file = "clvm_rs-0.2.5-cp37-abi3-win_amd64.whl", hash = "sha256:77a2f5f626dc0cd5196c97fb689ceac9f853f85b7d622d630840aa597a97e4f0"},
-    {file = "clvm_rs-0.2.5.tar.gz", hash = "sha256:af26493752dc2e5e7ebdb7bdfa10160c5d9e1b39df3f238cd1641ef98e8c446f"},
-]
 
 [[package]]
 name = "colorama"
@@ -1326,19 +1281,19 @@ files = [
 ]
 
 [[package]]
-name = "hsms"
-version = "0.3.1"
-description = "Hardware security module simulator for chia bls12_381 signatures"
+name = "hsmk"
+version = "0.3.2"
+description = "Hardware security module simulator for chik bls12_381 signatures"
 optional = false
 python-versions = "*"
 files = [
-    {file = "hsms-0.3.1-py3-none-any.whl", hash = "sha256:d05a5598751f856b126d2fa6606f70c975304e7ab707dd7092b1ac2eed6267ec"},
-    {file = "hsms-0.3.1.tar.gz", hash = "sha256:22ee883399cba0e153a5194b11e04c93348cafef899ad5b34905a8ea60a167e0"},
+    {file = "hsmk-0.3.2-py3-none-any.whl", hash = "sha256:962ca2d564172f5de75e5df0458b0102069c7d4efe9fafa719527ff565456132"},
+    {file = "hsmk-0.3.2.tar.gz", hash = "sha256:643d3ebcbb059fb6b3b2ee90fa13227ac84e0e37ab3f3b880d1d469a73e1f5fa"},
 ]
 
 [package.dependencies]
-chia-base = ">=0.1.5"
-chialisp-puzzles = ">=0.1.1"
+chik-base = ">=0.1.5"
+chiklisp-puzzles = ">=0.1.1"
 segno = "1.4.1"
 
 [package.extras]
@@ -1581,6 +1536,20 @@ typing-extensions = ">=4.0,<5.0"
 
 [package.extras]
 dev = ["klvm_tools (>=0.4.4)", "mypy", "pytest", "setuptools", "types-setuptools"]
+
+[[package]]
+name = "klvm-rs"
+version = "0.2.5"
+description = "Implementation of `klvm` for Chik Network's cryptocurrency"
+optional = false
+python-versions = "*"
+files = [
+    {file = "klvm_rs-0.2.5-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:46cb52ea50fd967e738e53ca32f7b92c8de9002c939b9287892c3bb68b2145dd"},
+    {file = "klvm_rs-0.2.5-cp37-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d1d2726063e99100883cea7531646f5c43bff2f11707e7cc24962850b7e99750"},
+    {file = "klvm_rs-0.2.5-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:79f474fe844d65f13cf4f9c08d8940786d4c4a415c59b7d858bf1cae8a6bdb8f"},
+    {file = "klvm_rs-0.2.5-cp37-abi3-win_amd64.whl", hash = "sha256:bb70f24d2a17abb51ba4ddc95884bb83385be660d0ccc930bf7bb30b01330d28"},
+    {file = "klvm_rs-0.2.5.tar.gz", hash = "sha256:f0bbe33a5461aad76bba8b836f0117717a801615897be8421ca17fe15beee37c"},
+]
 
 [[package]]
 name = "klvm-tools"
@@ -3353,4 +3322,4 @@ upnp = ["miniupnpc"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9, <4"
-content-hash = "4e58ae4f50683a05d69dc0099f547865b79d4910a1b1f193a8246ebb120f245f"
+content-hash = "a72dc2de1acc82e54a0363efcd4ed0bf43923c5198e1801edb46c05d7ca16df4"
