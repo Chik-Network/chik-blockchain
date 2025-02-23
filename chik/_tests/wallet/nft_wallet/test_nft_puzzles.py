@@ -15,23 +15,14 @@ from chik.wallet.nft_wallet.nft_puzzles import (
 )
 from chik.wallet.outer_puzzles import match_puzzle
 from chik.wallet.puzzles.load_klvm import load_klvm
-from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import (
-    puzzle_for_pk,
-    solution_for_conditions,
-)
+from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import puzzle_for_pk, solution_for_conditions
 from chik.wallet.uncurried_puzzle import uncurry_puzzle
 
 SINGLETON_MOD = load_klvm("singleton_top_layer_v1_1.clsp")
 LAUNCHER_PUZZLE = load_klvm("singleton_launcher.clsp")
-DID_MOD = load_klvm(
-    "did_innerpuz.clsp", package_or_requirement="chik.wallet.did_wallet.puzzles"
-)
-NFT_STATE_LAYER_MOD = load_klvm(
-    "nft_state_layer.clsp", package_or_requirement="chik.wallet.nft_wallet.puzzles"
-)
-NFT_OWNERSHIP_LAYER = load_klvm(
-    "nft_ownership_layer.clsp", package_or_requirement="chik.wallet.nft_wallet.puzzles"
-)
+DID_MOD = load_klvm("did_innerpuz.clsp", package_or_requirement="chik.wallet.did_wallet.puzzles")
+NFT_STATE_LAYER_MOD = load_klvm("nft_state_layer.clsp", package_or_requirement="chik.wallet.nft_wallet.puzzles")
+NFT_OWNERSHIP_LAYER = load_klvm("nft_ownership_layer.clsp", package_or_requirement="chik.wallet.nft_wallet.puzzles")
 NFT_TRANSFER_PROGRAM_DEFAULT = load_klvm(
     "nft_ownership_transfer_program_one_way_claim_with_royalties.clsp",
     package_or_requirement="chik.wallet.nft_wallet.puzzles",
@@ -43,8 +34,7 @@ OFFER_MOD = load_klvm("settlement_payments.clsp")
 
 LAUNCHER_ID = Program.to(b"launcher-id").get_tree_hash()
 NFT_METADATA_UPDATER_DEFAULT = load_klvm(
-    "nft_metadata_updater_default.clsp",
-    package_or_requirement="chik.wallet.nft_wallet.puzzles",
+    "nft_metadata_updater_default.clsp", package_or_requirement="chik.wallet.nft_wallet.puzzles"
 )
 
 
@@ -56,24 +46,19 @@ def test_nft_transfer_puzzle_hashes(seeded_random: random.Random) -> None:
     # maker_did_inner_hash = Program.to("maker did inner hash").get_tree_hash()
     metadata = [
         ("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]),
-        ("h", 0xD4584AD463139FA8C0D9F68F4B59F185),
+        ("h", 0xD4584AD463139FA8C0D9F68F4B59F185)
     ]
     metadata_updater_hash = NFT_METADATA_UPDATER_DEFAULT.get_tree_hash()
     # royalty_addr = maker_p2_ph
     royalty_pc = 2000  # basis pts
     nft_id = Program.to("nft id").get_tree_hash()
     SINGLETON_STRUCT = Program.to((SINGLETON_MOD_HASH, (nft_id, LAUNCHER_PUZZLE_HASH)))
-    transfer_puz = NFT_TRANSFER_PROGRAM_DEFAULT.curry(
-        SINGLETON_STRUCT, maker_p2_ph, royalty_pc
-    )
+    transfer_puz = NFT_TRANSFER_PROGRAM_DEFAULT.curry(SINGLETON_STRUCT, maker_p2_ph, royalty_pc)
     ownership_puz = NFT_OWNERSHIP_LAYER.curry(
         NFT_OWNERSHIP_LAYER.get_tree_hash(), maker_did, transfer_puz, maker_p2_puz
     )
     metadata_puz = NFT_STATE_LAYER_MOD.curry(
-        NFT_STATE_LAYER_MOD.get_tree_hash(),
-        metadata,
-        metadata_updater_hash,
-        ownership_puz,
+        NFT_STATE_LAYER_MOD.get_tree_hash(), metadata, metadata_updater_hash, ownership_puz
     )
     nft_puz = SINGLETON_MOD.curry(SINGLETON_STRUCT, metadata_puz)
     nft_info = match_puzzle(uncurry_puzzle(nft_puz))
@@ -94,9 +79,7 @@ def test_nft_transfer_puzzle_hashes(seeded_random: random.Random) -> None:
 
     # make nft solution
     fake_lineage_proof = Program.to([bytes32.random(seeded_random), maker_p2_ph, 1])
-    transfer_conditions = Program.to(
-        [[51, taker_p2_ph, 1, [taker_p2_ph]], [-10, [], [], []]]
-    )
+    transfer_conditions = Program.to([[51, taker_p2_ph, 1, [taker_p2_ph]], [-10, [], [], []]])
 
     ownership_sol = Program.to([solution_for_conditions(transfer_conditions)])
 
@@ -114,14 +97,9 @@ def test_nft_transfer_puzzle_hashes(seeded_random: random.Random) -> None:
     assert expected_ph is not None
 
     # recreate the puzzle for new_puzhash
-    new_ownership_puz = NFT_OWNERSHIP_LAYER.curry(
-        NFT_OWNERSHIP_LAYER.get_tree_hash(), None, transfer_puz, taker_p2_puz
-    )
+    new_ownership_puz = NFT_OWNERSHIP_LAYER.curry(NFT_OWNERSHIP_LAYER.get_tree_hash(), None, transfer_puz, taker_p2_puz)
     new_metadata_puz = NFT_STATE_LAYER_MOD.curry(
-        NFT_STATE_LAYER_MOD.get_tree_hash(),
-        metadata,
-        metadata_updater_hash,
-        new_ownership_puz,
+        NFT_STATE_LAYER_MOD.get_tree_hash(), metadata, metadata_updater_hash, new_ownership_puz
     )
     new_nft_puz = SINGLETON_MOD.curry(SINGLETON_STRUCT, new_metadata_puz)
     calculated_ph = new_nft_puz.get_tree_hash()
@@ -136,10 +114,7 @@ def make_a_new_solution() -> tuple[Program, Program]:
     new_did = Program.to("test").get_tree_hash()
     new_did_inner_hash = Program.to("fake").get_tree_hash()
     trade_prices_list = [[200, OFFER_MOD.get_tree_hash()]]
-    condition_list = [
-        [51, puzhash, 1, [puzhash]],
-        [-10, new_did, trade_prices_list, new_did_inner_hash],
-    ]
+    condition_list = [[51, puzhash, 1, [puzhash]], [-10, new_did, trade_prices_list, new_did_inner_hash]]
     solution = Program.to([[], [], [[solution_for_conditions(condition_list)]]])
     return p2_puzzle, solution
 
@@ -150,24 +125,15 @@ def make_a_new_ownership_layer_puzzle() -> tuple[Program, Program]:
     old_did = Program.to("test_2").get_tree_hash()
     nft_id = Program.to("nft_id")
     SINGLETON_STRUCT = Program.to((SINGLETON_MOD_HASH, (nft_id, LAUNCHER_PUZZLE_HASH)))
-    curried_tp = NFT_TRANSFER_PROGRAM_DEFAULT.curry(
-        SINGLETON_STRUCT, innerpuz.get_tree_hash(), 2000
-    )
+    curried_tp = NFT_TRANSFER_PROGRAM_DEFAULT.curry(SINGLETON_STRUCT, innerpuz.get_tree_hash(), 2000)
     curried_inner = innerpuz
-    curried_ownership_layer = construct_ownership_layer(
-        old_did, curried_tp, curried_inner
-    )
+    curried_ownership_layer = construct_ownership_layer(old_did, curried_tp, curried_inner)
     return innerpuz, curried_ownership_layer
 
 
-def make_a_new_nft_puzzle(
-    curried_ownership_layer: Program, metadata: Program
-) -> Program:
+def make_a_new_nft_puzzle(curried_ownership_layer: Program, metadata: Program) -> Program:
     curried_state_layer = NFT_STATE_LAYER_MOD.curry(
-        NFT_STATE_LAYER_MOD_HASH,
-        metadata,
-        NFT_METADATA_UPDATER_DEFAULT.get_tree_hash(),
-        curried_ownership_layer,
+        NFT_STATE_LAYER_MOD_HASH, metadata, NFT_METADATA_UPDATER_DEFAULT.get_tree_hash(), curried_ownership_layer
     )
     return curried_state_layer
 
@@ -186,14 +152,12 @@ def get_updated_nft_puzzle(puzzle: Program, solution: Program) -> bytes32:
 def test_transfer_puzzle_builder() -> None:
     metadata = [
         ("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]),
-        ("h", 0xD4584AD463139FA8C0D9F68F4B59F185),
+        ("h", 0xD4584AD463139FA8C0D9F68F4B59F185)
     ]
     sp2_puzzle, solution = make_a_new_solution()
     p2_puzzle, ownership_puzzle = make_a_new_ownership_layer_puzzle()
     klvm_nft_puzzle = create_nft_layer_puzzle_with_curry_params(
-        Program.to(metadata),
-        NFT_METADATA_UPDATER_DEFAULT.get_tree_hash(),
-        ownership_puzzle,
+        Program.to(metadata), NFT_METADATA_UPDATER_DEFAULT.get_tree_hash(), ownership_puzzle
     )
     puzzle = create_full_puzzle(
         Program.to(["singleton_id"]).get_tree_hash(),
