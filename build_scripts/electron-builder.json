@@ -18,9 +18,7 @@
   "win": {
     "target": "nsis",
     "icon": "src/assets/img/chik.ico",
-    "signtoolOptions": {
-      "timeStampServer": "http://timestamp.comodoca.com"
-    },
+    "timeStampServer": "http://timestamp.comodoca.com",
     "executableName": "Chik"
   },
   "nsis": {
