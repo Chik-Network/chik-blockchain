@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import Optional, SupportsBytes, Union
 
+from chik_rs.sized_ints import uint8, uint16
+
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
-from chik.util.ints import uint8, uint16
 from chik.util.streamable import Streamable, streamable
 
 

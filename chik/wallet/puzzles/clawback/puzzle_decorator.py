@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
+
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.condition_opcodes import ConditionOpcode
-from chik.util.ints import uint64
 from chik.util.streamable import VersionedBlob
-from chik.wallet.payment import Payment
+from chik.wallet.conditions import CreateCoin
 from chik.wallet.puzzles.clawback.drivers import create_merkle_puzzle
 from chik.wallet.puzzles.clawback.metadata import ClawbackMetadata, ClawbackVersion
 from chik.wallet.util.wallet_types import RemarkDataType
@@ -41,7 +42,7 @@ class ClawbackPuzzleDecorator:
         )
 
     def solve(
-        self, inner_puzzle: Program, primaries: list[Payment], inner_solution: Program
+        self, inner_puzzle: Program, primaries: list[CreateCoin], inner_solution: Program
     ) -> tuple[Program, Program]:
         # Append REMARK condition [1, "CLAWBACK", TIME_LOCK, SENDER_PUZHSAH, RECIPIENT_PUZHSAH]
         if len(primaries) == 1:

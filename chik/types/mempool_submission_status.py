@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Union
 
+from chik_rs.sized_ints import uint8
+
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
-from chik.util.ints import uint8
 from chik.util.streamable import Streamable, streamable
 
 

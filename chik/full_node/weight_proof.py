@@ -10,10 +10,13 @@ from concurrent.futures.process import ProcessPoolExecutor
 from multiprocessing.context import BaseContext
 from typing import IO, Optional
 
+from chik_rs import ConsensusConstants, SubEpochChallengeSegment, SubEpochData, SubEpochSegments, SubSlotData
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64, uint128
+
 from chik.consensus.block_header_validation import validate_finished_header_block
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockchainInterface
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.deficit import calculate_deficit
 from chik.consensus.full_block_to_block_record import header_block_to_sub_block_record
 from chik.consensus.pot_iterations import (
@@ -25,7 +28,6 @@ from chik.consensus.pot_iterations import (
 from chik.consensus.vdf_info_computation import get_signage_point_vdf_info
 from chik.types.blockchain_format.classgroup import ClassgroupElement
 from chik.types.blockchain_format.proof_of_space import verify_and_get_quality_string
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.slots import ChallengeChainSubSlot, RewardChainSubSlot
 from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.blockchain_format.vdf import VDFInfo, VDFProof, validate_vdf
@@ -34,16 +36,11 @@ from chik.types.header_block import HeaderBlock
 from chik.types.validation_state import ValidationState
 from chik.types.weight_proof import (
     RecentChainData,
-    SubEpochChallengeSegment,
-    SubEpochData,
-    SubEpochSegments,
-    SubSlotData,
     WeightProof,
 )
 from chik.util.batches import to_batches
 from chik.util.block_cache import BlockCache
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint32, uint64, uint128
 from chik.util.setproctitle import getproctitle, setproctitle
 from chik.util.task_referencer import create_referenced_task
 
@@ -647,7 +644,7 @@ class WeightProofHandler:
             fork_point_index = idx
 
         if fork_point_index <= 2:
-            # Two summeries can have different blocks and still be identical
+            # Two summaries can have different blocks and still be identical
             # This gets resolved after one full sub epoch
             return uint32(0), 0
 

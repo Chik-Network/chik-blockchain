@@ -3,10 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
+
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend
-from chik.util.ints import uint32
 from chik.wallet.lineage_proof import LineageProof
 
 

@@ -4,6 +4,8 @@ import logging
 import time
 from typing import TYPE_CHECKING, ClassVar, Optional, cast
 
+from chik_rs.sized_ints import uint64
+
 from chik.protocols import timelord_protocol
 from chik.protocols.timelord_protocol import NewPeakTimelord
 from chik.rpc.rpc_server import StateChangedProtocol
@@ -11,7 +13,6 @@ from chik.server.api_protocol import ApiMetadata
 from chik.timelord.iters_from_block import iters_from_block
 from chik.timelord.timelord import Timelord
 from chik.timelord.types import Chain, IterationType
-from chik.util.ints import uint64
 
 log = logging.getLogger(__name__)
 
@@ -76,8 +77,7 @@ class TimelordAPI:
             else:
                 log.info("Skipping peak, block has equal or lower weight then our peak.")
                 log.debug(
-                    f"new peak height {new_peak.reward_chain_block.height} "
-                    f"weight {new_peak.reward_chain_block.weight}"
+                    f"new peak height {new_peak.reward_chain_block.height} weight {new_peak.reward_chain_block.weight}"
                 )
 
             self.timelord.state_changed("skipping_peak", {"height": new_peak.reward_chain_block.height})

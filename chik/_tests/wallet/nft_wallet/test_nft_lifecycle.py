@@ -4,21 +4,20 @@ import itertools
 
 import pytest
 from chik_rs import G2Element
+from chik_rs.sized_bytes import bytes32
 
 from chik._tests.util.spend_sim import CostLogger, sim_and_client
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import make_spend
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.util.errors import Err
 from chik.wallet.conditions import AssertPuzzleAnnouncement
-from chik.wallet.nft_wallet.nft_puzzles import (
-    NFT_METADATA_UPDATER,
-    NFT_TRANSFER_PROGRAM_DEFAULT,
+from chik.wallet.nft_wallet.nft_puzzle_utils import (
     construct_ownership_layer,
     create_nft_layer_puzzle_with_curry_params,
     metadata_to_program,
 )
+from chik.wallet.nft_wallet.nft_puzzles import NFT_METADATA_UPDATER, NFT_TRANSFER_PROGRAM_DEFAULT
 from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 ACS = Program.to(1)

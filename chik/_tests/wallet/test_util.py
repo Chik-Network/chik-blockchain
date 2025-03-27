@@ -3,15 +3,15 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from chik_rs.sized_bytes import bytes32, bytes48
+from chik_rs.sized_ints import uint64
 
 from chik._tests.util.misc import CoinGenerator, coin_creation_args
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32, bytes48
 from chik.types.coin_spend import make_spend
 from chik.util.errors import ValidationError
-from chik.util.ints import uint64
 from chik.wallet.lineage_proof import LineageProof, LineageProofField
 from chik.wallet.util.compute_hints import HintedCoin, compute_spend_hints_and_additions
 from chik.wallet.util.merkle_utils import list_to_binary_tree

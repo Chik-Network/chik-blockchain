@@ -4,24 +4,26 @@ import dataclasses
 from collections.abc import Iterator
 from typing import Optional, Union
 
+from chik_puzzles_py.programs import CAT_PUZZLE, CAT_PUZZLE_HASH
 from chik_rs import G2Element
+from chik_rs.sized_bytes import bytes32
 
 from chik.types.blockchain_format.coin import Coin, coin_as_list
 from chik.types.blockchain_format.program import INFINITE_COST, Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.util.condition_tools import conditions_dict_for_solution
 from chik.wallet.lineage_proof import LineageProof
-from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
 from chik.wallet.uncurried_puzzle import UncurriedPuzzle
+from chik.wallet.util.curry_and_treehash import calculate_hash_of_quoted_mod_hash
 from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 NULL_SIGNATURE = G2Element()
 
 ANYONE_CAN_SPEND_PUZZLE = Program.to(1)  # simply return the conditions
-CAT_MOD = load_klvm_maybe_recompile("cat_v2.clsp", package_or_requirement="chik.wallet.cat_wallet.puzzles")
-CAT_MOD_HASH = CAT_MOD.get_tree_hash()
+CAT_MOD = Program.from_bytes(CAT_PUZZLE)
+CAT_MOD_HASH = bytes32(CAT_PUZZLE_HASH)
+QUOTED_CAT_MOD_HASH = calculate_hash_of_quoted_mod_hash(CAT_MOD_HASH)
 CAT_MOD_HASH_HASH: bytes32 = Program.to(CAT_MOD_HASH).get_tree_hash()
 
 

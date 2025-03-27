@@ -5,9 +5,10 @@ import logging
 import sqlite3
 from typing import Optional
 
-from chik.types.blockchain_format.sized_bytes import bytes32
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
+
 from chik.util.db_wrapper import DBWrapper2
-from chik.util.ints import uint32, uint64
 from chik.util.streamable import Streamable, streamable
 
 

@@ -6,6 +6,9 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16, uint64
+
 from chik._tests.util.split_managers import SplitAsyncManager, split_async_manager
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.harvester.harvester import Harvester
@@ -13,9 +16,7 @@ from chik.plot_sync.sender import Sender
 from chik.protocols.harvester_protocol import PlotSyncIdentifier
 from chik.server.outbound_message import Message, NodeType
 from chik.types.aliases import FarmerService, HarvesterService
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo, UnresolvedPeerInfo
-from chik.util.ints import uint16, uint64
 
 
 @dataclass

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from chik_rs import SpendBundleConditions
+from chik_rs.sized_ints import uint32, uint64
 
 from chik.consensus.block_body_validation import ForkInfo
 from chik.consensus.blockchain import AddBlockResult, Blockchain
@@ -12,7 +13,6 @@ from chik.types.full_block import FullBlock
 from chik.types.validation_state import ValidationState
 from chik.util.augmented_chain import AugmentedBlockchain
 from chik.util.errors import Err
-from chik.util.ints import uint32, uint64
 
 
 async def check_block_store_invariant(bc: Blockchain):

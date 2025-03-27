@@ -4,11 +4,11 @@ import logging
 
 import pytest
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint64
 
 from chik.plot_sync.delta import Delta, DeltaType, PathListDelta, PlotListDelta
 from chik.protocols.harvester_protocol import Plot
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint8, uint64
 
 log = logging.getLogger(__name__)
 

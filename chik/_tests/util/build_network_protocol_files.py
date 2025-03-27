@@ -7,8 +7,9 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
+from chik_rs.sized_ints import uint32
+
 from chik._tests.util.network_protocol_data import *  # noqa: F403
-from chik.util.ints import uint32
 
 version = "1.0"
 

@@ -5,6 +5,8 @@ import logging
 from pathlib import Path
 
 import aiohttp
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
@@ -17,10 +19,8 @@ from chik.server.server import ChikServer, ssl_context_for_client
 from chik.server.ssl_context import chik_ssl_ca_paths, private_ssl_ca_paths
 from chik.server.ws_connection import WSChikConnection
 from chik.ssl.create_ssl import generate_ca_signed_cert
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
 from chik.util.config import load_config
-from chik.util.ints import uint16
 from chik.util.timing import adjusted_timeout
 
 log = logging.getLogger(__name__)

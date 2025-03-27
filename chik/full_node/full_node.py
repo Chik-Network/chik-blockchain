@@ -18,10 +18,14 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional, TextIO, Uni
 from chik_rs import (
     AugSchemeMPL,
     BLSCache,
+    ConsensusConstants,
+    PoolTarget,
     get_flags_for_height_and_constants,
     run_block_generator,
     run_block_generator2,
 )
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64, uint128
 from packaging.version import Version
 
 from chik.consensus.block_body_validation import ForkInfo
@@ -29,13 +33,13 @@ from chik.consensus.block_creation import unfinished_block_to_full_block
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain import AddBlockResult, Blockchain, BlockchainMutexPriority, StateChangeSummary
 from chik.consensus.blockchain_interface import BlockchainInterface
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.cost_calculator import NPCResult
 from chik.consensus.difficulty_adjustment import get_next_sub_slot_iters_and_difficulty
 from chik.consensus.make_sub_epoch_summary import next_sub_epoch_summary
 from chik.consensus.multiprocess_validation import PreValidationResult, pre_validate_block
 from chik.consensus.pot_iterations import calculate_sp_iters
 from chik.full_node.block_store import BlockStore
+from chik.full_node.check_fork_next_block import check_fork_next_block
 from chik.full_node.coin_store import CoinStore
 from chik.full_node.full_node_api import FullNodeAPI
 from chik.full_node.full_node_store import FullNodeStore, FullNodeStorePeakResult, UnfinishedBlockEntry
@@ -60,8 +64,6 @@ from chik.server.outbound_message import Message, NodeType, make_msg
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 from chik.types.blockchain_format.classgroup import ClassgroupElement
-from chik.types.blockchain_format.pool_target import PoolTarget
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.blockchain_format.vdf import CompressibleVDFField, VDFInfo, VDFProof, validate_vdf
 from chik.types.coin_record import CoinRecord
@@ -78,14 +80,12 @@ from chik.types.validation_state import ValidationState
 from chik.types.weight_proof import WeightProof
 from chik.util.augmented_chain import AugmentedBlockchain
 from chik.util.bech32m import encode_puzzle_hash
-from chik.util.check_fork_next_block import check_fork_next_block
 from chik.util.condition_tools import pkm_pairs
 from chik.util.config import process_config_start_method
 from chik.util.db_synchronous import db_synchronous_on
 from chik.util.db_version import lookup_db_version, set_db_version_async
 from chik.util.db_wrapper import DBWrapper2, manage_connection
 from chik.util.errors import ConsensusError, Err, TimestampError, ValidationError
-from chik.util.ints import uint8, uint32, uint64, uint128
 from chik.util.limited_semaphore import LimitedSemaphore
 from chik.util.network import is_localhost
 from chik.util.path import path_from_root
@@ -620,6 +620,7 @@ class FullNode:
                 fork_hash = self.constants.GENESIS_CHALLENGE
             assert fork_hash
             fork_info = ForkInfo(start_height - 1, start_height - 1, fork_hash)
+            blockchain = AugmentedBlockchain(self.blockchain)
             for height in range(start_height, target_height, batch_size):
                 end_height = min(target_height, height + batch_size)
                 request = RequestBlocks(uint32(height), uint32(end_height), True)
@@ -638,7 +639,7 @@ class FullNode:
                     )
                     vs = ValidationState(ssi, diff, None)
                     success, state_change_summary = await self.add_block_batch(
-                        response.blocks, peer_info, fork_info, vs
+                        response.blocks, peer_info, fork_info, vs, blockchain
                     )
                     if not success:
                         raise ValueError(f"Error short batch syncing, failed to validate blocks {height}-{end_height}")
@@ -757,7 +758,7 @@ class FullNode:
         # Store this peak/peer combination in case we want to sync to it, and to keep track of peers
         self.sync_store.peer_has_block(request.header_hash, peer.peer_node_id, request.weight, request.height, True)
 
-        if self.blockchain.contains_block(request.header_hash):
+        if self.blockchain.contains_block(request.header_hash, request.height):
             return None
 
         # Not interested in less heavy peaks
@@ -1248,7 +1249,7 @@ class FullNode:
                                 # By setting the next allowed timestamp to now,
                                 # means that any other peer that has waited for
                                 # this will have its next allowed timestamp in
-                                # the passed, and be prefered multiple times
+                                # the passed, and be preferred multiple times
                                 # over this peer.
                                 new_peers_with_peak[idx] = (
                                     new_peers_with_peak[idx][0],
@@ -1486,13 +1487,13 @@ class FullNode:
         peer_info: PeerInfo,
         fork_info: ForkInfo,
         vs: ValidationState,  # in-out parameter
+        blockchain: AugmentedBlockchain,
         wp_summaries: Optional[list[SubEpochSummary]] = None,
     ) -> tuple[bool, Optional[StateChangeSummary]]:
         # Precondition: All blocks must be contiguous blocks, index i+1 must be the parent of index i
         # Returns a bool for success, as well as a StateChangeSummary if the peak was advanced
 
         pre_validate_start = time.monotonic()
-        blockchain = AugmentedBlockchain(self.blockchain)
         blocks_to_validate = await self.skip_blocks(blockchain, all_blocks, fork_info, vs)
 
         if len(blocks_to_validate) == 0:
@@ -2026,7 +2027,7 @@ class FullNode:
 
         # Adds the block to seen, and check if it's seen before (which means header is in memory)
         header_hash = block.header_hash
-        if self.blockchain.contains_block(header_hash):
+        if self.blockchain.contains_block(header_hash, block.height):
             if fork_info is not None:
                 await self.blockchain.run_single_block(block, fork_info)
             return None
@@ -2100,7 +2101,7 @@ class FullNode:
             enable_profiler(self.profile_block_validation) as pr,
         ):
             # After acquiring the lock, check again, because another asyncio thread might have added it
-            if self.blockchain.contains_block(header_hash):
+            if self.blockchain.contains_block(header_hash, block.height):
                 if fork_info is not None:
                     await self.blockchain.run_single_block(block, fork_info)
                 return None
@@ -2288,8 +2289,9 @@ class FullNode:
         """
         receive_time = time.time()
 
-        if block.prev_header_hash != self.constants.GENESIS_CHALLENGE and not self.blockchain.contains_block(
-            block.prev_header_hash
+        if (
+            block.prev_header_hash != self.constants.GENESIS_CHALLENGE
+            and self.blockchain.try_block_record(block.prev_header_hash) is None
         ):
             # No need to request the parent, since the peer will send it to us anyway, via NewPeak
             self.log.debug("Received a disconnected unfinished block")

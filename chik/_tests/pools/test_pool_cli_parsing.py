@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
+
 from chik._tests.cmds.test_cmd_framework import check_click_parsing
 from chik.cmds.cmd_classes import ChikCliContext
 from chik.cmds.cmd_helpers import NeedsWalletRPC
@@ -14,9 +17,7 @@ from chik.cmds.plotnft import (
     LeavePlotNFTCMD,
     ShowPlotNFTCMD,
 )
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.bech32m import encode_puzzle_hash
-from chik.util.ints import uint64
 from chik.wallet.util.address_type import AddressType
 
 

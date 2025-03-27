@@ -4,12 +4,13 @@ import dataclasses
 from typing import Optional, TypeVar, Union
 
 from aiosqlite import Row
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16, uint32, uint64
 
-from chik.data_layer.data_layer_wallet import Mirror, SingletonRecord
+from chik.data_layer.data_layer_wallet import Mirror
+from chik.data_layer.singleton_record import SingletonRecord
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.db_wrapper import DBWrapper2, execute_fetchone
-from chik.util.ints import uint16, uint32, uint64
 from chik.wallet.lineage_proof import LineageProof
 
 _T_DataLayerStore = TypeVar("_T_DataLayerStore", bound="DataLayerStore")
@@ -77,9 +78,7 @@ class DataLayerStore:
             )
 
             await conn.execute(
-                "CREATE TABLE IF NOT EXISTS mirror_confirmations("
-                "coin_id blob PRIMARY KEY,"
-                "confirmed_at_height int)"
+                "CREATE TABLE IF NOT EXISTS mirror_confirmations(coin_id blob PRIMARY KEY,confirmed_at_height int)"
             )
 
             await conn.execute(

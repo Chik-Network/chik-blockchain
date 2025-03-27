@@ -14,6 +14,8 @@ from typing import Any, Optional
 
 import pytest
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import int16, uint8, uint64
 
 from chik._tests.plot_sync.util import start_harvester_service
 from chik._tests.util.time_out_assert import time_out_assert
@@ -30,9 +32,7 @@ from chik.server.outbound_message import make_msg
 from chik.server.ws_connection import WSChikConnection
 from chik.simulator.block_tools import BlockTools
 from chik.types.aliases import FarmerService, HarvesterService
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.batches import to_batches
-from chik.util.ints import int16, uint8, uint64
 
 log = logging.getLogger(__name__)
 

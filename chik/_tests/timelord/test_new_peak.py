@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Optional
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint128
 
 from chik._tests.blockchain.blockchain_test_utils import _validate_and_add_block
 from chik._tests.util.blockchain import create_blockchain
@@ -17,11 +19,9 @@ from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.timelord.timelord_api import TimelordAPI
 from chik.types.aliases import FullNodeService
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.full_block import FullBlock
 from chik.types.unfinished_block import UnfinishedBlock
-from chik.util.ints import uint128
 
 
 class TestNewPeak:

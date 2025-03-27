@@ -3,15 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
+
 from chik.consensus.condition_costs import ConditionCost
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.util.errors import Err, ValidationError
-from chik.util.ints import uint64
 
 
 @dataclass(frozen=True)

@@ -3,16 +3,17 @@ from __future__ import annotations
 import logging
 from typing import Optional, Union
 
-from chik.consensus.constants import ConsensusConstants
+from chik_rs import ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64, uint128
+
 from chik.protocols import timelord_protocol
 from chik.timelord.iters_from_block import iters_from_block
 from chik.timelord.types import Chain, StateType
 from chik.types.blockchain_format.classgroup import ClassgroupElement
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.slots import ChallengeBlockInfo
 from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
-from chik.util.ints import uint8, uint32, uint64, uint128
 
 log = logging.getLogger(__name__)
 

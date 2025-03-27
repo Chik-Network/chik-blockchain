@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Optional, cast
 
+from chik_rs.sized_bytes import bytes32
+
 from chik.rpc.farmer_rpc_api import PlotInfoRequestData, PlotPathRequestData
 from chik.rpc.rpc_client import RpcClient
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.streamable import recurse_jsonify
 
 

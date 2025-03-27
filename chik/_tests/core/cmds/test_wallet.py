@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Any, Optional
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 
 from chik.cmds.wallet_funcs import print_offer_summary
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32
 
 TEST_DUCKSAUCE_ASSET_ID = "1000000000000000000000000000000000000000000000000000000000000001"
 TEST_CRUNCHBERRIES_ASSET_ID = "1000000000000000000000000000000000000000000000000000000000000002"

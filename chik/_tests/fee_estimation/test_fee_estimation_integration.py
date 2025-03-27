@@ -4,6 +4,7 @@ import types
 
 import pytest
 from chik_rs import Coin
+from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.core.mempool.test_mempool_manager import (
     create_test_block_record,
@@ -28,7 +29,6 @@ from chik.types.klvm_cost import KLVMCost
 from chik.types.fee_rate import FeeRate, FeeRateV2
 from chik.types.mempool_item import MempoolItem
 from chik.types.spend_bundle_conditions import SpendBundleConditions, SpendConditions
-from chik.util.ints import uint32, uint64
 
 
 def make_mempoolitem() -> MempoolItem:

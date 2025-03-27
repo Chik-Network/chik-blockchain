@@ -3,8 +3,9 @@ from __future__ import annotations
 from enum import Enum
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.wallet.cat_wallet.cat_outer_puzzle import CATOuterPuzzle
 from chik.wallet.driver_protocol import DriverProtocol
 from chik.wallet.nft_wallet.metadata_outer_puzzle import MetadataOuterPuzzle

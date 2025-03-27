@@ -9,12 +9,12 @@ from typing import Optional
 
 import pytest
 from chik_rs import Coin, MerkleSet, compute_merkle_set_root, confirm_included_already_hashed
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 from chik.simulator.block_tools import BlockTools
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.batches import to_batches
 from chik.util.hash import std_hash
-from chik.util.ints import uint64
 from chik.wallet.util.wallet_sync_utils import validate_additions, validate_removals
 
 

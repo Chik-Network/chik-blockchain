@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from chik_rs.sized_ints import uint32, uint64
+
 from chik.full_node.fee_estimate_store import FeeStore
 from chik.full_node.fee_estimation import EmptyFeeMempoolInfo, FeeBlockInfo, FeeMempoolInfo, MempoolItemInfo
 from chik.full_node.fee_estimator import SmartFeeEstimator
@@ -7,7 +9,6 @@ from chik.full_node.fee_estimator_interface import FeeEstimatorInterface
 from chik.full_node.fee_tracker import FeeTracker
 from chik.types.klvm_cost import KLVMCost
 from chik.types.fee_rate import FeeRateV2
-from chik.util.ints import uint32, uint64
 
 
 class BitcoinFeeEstimator(FeeEstimatorInterface):

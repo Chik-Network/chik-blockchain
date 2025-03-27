@@ -7,11 +7,12 @@ hash along with its solution.
 
 from __future__ import annotations
 
-from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
+from chik_puzzles_py.programs import P2_PUZZLE_HASH
+from chik_rs.sized_bytes import bytes32
 
-MOD = load_klvm_maybe_recompile("p2_puzzle_hash.clsp")
+from chik.types.blockchain_format.program import Program
+
+MOD = Program.from_bytes(P2_PUZZLE_HASH)
 
 
 def puzzle_for_inner_puzzle_hash(inner_puzzle_hash: bytes32) -> Program:

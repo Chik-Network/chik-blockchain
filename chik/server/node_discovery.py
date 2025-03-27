@@ -12,6 +12,7 @@ from secrets import randbits
 from typing import Any, Optional
 
 import dns.asyncresolver
+from chik_rs.sized_ints import uint16, uint64
 
 from chik.protocols.full_node_protocol import RequestPeers, RespondPeers
 from chik.protocols.introducer_protocol import RequestPeersIntroducer
@@ -23,7 +24,6 @@ from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 from chik.types.peer_info import PeerInfo, TimestampedPeerInfo, UnresolvedPeerInfo
 from chik.util.hash import std_hash
-from chik.util.ints import uint16, uint64
 from chik.util.ip_address import IPAddress
 from chik.util.network import resolve
 from chik.util.safe_cancel_task import cancel_task_safe

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint64
-from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
+from chik_puzzles_py.programs import NOTIFICATION
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
-NOTIFICATION_MOD = load_klvm_maybe_recompile("notification.clsp")
+from chik.types.blockchain_format.program import Program
+
+NOTIFICATION_MOD = Program.from_bytes(NOTIFICATION)
 
 
 def construct_notification(target: bytes32, amount: uint64) -> Program:

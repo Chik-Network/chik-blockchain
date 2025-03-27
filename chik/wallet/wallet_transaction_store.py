@@ -6,12 +6,12 @@ import time
 from typing import Optional
 
 import aiosqlite
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32
 
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.util.db_wrapper import DBWrapper2
 from chik.util.errors import Err
-from chik.util.ints import uint8, uint32
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.transaction_record import (
     LightTransactionRecord,

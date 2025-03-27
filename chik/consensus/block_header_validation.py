@@ -4,11 +4,12 @@ import logging
 import time
 from typing import Optional
 
-from chik_rs import AugSchemeMPL
+from chik_rs import AugSchemeMPL, ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64, uint128
 
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.deficit import calculate_deficit
 from chik.consensus.difficulty_adjustment import can_finish_sub_and_full_epoch
 from chik.consensus.get_block_challenge import final_eos_is_already_included, get_block_challenge
@@ -23,7 +24,6 @@ from chik.consensus.pot_iterations import (
 from chik.consensus.vdf_info_computation import get_signage_point_vdf_info
 from chik.types.blockchain_format.classgroup import ClassgroupElement
 from chik.types.blockchain_format.proof_of_space import verify_and_get_quality_string
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.slots import ChallengeChainSubSlot, RewardChainSubSlot, SubSlotProofs
 from chik.types.blockchain_format.vdf import VDFInfo, VDFProof, validate_vdf
 from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
@@ -32,7 +32,6 @@ from chik.types.unfinished_header_block import UnfinishedHeaderBlock
 from chik.types.validation_state import ValidationState
 from chik.util.errors import Err, ValidationError
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint32, uint64, uint128
 
 log = logging.getLogger(__name__)
 

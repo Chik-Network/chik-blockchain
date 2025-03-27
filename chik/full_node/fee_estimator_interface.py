@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+from chik_rs.sized_ints import uint32
 from typing_extensions import Protocol
 
 from chik.full_node.fee_estimation import FeeBlockInfo, FeeMempoolInfo, MempoolItemInfo
 from chik.types.klvm_cost import KLVMCost
 from chik.types.fee_rate import FeeRateV2
-from chik.util.ints import uint32
 
 
 class FeeEstimatorInterface(Protocol):

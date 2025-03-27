@@ -12,6 +12,7 @@ from typing import Callable, Optional, cast
 
 import pytest
 from chik_rs import G1Element
+from chik_rs.sized_ints import uint16, uint32
 
 from chik._tests.plotting.util import get_test_plots
 from chik._tests.util.misc import boolean_datacases
@@ -29,7 +30,6 @@ from chik.plotting.util import (
 )
 from chik.simulator.block_tools import get_plot_dir
 from chik.util.config import create_default_chik_config, lock_and_load_config, save_config
-from chik.util.ints import uint16, uint32
 from chik.util.streamable import VersionedBlob
 
 log = logging.getLogger(__name__)

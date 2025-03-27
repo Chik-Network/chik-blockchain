@@ -5,14 +5,14 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Callable, Optional, Union
 
 import click
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 from chik.cmds.cmd_classes import ChikCliContext
 from chik.cmds.units import units
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.bech32m import bech32_decode, decode_puzzle_hash
 from chik.util.config import load_config, selected_network_address_prefix
 from chik.util.default_root import DEFAULT_ROOT_PATH
-from chik.util.ints import uint64
 from chik.wallet.util.address_type import AddressType
 
 one_decimal_mojo = Decimal("1e-12")

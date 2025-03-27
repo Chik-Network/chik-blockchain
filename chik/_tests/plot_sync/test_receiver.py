@@ -8,6 +8,8 @@ from typing import Any, Callable, Union
 
 import pytest
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik._tests.plot_sync.util import get_dummy_connection
 from chik.consensus.pos_quality import UI_ACTUAL_SPACE_CONSTANT_FACTOR, _expected_plot_size
@@ -25,8 +27,6 @@ from chik.protocols.harvester_protocol import (
     PlotSyncStart,
 )
 from chik.server.outbound_message import NodeType
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint8, uint32, uint64
 from chik.util.streamable import _T_Streamable
 
 log = logging.getLogger(__name__)

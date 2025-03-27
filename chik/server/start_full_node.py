@@ -6,8 +6,11 @@ import sys
 from multiprocessing import freeze_support
 from typing import Any, Optional
 
+from chik_rs import ConsensusConstants
+from chik_rs.sized_ints import uint16
+
 from chik.apis import ApiProtocolRegistry
-from chik.consensus.constants import ConsensusConstants, replace_str_to_bytes
+from chik.consensus.constants import replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS, update_testnet_overrides
 from chik.full_node.full_node import FullNode
 from chik.full_node.full_node_api import FullNodeAPI
@@ -19,7 +22,6 @@ from chik.types.aliases import FullNodeService
 from chik.util.chik_logging import initialize_service_logging
 from chik.util.config import get_unresolved_peer_infos, load_config, load_config_cli
 from chik.util.default_root import resolve_root_path
-from chik.util.ints import uint16
 from chik.util.task_timing import maybe_manage_task_instrumentation
 
 # See: https://bugs.python.org/issue29288

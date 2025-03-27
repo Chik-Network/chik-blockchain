@@ -7,10 +7,10 @@ from unittest.mock import MagicMock
 
 import pytest
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
 
 from chik._tests.util.benchmarks import rand_g1, rand_hash
 from chik.pools.pool_wallet import PoolWallet
-from chik.types.blockchain_format.sized_bytes import bytes32
 
 
 @dataclass

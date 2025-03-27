@@ -3,13 +3,13 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, Optional, TypeVar
 
+from chik_rs import ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 from typing_extensions import NotRequired, TypedDict, Unpack
 
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint64
 from chik.util.streamable import Streamable, streamable
 
 

@@ -9,6 +9,8 @@ from typing import Optional
 
 import pytest
 from chik_rs import AugSchemeMPL, Coin, CoinSpend, CoinState, Program
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint16, uint32, uint64
 
 from chik._tests.connection_utils import add_dummy_connection
 from chik.full_node.coin_store import CoinStore
@@ -24,12 +26,10 @@ from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.start_simulator import SimulatorFullNodeService
 from chik.types.aliases import WalletService
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.types.spend_bundle import SpendBundle
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint16, uint32, uint64
 
 IDENTITY_PUZZLE = Program.to(1)
 IDENTITY_PUZZLE_HASH = IDENTITY_PUZZLE.get_tree_hash()

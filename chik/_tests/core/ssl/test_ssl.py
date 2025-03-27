@@ -7,6 +7,7 @@ import ssl
 
 import aiohttp
 import pytest
+from chik_rs.sized_bytes import bytes32
 
 from chik.apis import ApiProtocolRegistry
 from chik.protocols.shared_protocol import default_capabilities
@@ -15,7 +16,6 @@ from chik.server.server import ChikServer, ssl_context_for_client
 from chik.server.ssl_context import chik_ssl_ca_paths, private_ssl_ca_paths
 from chik.server.ws_connection import WSChikConnection
 from chik.ssl.create_ssl import generate_ca_signed_cert
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
 
 

@@ -7,6 +7,9 @@ from multiprocessing import freeze_support
 from pathlib import Path
 from typing import Any, Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16
+
 from chik.apis import ApiProtocolRegistry
 from chik.full_node.full_node import FullNode
 from chik.server.outbound_message import NodeType
@@ -15,12 +18,10 @@ from chik.server.start_service import Service, async_run
 from chik.simulator.block_tools import BlockTools, test_constants
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.simulator_full_node_rpc_api import SimulatorFullNodeRpcApi
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.bech32m import decode_puzzle_hash
 from chik.util.chik_logging import initialize_logging
 from chik.util.config import load_config, load_config_cli, override_config
 from chik.util.default_root import resolve_root_path
-from chik.util.ints import uint16
 
 SimulatorFullNodeService = Service[FullNode, FullNodeSimulator, SimulatorFullNodeRpcApi]
 

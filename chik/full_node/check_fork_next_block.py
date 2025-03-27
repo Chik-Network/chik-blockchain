@@ -3,9 +3,10 @@ from __future__ import annotations
 from collections.abc import Awaitable
 from typing import Callable
 
+from chik_rs.sized_ints import uint32
+
 from chik.consensus.blockchain_interface import BlockchainInterface
 from chik.server.ws_connection import WSChikConnection
-from chik.util.ints import uint32
 
 
 async def check_fork_next_block(

@@ -3,23 +3,32 @@ from __future__ import annotations
 import time
 from typing import Any, Optional
 
-from chik_rs import G1Element, G2Element, compute_merkle_set_root
+from chik_rs import (
+    ConsensusConstants,
+    Foliage,
+    FoliageBlockData,
+    FoliageTransactionBlock,
+    G1Element,
+    G2Element,
+    PoolTarget,
+    RewardChainBlock,
+    RewardChainBlockUnfinished,
+    TransactionsInfo,
+    compute_merkle_set_root,
+)
+from chik_rs.sized_bytes import bytes32, bytes100
+from chik_rs.sized_ints import uint8, uint32, uint64, uint128
 from chikbip158 import PyBIP158
 
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.consensus.coinbase import create_farmer_coin, create_pool_coin
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.full_block_to_block_record import block_to_block_record
 from chik.full_node.bundle_tools import simple_solution_generator
 from chik.simulator.block_tools import BlockTools, compute_additions_unchecked
 from chik.types.blockchain_format.classgroup import ClassgroupElement
 from chik.types.blockchain_format.coin import Coin, hash_coin_ids
-from chik.types.blockchain_format.foliage import Foliage, FoliageBlockData, FoliageTransactionBlock, TransactionsInfo
-from chik.types.blockchain_format.pool_target import PoolTarget
 from chik.types.blockchain_format.proof_of_space import ProofOfSpace
-from chik.types.blockchain_format.reward_chain_block import RewardChainBlock, RewardChainBlockUnfinished
-from chik.types.blockchain_format.sized_bytes import bytes32, bytes100
 from chik.types.blockchain_format.vdf import VDFInfo, VDFProof
 from chik.types.full_block import FullBlock
 from chik.types.generator_types import BlockGenerator
@@ -27,7 +36,6 @@ from chik.types.spend_bundle import SpendBundle
 from chik.types.unfinished_block import UnfinishedBlock
 from chik.util.block_cache import BlockCache
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint32, uint64, uint128
 
 DEFAULT_PROOF_OF_SPACE = ProofOfSpace(
     bytes32.zeros,

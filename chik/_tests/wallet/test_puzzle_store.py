@@ -5,10 +5,10 @@ from dataclasses import dataclass, field
 
 import pytest
 from chik_rs import AugSchemeMPL
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 
 from chik._tests.util.db_connection import DBConnection
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32
 from chik.wallet.derivation_record import DerivationRecord
 from chik.wallet.util.wallet_types import WalletIdentifier, WalletType
 from chik.wallet.wallet_puzzle_store import WalletPuzzleStore

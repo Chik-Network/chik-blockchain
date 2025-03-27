@@ -4,13 +4,13 @@ import io
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 
 from chik_rs import MEMPOOL_MODE, run_chik_program, tree_hash
+from chik_rs.sized_bytes import bytes32
 from klvm.casts import int_from_bytes
 from klvm.KLVMObject import KLVMStorage
 from klvm.EvalError import EvalError
 from klvm.serialize import sexp_from_stream, sexp_to_stream
 from klvm.SExp import SExp
 
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.tree_hash import sha256_treehash
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.hash import std_hash

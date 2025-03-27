@@ -1,22 +1,14 @@
 from __future__ import annotations
 
 import pytest
+from chik_rs.sized_bytes import bytes32
 from klvm_tools import binutils
 
 from chik.types.blockchain_format.program import INFINITE_COST, Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.condition_tools import parse_sexp_to_conditions
 from chik.wallet.conditions import AssertPuzzleAnnouncement
-from chik.wallet.puzzles.load_klvm import load_klvm
-
-SINGLETON_MOD = load_klvm("singleton_top_layer.clsp")
-LAUNCHER_PUZZLE = load_klvm("singleton_launcher.clsp")
-P2_SINGLETON_MOD = load_klvm("p2_singleton.clsp")
-POOL_MEMBER_MOD = load_klvm("pool_member_innerpuz.clsp", package_or_requirement="chik.pools.puzzles")
-POOL_WAITINGROOM_MOD = load_klvm("pool_waitingroom_innerpuz.clsp", package_or_requirement="chik.pools.puzzles")
-
-LAUNCHER_PUZZLE_HASH = LAUNCHER_PUZZLE.get_tree_hash()
-SINGLETON_MOD_HASH = SINGLETON_MOD.get_tree_hash()
+from chik.wallet.puzzles.singleton_top_layer import P2_SINGLETON_MOD, SINGLETON_MOD, SINGLETON_MOD_HASH
+from chik.wallet.puzzles.singleton_top_layer import SINGLETON_LAUNCHER_HASH as LAUNCHER_PUZZLE_HASH
 
 LAUNCHER_ID = Program.to(b"launcher-id").get_tree_hash()
 POOL_REWARD_PREFIX_MAINNET = bytes32.fromhex("ccd5bb71183532bff220ba46c268991a00000000000000000000000000000000")

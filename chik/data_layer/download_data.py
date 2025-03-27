@@ -8,11 +8,11 @@ from pathlib import Path
 from typing import Optional
 
 import aiohttp
+from chik_rs.sized_bytes import bytes32
 from typing_extensions import Literal
 
 from chik.data_layer.data_layer_util import NodeType, PluginRemote, Root, SerializedNode, ServerInfo, Status
 from chik.data_layer.data_store import DataStore
-from chik.types.blockchain_format.sized_bytes import bytes32
 
 
 def get_full_tree_filename(store_id: bytes32, node_hash: bytes32, generation: int, group_by_store: bool = False) -> str:

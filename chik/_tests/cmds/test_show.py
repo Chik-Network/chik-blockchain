@@ -4,14 +4,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+from chik_rs import FoliageTransactionBlock
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
+
 from chik._tests.cmds.cmd_test_utils import TestFullNodeRpcClient, TestRpcClients, run_cli_command_and_assert
 from chik._tests.cmds.testing_classes import hash_to_height, height_hash
 from chik._tests.util.test_full_block_utils import get_foliage, get_reward_chain_block, get_transactions_info, vdf_proof
-from chik.types.blockchain_format.foliage import FoliageTransactionBlock
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.full_block import FullBlock
-from chik.util.ints import uint32, uint64
 
 
 @dataclass

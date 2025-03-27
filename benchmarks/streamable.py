@@ -9,12 +9,12 @@ from time import process_time as clock
 from typing import Any, Callable, Optional, TextIO, Union
 
 import click
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint64
 
 from benchmarks.utils import EnumType, get_commit_hash
 from chik._tests.util.benchmarks import rand_bytes, rand_full_block, rand_hash
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.full_block import FullBlock
-from chik.util.ints import uint8, uint64
 from chik.util.streamable import Streamable, streamable
 
 # to run this benchmark:

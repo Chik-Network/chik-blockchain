@@ -11,6 +11,8 @@ import pytest
 
 # TODO: update after resolution in https://github.com/pytest-dev/pytest/issues/7469
 from _pytest.fixtures import SubRequest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 from klvm.casts import int_to_bytes
 
 from chik._tests.blockchain.blockchain_test_utils import _validate_and_add_block
@@ -24,12 +26,10 @@ from chik.full_node.coin_store import CoinStore
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.wallet_tools import WalletTool
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.vdf import VDFProof
 from chik.types.full_block import FullBlock
 from chik.util.db_wrapper import get_host_parameter_limit
 from chik.util.full_block_utils import GeneratorBlockInfo
-from chik.util.ints import uint8, uint32, uint64
 from chik.util.task_referencer import create_referenced_task
 
 log = logging.getLogger(__name__)

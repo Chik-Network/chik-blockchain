@@ -11,6 +11,8 @@ from pathlib import Path
 from types import FrameType
 from typing import Any, Callable, Generic, Optional, TypeVar, cast
 
+from chik_rs.sized_ints import uint16
+
 from chik.daemon.server import service_launch_lock_path
 from chik.protocols.shared_protocol import default_capabilities
 from chik.rpc.rpc_server import RpcApiProtocol, RpcServer, RpcServiceProtocol, start_rpc_server
@@ -24,7 +26,6 @@ from chik.server.upnp import UPnP
 from chik.server.ws_connection import WSChikConnection
 from chik.types.peer_info import PeerInfo, UnresolvedPeerInfo
 from chik.util.chik_version import chik_short_version
-from chik.util.ints import uint16
 from chik.util.lock import Lockfile, LockfileError
 from chik.util.log_exceptions import log_exceptions
 from chik.util.network import resolve

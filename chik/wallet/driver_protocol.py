@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
 from typing_extensions import Protocol
 
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.wallet.puzzle_drivers import PuzzleInfo, Solver
 from chik.wallet.uncurried_puzzle import UncurriedPuzzle
 

@@ -6,8 +6,10 @@ import sys
 from multiprocessing import freeze_support
 from typing import Any, Optional
 
+from chik_rs import ConsensusConstants
+
 from chik.apis import ApiProtocolRegistry
-from chik.consensus.constants import ConsensusConstants, replace_str_to_bytes
+from chik.consensus.constants import replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.rpc.crawler_rpc_api import CrawlerRpcApi
 from chik.seeder.crawler import Crawler

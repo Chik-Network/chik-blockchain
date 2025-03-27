@@ -16,8 +16,7 @@ try:
     import miniupnpc
 except ImportError:
     log.info(
-        "importing miniupnpc failed."
-        " This is not required to run chik, it allows incoming connections from other peers."
+        "importing miniupnpc failed. This is not required to run chik, it allows incoming connections from other peers."
     )
     miniupnpc = None
 

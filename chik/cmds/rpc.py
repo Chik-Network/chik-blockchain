@@ -8,10 +8,10 @@ from typing import Any, Optional, TextIO
 
 import click
 from aiohttp import ClientResponseError
+from chik_rs.sized_ints import uint16
 
 from chik.cmds.cmd_classes import ChikCliContext
 from chik.util.config import load_config
-from chik.util.ints import uint16
 
 services: list[str] = ["crawler", "daemon", "farmer", "full_node", "harvester", "timelord", "wallet", "data_layer"]
 

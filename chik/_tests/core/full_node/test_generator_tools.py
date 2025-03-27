@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
+
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.spend_bundle_conditions import SpendBundleConditions, SpendConditions
 from chik.util.generator_tools import tx_removals_and_additions
 from chik.util.hash import std_hash
-from chik.util.ints import uint32, uint64
 
 coin_ids = [std_hash(i.to_bytes(4, "big")) for i in range(10)]
 parent_ids = [std_hash(i.to_bytes(4, "big")) for i in range(10)]

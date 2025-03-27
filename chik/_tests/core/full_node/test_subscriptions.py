@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from chik_rs import AugSchemeMPL, Coin, CoinSpend, G2Element, Program
+from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.util.get_name_puzzle_conditions import get_name_puzzle_conditions
@@ -8,7 +9,6 @@ from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.full_node.bundle_tools import simple_solution_generator
 from chik.full_node.subscriptions import PeerSubscriptions, peers_for_spend_bundle
 from chik.types.blockchain_format.program import INFINITE_COST
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.spend_bundle import SpendBundle
 
 IDENTITY_PUZZLE = Program.to(1)

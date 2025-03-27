@@ -20,6 +20,8 @@ from typing import Any, Optional, cast
 
 import anyio
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint16, uint32, uint64
 
 from chik._tests.util.misc import boolean_datacases
 from chik._tests.util.setup_nodes import SimulatorsAndWalletsServices
@@ -60,12 +62,10 @@ from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.simulator_protocol import FarmNewBlockProtocol
 from chik.types.aliases import DataLayerService, WalletService
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.config import save_config
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint16, uint32, uint64
 from chik.util.keychain import bytes_to_mnemonic
 from chik.util.task_referencer import create_referenced_task
 from chik.util.timing import adjusted_timeout, backoff_times

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import pytest
+from chik_rs.sized_bytes import bytes32
 
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.wallet.puzzles import p2_delegated_puzzle_or_hidden_puzzle  # import (puzzle_for_pk, puzzle_hash_for_pk, MOD)
 from chik.wallet.util.curry_and_treehash import (
     calculate_hash_of_quoted_mod_hash,

@@ -2,18 +2,18 @@ from __future__ import annotations
 
 import pytest
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 from klvm.casts import int_to_bytes
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
 from chik.types.spend_bundle_conditions import SpendBundleConditions, SpendConditions
 from chik.util.condition_tools import parse_sexp_to_conditions, pkm_pairs, pkm_pairs_for_conditions_dict
 from chik.util.errors import ConsensusError
 from chik.util.hash import std_hash
-from chik.util.ints import uint64
 
 H1 = bytes32(b"a" * 32)
 H2 = bytes32(b"b" * 32)

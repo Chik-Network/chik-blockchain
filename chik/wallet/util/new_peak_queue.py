@@ -5,9 +5,10 @@ import dataclasses
 from enum import IntEnum
 from typing import Any
 
+from chik_rs.sized_bytes import bytes32
+
 from chik.protocols.wallet_protocol import CoinStateUpdate, NewPeakWallet
 from chik.server.ws_connection import WSChikConnection
-from chik.types.blockchain_format.sized_bytes import bytes32
 
 
 class NewPeakQueueTypes(IntEnum):

@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
+from chik_rs.sized_ints import uint32
 
 from chik.rpc.util import marshal
-from chik.util.ints import uint32
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.util.klvm_streamable import klvm_streamable
 

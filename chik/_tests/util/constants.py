@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from chik_rs.sized_ints import uint8, uint16, uint32, uint64, uint128
+
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
-from chik.util.ints import uint8, uint16, uint32, uint64, uint128
 
 test_constants = DEFAULT_CONSTANTS.replace(
     MIN_PLOT_SIZE=uint8(18),

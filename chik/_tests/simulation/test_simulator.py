@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from chik_rs.sized_ints import uint64
 
 from chik._tests.util.setup_nodes import OldSimulatorsAndWallets
 from chik.cmds.units import units
@@ -8,7 +9,6 @@ from chik.server.server import ChikServer
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.types.peer_info import PeerInfo
-from chik.util.ints import uint64
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 from chik.wallet.wallet_node import WalletNode
 
@@ -127,8 +127,8 @@ async def test_wait_transaction_records_entered_mempool(
     for coin in coins:
         async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
             await wallet.generate_signed_transaction(
-                amount=uint64(tx_amount),
-                puzzle_hash=await wallet_node.wallet_state_manager.main_wallet.get_new_puzzlehash(),
+                amounts=[uint64(tx_amount)],
+                puzzle_hashes=[await wallet_node.wallet_state_manager.main_wallet.get_new_puzzlehash()],
                 action_scope=action_scope,
                 coins={coin},
             )
@@ -163,8 +163,8 @@ async def test_process_transaction_records(
     for coin in coins:
         async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
             await wallet.generate_signed_transaction(
-                amount=uint64(tx_amount),
-                puzzle_hash=await wallet_node.wallet_state_manager.main_wallet.get_new_puzzlehash(),
+                amounts=[uint64(tx_amount)],
+                puzzle_hashes=[await wallet_node.wallet_state_manager.main_wallet.get_new_puzzlehash()],
                 action_scope=action_scope,
                 coins={coin},
             )

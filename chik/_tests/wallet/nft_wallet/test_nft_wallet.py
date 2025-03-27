@@ -6,6 +6,8 @@ from typing import Any, Callable
 
 import pytest
 from chik_rs import AugSchemeMPL, G1Element, G2Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 from klvm_tools.binutils import disassemble
 
 from chik._tests.conftest import ConsensusMode
@@ -22,11 +24,9 @@ from chik.rpc.wallet_request_types import (
 )
 from chik.simulator.simulator_protocol import ReorgProtocol
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.signing_mode import CHIP_0002_SIGN_MESSAGE_PREFIX
 from chik.util.bech32m import decode_puzzle_hash, encode_puzzle_hash
 from chik.util.byte_types import hexstr_to_bytes
-from chik.util.ints import uint32, uint64
 from chik.util.timing import adjusted_timeout
 from chik.wallet.did_wallet.did_wallet import DIDWallet
 from chik.wallet.nft_wallet.nft_info import NFTInfo

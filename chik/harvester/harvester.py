@@ -10,9 +10,10 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, cast
 
+from chik_rs import ConsensusConstants
+from chik_rs.sized_ints import uint32
 from typing_extensions import Literal
 
-from chik.consensus.constants import ConsensusConstants
 from chik.plot_sync.sender import Sender
 from chik.plotting.manager import PlotManager
 from chik.plotting.util import (
@@ -40,7 +41,6 @@ from chik.server.outbound_message import NodeType
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 from chik.util.cpu import available_logical_cores
-from chik.util.ints import uint32
 
 log = logging.getLogger(__name__)
 
@@ -94,7 +94,9 @@ class Harvester:
             root_path, refresh_parameter=refresh_parameter, refresh_callback=self._plot_refresh_callback
         )
         self._shut_down = False
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=config["num_threads"])
+        self.executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=config["num_threads"], thread_name_prefix="harvester-"
+        )
         self._server = None
         self.constants = constants
         self.state_changed_callback: Optional[StateChangedProtocol] = None

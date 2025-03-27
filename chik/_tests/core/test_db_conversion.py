@@ -4,6 +4,8 @@ import random
 from pathlib import Path
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.util.temp_file import TempFile
 from chik.cmds.db_upgrade_func import convert_v1_to_v2
@@ -14,9 +16,7 @@ from chik.full_node.block_store import BlockStore
 from chik.full_node.coin_store import CoinStore
 from chik.full_node.hint_store import HintStore
 from chik.simulator.block_tools import test_constants
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.db_wrapper import DBWrapper2
-from chik.util.ints import uint32, uint64
 
 
 def rand_bytes(num) -> bytes:

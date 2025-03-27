@@ -21,6 +21,8 @@ import pytest
 
 # TODO: update after resolution in https://github.com/pytest-dev/pytest/issues/7469
 from _pytest.fixtures import SubRequest
+from chik_rs import ConsensusConstants
+from chik_rs.sized_ints import uint8, uint16, uint32, uint64
 from pytest import MonkeyPatch
 
 from chik._tests import ether
@@ -47,7 +49,6 @@ from chik._tests.util.setup_nodes import (
 )
 from chik._tests.util.spend_sim import CostLogger
 from chik._tests.util.time_out_assert import time_out_assert
-from chik.consensus.constants import ConsensusConstants
 from chik.full_node.full_node_api import FullNodeAPI
 from chik.rpc.farmer_rpc_client import FarmerRpcClient
 from chik.rpc.harvester_rpc_client import HarvesterRpcClient
@@ -79,7 +80,6 @@ from chik.types.aliases import (
 from chik.types.peer_info import PeerInfo
 from chik.util.config import create_default_chik_config, lock_and_load_config
 from chik.util.db_wrapper import generate_in_memory_db_uri
-from chik.util.ints import uint8, uint16, uint32, uint64
 from chik.util.keychain import Keychain
 from chik.util.task_timing import main as task_instrumentation_main
 from chik.util.task_timing import start_task_instrumentation, stop_task_instrumentation
@@ -90,12 +90,13 @@ multiprocessing.set_start_method("spawn")
 from dataclasses import replace
 from pathlib import Path
 
+from chik_rs.sized_ints import uint128
+
 from chik._tests.environments.wallet import WalletEnvironment, WalletState, WalletTestFramework
 from chik._tests.util.setup_nodes import setup_farmer_multi_harvester
 from chik.rpc.full_node_rpc_client import FullNodeRpcClient
 from chik.simulator.block_tools import BlockTools, create_block_tools_async, test_constants
 from chik.simulator.keyring import TempKeyring
-from chik.util.ints import uint128
 from chik.util.keyring_wrapper import KeyringWrapper
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG, TXConfig
 from chik.wallet.wallet_node import Balance

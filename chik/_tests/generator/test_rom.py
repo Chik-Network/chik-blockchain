@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from chik_puzzles_py.programs import CHIKLISP_DESERIALISATION, ROM_BOOTSTRAP_GENERATOR
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 from klvm.KLVMObject import KLVMStorage
 from klvm_tools import binutils
 from klvm_tools.klvmc import compile_klvm_text
@@ -9,20 +12,15 @@ from chik.consensus.condition_costs import ConditionCost
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.generator_types import BlockGenerator
 from chik.types.spend_bundle_conditions import SpendConditions
-from chik.util.ints import uint32
-from chik.wallet.puzzles.load_klvm import load_klvm, load_serialized_klvm_maybe_recompile
+
+DESERIALIZE_MOD = Program.from_bytes(CHIKLISP_DESERIALISATION)
+
+GENERATOR_MOD: SerializedProgram = SerializedProgram.from_bytes(ROM_BOOTSTRAP_GENERATOR)
 
 MAX_COST = 10**15
 COST_PER_BYTE = 12000
-
-
-DESERIALIZE_MOD = load_klvm("chiklisp_deserialisation.clsp", package_or_requirement="chik.consensus.puzzles")
-GENERATOR_MOD: SerializedProgram = load_serialized_klvm_maybe_recompile(
-    "rom_bootstrap_generator.clsp", package_or_requirement="chik.consensus.puzzles"
-)
 
 
 GENERATOR_CODE = """

@@ -10,7 +10,9 @@ from os.path import dirname
 from typing import Optional, Union, cast
 
 import pytest
-from chik_rs import G1Element
+from chik_rs import FoliageBlockData, FoliageTransactionBlock, G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik._tests.util.misc import patch_request_handler
 from chik._tests.util.time_out_assert import time_out_assert
@@ -34,9 +36,7 @@ from chik.simulator.block_tools import BlockTools
 from chik.simulator.start_simulator import SimulatorFullNodeService
 from chik.types.aliases import FarmerService, FullNodeService, HarvesterService
 from chik.types.blockchain_format.classgroup import ClassgroupElement
-from chik.types.blockchain_format.foliage import FoliageBlockData, FoliageTransactionBlock
 from chik.types.blockchain_format.proof_of_space import ProofOfSpace
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.slots import ChallengeChainSubSlot, RewardChainSubSlot
 from chik.types.full_block import FullBlock
 from chik.types.peer_info import UnresolvedPeerInfo
@@ -44,7 +44,6 @@ from chik.types.validation_state import ValidationState
 from chik.util.augmented_chain import AugmentedBlockchain
 from chik.util.bech32m import decode_puzzle_hash
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint32, uint64
 
 SPType = Union[timelord_protocol.NewEndOfSubSlotVDF, timelord_protocol.NewSignagePointVDF]
 SPList = list[SPType]

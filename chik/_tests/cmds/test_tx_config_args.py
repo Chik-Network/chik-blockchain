@@ -5,11 +5,11 @@ from pathlib import Path
 from typing import Optional
 
 import click
+from chik_rs.sized_bytes import bytes32
 from click.testing import CliRunner
 
 from chik.cmds.cmds_util import CMDCoinSelectionConfigLoader, CMDTXConfigLoader, coin_selection_args, tx_config_args
 from chik.cmds.param_types import CliAmount
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.config import create_default_chik_config, load_config
 
 

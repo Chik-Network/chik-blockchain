@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Optional
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.blockchain.blockchain_test_utils import _validate_and_add_block
 from chik.consensus.block_record import BlockRecord
@@ -10,9 +12,7 @@ from chik.consensus.blockchain import Blockchain, StateChangeSummary
 from chik.full_node.hint_management import get_hints_and_subscription_coin_ids
 from chik.simulator.block_tools import BlockTools
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.hash import std_hash
-from chik.util.ints import uint32, uint64
 
 coin_ids = [std_hash(i.to_bytes(4, "big")) for i in range(10)]
 parent_ids = [std_hash(i.to_bytes(4, "big")) for i in range(10)]

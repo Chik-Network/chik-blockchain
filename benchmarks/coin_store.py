@@ -7,12 +7,13 @@ import sys
 from pathlib import Path
 from time import monotonic
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
+
 from benchmarks.utils import setup_db
 from chik._tests.util.benchmarks import rand_hash, rewards
 from chik.full_node.coin_store import CoinStore
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32, uint64
 
 # to run this benchmark:
 # python -m benchmarks.coin_store

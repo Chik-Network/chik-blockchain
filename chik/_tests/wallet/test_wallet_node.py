@@ -9,6 +9,8 @@ from typing import Any, Optional
 
 import pytest
 from chik_rs import G1Element, PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64, uint128
 
 from chik._tests.util.misc import CoinGenerator, patch_request_handler
 from chik._tests.util.setup_nodes import OldSimulatorsAndWallets
@@ -21,13 +23,11 @@ from chik.server.outbound_message import Message, make_msg
 from chik.simulator.add_blocks_in_batches import add_blocks_in_batches
 from chik.simulator.block_tools import test_constants
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.full_block import FullBlock
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.types.peer_info import PeerInfo
 from chik.util.config import load_config
 from chik.util.errors import Err
-from chik.util.ints import uint8, uint32, uint64, uint128
 from chik.util.keychain import Keychain, KeyData, generate_mnemonic
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 from chik.wallet.util.wallet_sync_utils import PeerRequestException
@@ -635,7 +635,7 @@ async def test_transaction_send_cache(
     with patch_request_handler(api=full_node_api.full_node._server.get_connections()[0].api, handler=send_transaction):
         # Generate the transaction
         async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
-            await wallet.generate_signed_transaction(uint64(0), bytes32.zeros, action_scope)
+            await wallet.generate_signed_transaction([uint64(0)], [bytes32.zeros], action_scope)
         [tx] = action_scope.side_effects.transactions
 
         # Make sure it is sent to the peer

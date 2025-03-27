@@ -5,11 +5,12 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
+
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.db_wrapper import DBWrapper2, execute_fetchone
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint32, uint64
 from chik.util.lru_cache import LRUCache
 from chik.util.streamable import Streamable, UInt32Range, UInt64Range, VersionedBlob, streamable
 from chik.wallet.util.query_filter import AmountFilter, FilterMode, HashFilter

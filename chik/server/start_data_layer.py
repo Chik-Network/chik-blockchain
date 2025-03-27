@@ -6,6 +6,8 @@ import pathlib
 import sys
 from typing import Any, Optional, cast
 
+from chik_rs.sized_ints import uint16
+
 from chik.apis import ApiProtocolRegistry
 from chik.data_layer.data_layer import DataLayer
 from chik.data_layer.data_layer_api import DataLayerAPI
@@ -21,7 +23,6 @@ from chik.types.aliases import DataLayerService, WalletService
 from chik.util.chik_logging import initialize_logging
 from chik.util.config import load_config, load_config_cli
 from chik.util.default_root import resolve_root_path
-from chik.util.ints import uint16
 from chik.util.task_timing import maybe_manage_task_instrumentation
 
 # See: https://bugs.python.org/issue29288

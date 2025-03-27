@@ -11,6 +11,7 @@ import pytest
 
 # https://github.com/pytest-dev/pytest/issues/7469
 from _pytest.fixtures import SubRequest
+from chik_rs.sized_bytes import bytes32
 
 from chik._tests.core.data_layer.util import (
     ChikRoot,
@@ -22,7 +23,6 @@ from chik._tests.core.data_layer.util import (
 from chik._tests.util.misc import closing_chik_root_popen
 from chik.data_layer.data_layer_util import NodeType, Status
 from chik.data_layer.data_store import DataStore
-from chik.types.blockchain_format.sized_bytes import bytes32
 
 # TODO: These are more general than the data layer and should either move elsewhere or
 #       be replaced with an existing common approach.  For now they can at least be

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from chik_rs.sized_ints import uint64
+
 from chik._tests.util.get_name_puzzle_conditions import get_name_puzzle_conditions
 from chik.consensus.cost_calculator import NPCResult
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
@@ -7,7 +9,6 @@ from chik.full_node.bundle_tools import simple_solution_generator
 from chik.types.blockchain_format.program import INFINITE_COST
 from chik.types.generator_types import BlockGenerator
 from chik.types.spend_bundle import SpendBundle
-from chik.util.ints import uint64
 
 
 def cost_of_spend_bundle(spend_bundle: SpendBundle) -> int:

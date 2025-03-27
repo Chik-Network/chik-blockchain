@@ -12,10 +12,11 @@ the doctor ordered.
 
 from __future__ import annotations
 
-from chik.types.blockchain_format.program import Program
-from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
+from chik_puzzles_py.programs import P2_CONDITIONS
 
-MOD = load_klvm_maybe_recompile("p2_conditions.clsp")
+from chik.types.blockchain_format.program import Program
+
+MOD = Program.from_bytes(P2_CONDITIONS)
 
 
 def puzzle_for_conditions(conditions) -> Program:

@@ -4,16 +4,16 @@ import re
 
 import pytest
 from chik_rs import AugSchemeMPL, G1Element, G2Element, PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.util.db_wrapper import DBWrapper2, manage_connection
-from chik.util.ints import uint32, uint64
 from chik.wallet.derivation_record import DerivationRecord
 from chik.wallet.derive_keys import master_sk_to_wallet_sk, master_sk_to_wallet_sk_unhardened
 from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import (

@@ -4,15 +4,15 @@ import random
 import time
 
 from chik_rs import AugSchemeMPL, PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 from klvm_tools import binutils
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.simulator.wallet_tools import WalletTool
 from chik.types.blockchain_format.program import INFINITE_COST, Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
-from chik.util.ints import uint32
 from chik.wallet.derive_keys import master_sk_to_wallet_sk
 from chik.wallet.puzzles.p2_delegated_puzzle import puzzle_for_pk
 

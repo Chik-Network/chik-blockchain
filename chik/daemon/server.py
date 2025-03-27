@@ -21,6 +21,7 @@ from types import FrameType
 from typing import Any, Optional, TextIO
 
 from chik_rs import G1Element
+from chik_rs.sized_ints import uint32
 from typing_extensions import Protocol
 
 from chik import __version__
@@ -38,7 +39,6 @@ from chik.util.chik_logging import initialize_service_logging
 from chik.util.chik_version import chik_short_version
 from chik.util.config import load_config
 from chik.util.errors import KeychainCurrentPassphraseIsInvalid
-from chik.util.ints import uint32
 from chik.util.json_util import dict_to_json_str
 from chik.util.keychain import Keychain, KeyData, passphrase_requirements, supports_os_passphrase_storage
 from chik.util.lock import Lockfile, LockfileError

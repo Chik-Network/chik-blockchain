@@ -5,14 +5,14 @@ from dataclasses import dataclass
 from typing import Any, Generic, Optional, TypeVar
 
 from chik_rs import SpendBundle
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik.consensus.coinbase import farmer_parent_id, pool_parent_id
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.util.bech32m import decode_puzzle_hash, encode_puzzle_hash
 from chik.util.errors import Err
-from chik.util.ints import uint8, uint32, uint64
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.util.transaction_type import TransactionType

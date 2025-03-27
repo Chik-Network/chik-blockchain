@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from chik_rs.sized_bytes import bytes32
 
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.network import is_trusted_peer
 
 

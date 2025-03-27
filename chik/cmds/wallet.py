@@ -6,6 +6,8 @@ from collections.abc import Sequence
 from typing import Optional
 
 import click
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik.cmds import options
 from chik.cmds.check_wallet_db import help_text as check_help_text
@@ -21,8 +23,6 @@ from chik.cmds.param_types import (
     cli_amount_none,
 )
 from chik.cmds.signer import PushTransactionsCMD, signer_cmd
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32, uint64
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.transaction_sorting import SortKey

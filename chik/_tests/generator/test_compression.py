@@ -4,7 +4,16 @@ from __future__ import annotations
 import io
 from typing import Any
 
+from chik_puzzles_py.programs import (
+    BLOCK_PROGRAM_ZERO,
+    CHIKLISP_DESERIALISATION,
+    DECOMPRESS_COIN_SPEND_ENTRY,
+    DECOMPRESS_COIN_SPEND_ENTRY_WITH_PREFIX,
+    DECOMPRESS_PUZZLE,
+    ROM_BOOTSTRAP_GENERATOR,
+)
 from chik_rs import serialized_length
+from chik_rs.sized_ints import uint32
 from klvm.serialize import sexp_from_stream
 from klvm.SExp import SExp
 from klvm_tools import binutils
@@ -12,21 +21,22 @@ from klvm_tools import binutils
 from chik.types.blockchain_format.program import INFINITE_COST, Program
 from chik.types.spend_bundle import SpendBundle
 from chik.util.byte_types import hexstr_to_bytes
-from chik.util.ints import uint32
 from chik.wallet.puzzles.load_klvm import load_klvm
+
+DESERIALIZE_MOD = Program.from_bytes(CHIKLISP_DESERIALISATION)
+
+GENERATOR_MOD: Program = Program.from_bytes(ROM_BOOTSTRAP_GENERATOR)
+
+
+DECOMPRESS_PUZZLE = Program.from_bytes(DECOMPRESS_PUZZLE)
+DECOMPRESS_CSE = Program.from_bytes(DECOMPRESS_COIN_SPEND_ENTRY)
+
+DECOMPRESS_CSE_WITH_PREFIX = Program.from_bytes(DECOMPRESS_COIN_SPEND_ENTRY_WITH_PREFIX)
+DECOMPRESS_BLOCK = Program.from_bytes(BLOCK_PROGRAM_ZERO)
 
 TEST_GEN_DESERIALIZE = load_klvm(
     "test_generator_deserialize.clsp", package_or_requirement="chik._tests.generator.puzzles"
 )
-DESERIALIZE_MOD = load_klvm("chiklisp_deserialisation.clsp", package_or_requirement="chik.consensus.puzzles")
-
-DECOMPRESS_PUZZLE = load_klvm("decompress_puzzle.clsp", package_or_requirement="chik.full_node.puzzles")
-DECOMPRESS_CSE = load_klvm("decompress_coin_spend_entry.clsp", package_or_requirement="chik.full_node.puzzles")
-
-DECOMPRESS_CSE_WITH_PREFIX = load_klvm(
-    "decompress_coin_spend_entry_with_prefix.clsp", package_or_requirement="chik.full_node.puzzles"
-)
-DECOMPRESS_BLOCK = load_klvm("block_program_zero.clsp", package_or_requirement="chik.full_node.puzzles")
 TEST_MULTIPLE = load_klvm(
     "test_multiple_generator_input_arguments.clsp", package_or_requirement="chik._tests.generator.puzzles"
 )

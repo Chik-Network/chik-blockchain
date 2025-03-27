@@ -3,13 +3,14 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, ClassVar, Optional, cast
 
+from chik_rs import SubEpochChallengeSegment, SubEpochSegments
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
+
 from chik.consensus.block_record import BlockRecord
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.blockchain_format.vdf import VDFInfo
 from chik.types.header_block import HeaderBlock
-from chik.types.weight_proof import SubEpochChallengeSegment, SubEpochSegments
-from chik.util.ints import uint32
 
 
 # implements BlockchainInterface
@@ -66,8 +67,11 @@ class BlockchainMock:
         assert height in self._height_to_hash
         return self._height_to_hash[height]
 
-    def contains_block(self, header_hash: bytes32) -> bool:
-        return header_hash in self._block_records
+    def contains_block(self, header_hash: bytes32, height: uint32) -> bool:
+        block_hash_from_hh = self.height_to_hash(height)
+        if block_hash_from_hh is None or block_hash_from_hh != header_hash:
+            return False
+        return True
 
     async def contains_block_from_db(self, header_hash: bytes32) -> bool:
         return header_hash in self._block_records

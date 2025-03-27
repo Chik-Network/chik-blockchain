@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, cast
 
+from chik_rs.sized_ints import uint32
+
 from chik.harvester.harvester import Harvester
 from chik.rpc.rpc_server import Endpoint, EndpointResult
-from chik.util.ints import uint32
 from chik.util.ws_message import WsRpcMessage, create_payload_dict
 
 

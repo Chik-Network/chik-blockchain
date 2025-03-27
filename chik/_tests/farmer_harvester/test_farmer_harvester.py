@@ -7,6 +7,8 @@ from typing import Any, Optional
 
 import pytest
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik._tests.conftest import HarvesterFarmerEnvironment
 from chik._tests.util.split_managers import split_async_manager
@@ -20,11 +22,9 @@ from chik.rpc.harvester_rpc_client import HarvesterRpcClient
 from chik.server.outbound_message import NodeType, make_msg
 from chik.simulator.block_tools import BlockTools
 from chik.types.aliases import FarmerService, HarvesterService
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import UnresolvedPeerInfo
 from chik.util.config import load_config
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint32, uint64
 from chik.util.keychain import generate_mnemonic
 
 

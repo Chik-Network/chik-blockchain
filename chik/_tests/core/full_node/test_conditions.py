@@ -10,6 +10,7 @@ from typing import Optional
 
 import pytest
 from chik_rs import AugSchemeMPL, G2Element
+from chik_rs.sized_ints import uint32, uint64
 from klvm.casts import int_to_bytes
 from klvm_tools.binutils import assemble
 
@@ -27,7 +28,6 @@ from chik.types.full_block import FullBlock
 from chik.types.spend_bundle import SpendBundle
 from chik.util.condition_tools import agg_sig_additional_data
 from chik.util.errors import Err
-from chik.util.ints import uint32, uint64
 from chik.wallet.conditions import AssertCoinAnnouncement, AssertPuzzleAnnouncement
 
 

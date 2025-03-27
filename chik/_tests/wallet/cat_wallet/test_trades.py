@@ -5,6 +5,8 @@ from typing import Any, Union
 
 import pytest
 from chik_rs import G2Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.conftest import SOFTFORK_HEIGHTS
 from chik._tests.environments.wallet import WalletStateTransition, WalletTestFramework
@@ -16,11 +18,9 @@ from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.full_node.bundle_tools import simple_solution_generator
 from chik.rpc.wallet_request_types import VCAddProofs, VCGetList, VCGetProofsForRoot, VCMint, VCSpend
 from chik.types.blockchain_format.program import INFINITE_COST, Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.spend_bundle import SpendBundle
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.hash import std_hash
-from chik.util.ints import uint32, uint64
 from chik.wallet.cat_wallet.cat_wallet import CATWallet
 from chik.wallet.conditions import CreateCoinAnnouncement, parse_conditions_non_consensus
 from chik.wallet.did_wallet.did_wallet import DIDWallet

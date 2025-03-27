@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union, cast, final
 
 import aiohttp
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik.data_layer.data_layer_errors import KeyNotFoundError
 from chik.data_layer.data_layer_util import (
@@ -44,7 +46,7 @@ from chik.data_layer.data_layer_util import (
     leaf_hash,
     unspecified,
 )
-from chik.data_layer.data_layer_wallet import DataLayerWallet, Mirror, SingletonRecord, verify_offer
+from chik.data_layer.data_layer_wallet import DataLayerWallet, Mirror, verify_offer
 from chik.data_layer.data_store import DataStore
 from chik.data_layer.download_data import (
     delete_full_file_if_exists,
@@ -53,15 +55,14 @@ from chik.data_layer.download_data import (
     insert_from_delta_file,
     write_files_for_root,
 )
+from chik.data_layer.singleton_record import SingletonRecord
 from chik.rpc.rpc_server import StateChangedProtocol, default_get_connections
 from chik.rpc.wallet_request_types import LogIn
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.server.outbound_message import NodeType
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.async_pool import Job, QueuedAsyncPool
-from chik.util.ints import uint32, uint64
 from chik.util.path import path_from_root
 from chik.util.task_referencer import create_referenced_task
 from chik.wallet.trade_record import TradeRecord

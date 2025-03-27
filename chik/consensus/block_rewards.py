@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from chik.util.ints import uint32, uint64
+from chik_rs.sized_ints import uint32, uint64
 
 # 1 Chik coin = 1,000,000,000,000 = 1 trillion mojo.
 _mojo_per_chik = 1000000000000

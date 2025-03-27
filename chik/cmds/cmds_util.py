@@ -11,6 +11,8 @@ from typing import Any, Callable, Optional, TypeVar
 
 import click
 from aiohttp import ClientConnectorCertificateError, ClientConnectorError
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16, uint32, uint64
 
 from chik.cmds.param_types import AmountParamType, Bytes32ParamType, CliAmount, cli_amount_none
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
@@ -23,11 +25,9 @@ from chik.rpc.rpc_client import ResponseFailureError, RpcClient
 from chik.rpc.wallet_request_types import LogIn
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.simulator_full_node_rpc_client import SimulatorFullNodeRpcClient
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.mempool_submission_status import MempoolSubmissionStatus
 from chik.util.config import load_config
 from chik.util.errors import CliRpcConnectionError, InvalidPathError
-from chik.util.ints import uint16, uint32, uint64
 from chik.util.keychain import KeyData
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.conditions import ConditionValidTimes

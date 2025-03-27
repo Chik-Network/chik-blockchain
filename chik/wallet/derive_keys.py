@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Optional
 
 from chik_rs import AugSchemeMPL, G1Element, PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 
 from chik.consensus.coinbase import create_puzzlehash_for_pk
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32
 
 # EIP 2334 bls key derivation
 # https://eips.ethereum.org/EIPS/eip-2334

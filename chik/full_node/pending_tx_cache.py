@@ -3,11 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 from sortedcontainers import SortedDict
 
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.mempool_item import MempoolItem
-from chik.util.ints import uint32
 
 
 @dataclass

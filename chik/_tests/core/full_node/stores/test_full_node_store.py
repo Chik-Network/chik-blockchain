@@ -6,13 +6,15 @@ from collections.abc import AsyncIterator
 from typing import Optional
 
 import pytest
+from chik_rs import ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint16, uint32, uint64, uint128
 
 from chik._tests.blockchain.blockchain_test_utils import _validate_and_add_block, _validate_and_add_block_no_error
 from chik._tests.util.blockchain import create_blockchain
 from chik._tests.util.blockchain_mock import BlockchainMock
 from chik.consensus.block_body_validation import ForkInfo
 from chik.consensus.blockchain import AddBlockResult, Blockchain
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.consensus.difficulty_adjustment import get_next_sub_slot_iters_and_difficulty
 from chik.consensus.find_fork_point import find_fork_point_in_chain
@@ -24,11 +26,9 @@ from chik.protocols import timelord_protocol
 from chik.protocols.timelord_protocol import NewInfusionPointVDF
 from chik.simulator.block_tools import BlockTools, create_block_tools_async, get_signage_point, make_unfinished_block
 from chik.simulator.keyring import TempKeyring
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.full_block import FullBlock
 from chik.types.unfinished_block import UnfinishedBlock
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint16, uint32, uint64, uint128
 from chik.util.recursive_replace import recursive_replace
 
 log = logging.getLogger(__name__)

@@ -4,16 +4,18 @@ import json
 from pathlib import Path
 from typing import Any, Optional, Union
 
+from chik_rs.sized_bytes import bytes32
+
 from chik.rpc.full_node_rpc_client import FullNodeRpcClient
-from chik.types.blockchain_format.sized_bytes import bytes32
 
 
 async def print_blockchain_state(node_client: FullNodeRpcClient, config: dict[str, Any]) -> bool:
     import time
 
+    from chik_rs.sized_ints import uint64
+
     from chik.cmds.cmds_util import format_bytes
     from chik.consensus.block_record import BlockRecord
-    from chik.util.ints import uint64
 
     blockchain_state = await node_client.get_blockchain_state()
     if blockchain_state is None:
@@ -97,8 +99,9 @@ async def print_block_from_hash(
 ) -> None:
     import time
 
+    from chik_rs.sized_bytes import bytes32
+
     from chik.consensus.block_record import BlockRecord
-    from chik.types.blockchain_format.sized_bytes import bytes32
     from chik.types.full_block import FullBlock
     from chik.util.bech32m import encode_puzzle_hash
 

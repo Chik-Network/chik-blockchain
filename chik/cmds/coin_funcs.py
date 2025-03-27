@@ -5,16 +5,17 @@ import sys
 from collections.abc import Sequence
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16, uint32, uint64
+
 from chik.cmds.cmd_helpers import WalletClientInfo
 from chik.cmds.cmds_util import CMDCoinSelectionConfigLoader, CMDTXConfigLoader, cli_confirm
 from chik.cmds.param_types import CliAmount
 from chik.cmds.wallet_funcs import get_mojo_per_unit, get_wallet_type, print_balance
 from chik.rpc.wallet_request_types import CombineCoins, SplitCoins
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.config import selected_network_address_prefix
-from chik.util.ints import uint16, uint32, uint64
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.wallet_types import WalletType

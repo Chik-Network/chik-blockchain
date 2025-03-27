@@ -4,7 +4,8 @@ import math
 import time
 from dataclasses import dataclass
 
-from chik.util.ints import uint32, uint64
+from chik_rs.sized_ints import uint32, uint64
+
 from chik.util.streamable import Streamable, streamable
 
 

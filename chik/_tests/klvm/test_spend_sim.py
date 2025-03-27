@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 from chik_rs import G2Element
+from chik_rs.sized_bytes import bytes32
 
 from chik._tests.util.spend_sim import sim_and_client
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import compute_additions, make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.spend_bundle import SpendBundle

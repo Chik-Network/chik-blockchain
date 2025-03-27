@@ -13,6 +13,8 @@ from shutil import copy
 from typing import Any, Callable, Union, cast
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik._tests.conftest import HarvesterFarmerEnvironment
 from chik._tests.plot_sync.test_delta import dummy_plot
@@ -34,11 +36,9 @@ from chik.rpc.farmer_rpc_api import (
 )
 from chik.rpc.farmer_rpc_client import FarmerRpcClient
 from chik.simulator.block_tools import get_plot_dir
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.bech32m import decode_puzzle_hash, encode_puzzle_hash
 from chik.util.config import load_config, lock_and_load_config, save_config
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint32, uint64
 from chik.wallet.derive_keys import master_sk_to_wallet_sk, master_sk_to_wallet_sk_unhardened
 
 log = logging.getLogger(__name__)

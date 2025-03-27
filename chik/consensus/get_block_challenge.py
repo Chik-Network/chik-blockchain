@@ -3,15 +3,16 @@ from __future__ import annotations
 import logging
 from typing import Union
 
+from chik_rs import ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
+
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
-from chik.consensus.constants import ConsensusConstants
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.full_block import FullBlock
 from chik.types.header_block import HeaderBlock
 from chik.types.unfinished_block import UnfinishedBlock
 from chik.types.unfinished_header_block import UnfinishedHeaderBlock
-from chik.util.ints import uint64
 
 log = logging.getLogger(__name__)
 

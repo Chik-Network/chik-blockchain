@@ -6,20 +6,28 @@ from dataclasses import dataclass, replace
 from enum import IntEnum
 from typing import Optional, TypeVar
 
+from chik_puzzles_py.programs import (
+    CONDITIONS_W_FEE_ANNOUNCE,
+    FLAG_PROOFS_CHECKER,
+)
+from chik_puzzles_py.programs import (
+    CREDENTIAL_RESTRICTION as CREDENTIAL_RESTRICTION_BYTES,
+)
+from chik_puzzles_py.programs import (
+    CREDENTIAL_RESTRICTION_HASH as CREDENTIAL_RESTRICTION_HASH_BYTES,
+)
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16, uint64
 from klvm.casts import int_to_bytes
 
 from chik.types.blockchain_format.coin import Coin, coin_as_list
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, make_spend
 from chik.util.hash import std_hash
-from chik.util.ints import uint16, uint64
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.cat_wallet.cat_utils import CAT_MOD, construct_cat_puzzle
-from chik.wallet.conditions import AssertCoinAnnouncement
+from chik.wallet.conditions import AssertCoinAnnouncement, CreateCoin
 from chik.wallet.lineage_proof import LineageProof, LineageProofField
-from chik.wallet.payment import Payment
-from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
 from chik.wallet.puzzles.singleton_top_layer_v1_1 import SINGLETON_LAUNCHER_HASH, SINGLETON_MOD_HASH
 from chik.wallet.uncurried_puzzle import UncurriedPuzzle, uncurry_puzzle
 from chik.wallet.util.curry_and_treehash import curry_and_treehash
@@ -35,22 +43,10 @@ from chik.wallet.vc_wallet.vc_drivers import (
 
 # Mods
 
-CREDENTIAL_RESTRICTION: Program = load_klvm_maybe_recompile(
-    "credential_restriction.clsp",
-    package_or_requirement="chik.wallet.vc_wallet.cr_puzzles",
-    include_standard_libraries=True,
-)
-CREDENTIAL_RESTRICTION_HASH: bytes32 = CREDENTIAL_RESTRICTION.get_tree_hash()
-PROOF_FLAGS_CHECKER: Program = load_klvm_maybe_recompile(
-    "flag_proofs_checker.clsp",
-    package_or_requirement="chik.wallet.vc_wallet.cr_puzzles",
-    include_standard_libraries=True,
-)
-PENDING_VC_ANNOUNCEMENT: Program = load_klvm_maybe_recompile(
-    "conditions_w_fee_announce.clsp",
-    package_or_requirement="chik.wallet.vc_wallet.cr_puzzles",
-    include_standard_libraries=True,
-)
+CREDENTIAL_RESTRICTION: Program = Program.from_bytes(CREDENTIAL_RESTRICTION_BYTES)
+CREDENTIAL_RESTRICTION_HASH: bytes32 = bytes32(CREDENTIAL_RESTRICTION_HASH_BYTES)
+PROOF_FLAGS_CHECKER: Program = Program.from_bytes(FLAG_PROOFS_CHECKER)
+PENDING_VC_ANNOUNCEMENT: Program = Program.from_bytes(CONDITIONS_W_FEE_ANNOUNCE)
 CREDENTIAL_STRUCT: Program = Program.to(
     (
         (
@@ -186,7 +182,7 @@ class CRCAT:
         cls: type[_T_CRCAT],
         # General CAT launching info
         origin_coin: Coin,
-        payment: Payment,
+        payment: CreateCoin,
         tail: Program,
         tail_solution: Program,
         # CR Layer params

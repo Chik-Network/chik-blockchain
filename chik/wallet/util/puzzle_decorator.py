@@ -3,11 +3,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from chik_rs.sized_bytes import bytes32
 from typing_extensions import Protocol
 
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.wallet.payment import Payment
+from chik.wallet.conditions import CreateCoin
 from chik.wallet.puzzles.clawback.puzzle_decorator import ClawbackPuzzleDecorator
 from chik.wallet.util.puzzle_decorator_type import PuzzleDecoratorType
 
@@ -26,7 +26,9 @@ class PuzzleDecoratorProtocol(Protocol):
         self, inner_puzzle: Program, target_puzzle_hash: bytes32, memos: list[bytes]
     ) -> tuple[Program, list[bytes]]: ...
 
-    def solve(self, puzzle: Program, primaries: list[Payment], inner_solution: Program) -> tuple[Program, Program]: ...
+    def solve(
+        self, puzzle: Program, primaries: list[CreateCoin], inner_solution: Program
+    ) -> tuple[Program, Program]: ...
 
 
 class PuzzleDecoratorManager:
@@ -75,7 +77,7 @@ class PuzzleDecoratorManager:
             inner_puzzle, target_puzzle_hash = decorator.decorate_target_puzzle_hash(inner_puzzle, target_puzzle_hash)
         return target_puzzle_hash
 
-    def solve(self, inner_puzzle: Program, primaries: list[Payment], inner_solution: Program) -> Program:
+    def solve(self, inner_puzzle: Program, primaries: list[CreateCoin], inner_solution: Program) -> Program:
         """
         Generate the solution of the puzzle
         :param inner_puzzle: Inner puzzle

@@ -21,9 +21,9 @@ from typing import (
 )
 
 import click
+from chik_rs.sized_bytes import bytes32
 from typing_extensions import dataclass_transform
 
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.default_root import DEFAULT_ROOT_PATH
 from chik.util.streamable import is_type_SpecificOptional
@@ -271,11 +271,11 @@ def chik_command(
         # passed through the dataclass wrapper.  Not sure what to do about this right now.
         if sys.version_info < (3, 10):  # pragma: no cover
             # stuff below 3.10 doesn't know about kw_only
-            wrapped_cls: type[ChikCommand] = dataclass(  # type: ignore[assignment]
+            wrapped_cls: type[ChikCommand] = dataclass(
                 frozen=True,
             )(cls)
         else:
-            wrapped_cls: type[ChikCommand] = dataclass(  # type: ignore[assignment]
+            wrapped_cls: type[ChikCommand] = dataclass(
                 frozen=True,
                 kw_only=True,
             )(cls)

@@ -4,13 +4,13 @@ from dataclasses import dataclass
 from typing import Optional
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 from klvm.casts import int_to_bytes
 
 from chik.consensus.get_block_generator import get_block_generator
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.generator_types import BlockGenerator
-from chik.util.ints import uint32
 
 
 @dataclass(frozen=True)

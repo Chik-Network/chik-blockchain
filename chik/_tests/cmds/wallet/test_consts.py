@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from chik_rs import Coin, G2Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32, uint64
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.signer_protocol import KeyHints, SigningInstructions, TransactionInfo, UnsignedTransaction
 from chik.wallet.transaction_record import TransactionRecord

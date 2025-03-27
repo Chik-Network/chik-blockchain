@@ -4,7 +4,8 @@ import ipaddress
 from dataclasses import dataclass
 from typing import Union
 
-from chik.util.ints import uint16, uint64
+from chik_rs.sized_ints import uint16, uint64
+
 from chik.util.ip_address import IPAddress
 from chik.util.streamable import Streamable, streamable
 

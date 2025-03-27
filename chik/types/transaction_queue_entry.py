@@ -5,8 +5,9 @@ import dataclasses
 from dataclasses import dataclass, field
 from typing import ClassVar, Generic, Optional, TypeVar, Union
 
+from chik_rs.sized_bytes import bytes32
+
 from chik.server.ws_connection import WSChikConnection
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.types.spend_bundle import SpendBundle
 from chik.util.errors import Err

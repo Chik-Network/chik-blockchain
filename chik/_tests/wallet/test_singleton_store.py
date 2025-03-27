@@ -4,15 +4,13 @@ from __future__ import annotations
 from secrets import token_bytes
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.util.db_connection import DBConnection
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import make_spend
-from chik.util.ints import uint32, uint64
-
-# from chik.wallet.dao_wallet.dao_wallet import DAOInfo, DAOWallet
 from chik.wallet.lineage_proof import LineageProof
 from chik.wallet.singleton import create_singleton_puzzle
 from chik.wallet.singleton_record import SingletonRecord

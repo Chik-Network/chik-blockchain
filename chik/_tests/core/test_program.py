@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 from klvm.SExp import CastableType
 from klvm_tools import binutils
 
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32, uint64
 
 
 def program_roundtrip(o: CastableType) -> None:

@@ -8,6 +8,7 @@ from timeit import default_timer as timer
 from typing import Any, Optional
 
 import aiofiles
+from chik_rs.sized_ints import uint64
 
 from chik.server.address_manager import (
     BUCKET_SIZE,
@@ -17,7 +18,6 @@ from chik.server.address_manager import (
     ExtendedPeerInfo,
 )
 from chik.util.files import write_file_async
-from chik.util.ints import uint64
 from chik.util.streamable import Streamable, streamable
 
 log = logging.getLogger(__name__)

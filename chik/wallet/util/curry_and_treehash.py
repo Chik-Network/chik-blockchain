@@ -4,9 +4,8 @@ from collections.abc import Sequence
 from hashlib import sha256
 from typing import Callable
 
+from chik_rs.sized_bytes import bytes32
 from klvm.casts import int_to_bytes
-
-from chik.types.blockchain_format.sized_bytes import bytes32
 
 CurryHashFunction = Callable[..., bytes32]
 

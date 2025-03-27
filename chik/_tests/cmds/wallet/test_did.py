@@ -4,15 +4,15 @@ from pathlib import Path
 from typing import Optional, Union
 
 from chik_rs import G2Element
+from chik_rs.sized_bytes import bytes48
+from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.cmds.cmd_test_utils import TestRpcClients, TestWalletRpcClient, logType, run_cli_command_and_assert
 from chik._tests.cmds.wallet.test_consts import FINGERPRINT_ARG, STD_TX, STD_UTX, get_bytes32
 from chik.rpc.wallet_request_types import DIDMessageSpendResponse, DIDTransferDIDResponse, DIDUpdateMetadataResponse
-from chik.types.blockchain_format.sized_bytes import bytes48
 from chik.types.signing_mode import SigningMode
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.config import load_config
-from chik.util.ints import uint32, uint64
 from chik.wallet.conditions import Condition, ConditionValidTimes, CreateCoinAnnouncement, CreatePuzzleAnnouncement
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG, TXConfig
 from chik.wallet.wallet_spend_bundle import WalletSpendBundle

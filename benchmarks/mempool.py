@@ -9,18 +9,19 @@ from subprocess import check_call
 from time import monotonic
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
+
 from chik.consensus.coinbase import create_farmer_coin, create_pool_coin
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.full_node.mempool_manager import MempoolManager
 from chik.simulator.wallet_tools import WalletTool
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.eligible_coin_spends import UnspentLineageInfo
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.types.spend_bundle import SpendBundle
 from chik.util.batches import to_batches
-from chik.util.ints import uint32, uint64
 from chik.util.task_referencer import create_referenced_task
 
 NUM_ITERS = 200
@@ -238,17 +239,16 @@ async def run_mempool_benchmark() -> None:
         print(f"  time: {stop - start:0.4f}s")
         print(f"  per call: {(stop - start) / total_bundles * 1000:0.2f}ms")
 
-        print("\nProfiling create_bundle_from_mempool()")
+        print("\nProfiling create_block_generator()")
         with enable_profiler(True, f"create-{suffix}"):
             start = monotonic()
-            for _ in range(500):
-                await mempool.create_bundle_from_mempool(
+            for _ in range(50):
+                await mempool.create_block_generator(
                     last_tb_header_hash=rec.header_hash,
-                    get_unspent_lineage_info_for_puzzle_hash=get_unspent_lineage_info_for_puzzle_hash,
                 )
             stop = monotonic()
         print(f"  time: {stop - start:0.4f}s")
-        print(f"  per call: {(stop - start) / 500 * 1000:0.2f}ms")
+        print(f"  per call: {(stop - start) / 50 * 1000:0.2f}ms")
 
         print("\nProfiling new_peak() (optimized)")
         blocks: list[tuple[BenchBlockRecord, list[bytes32]]] = []

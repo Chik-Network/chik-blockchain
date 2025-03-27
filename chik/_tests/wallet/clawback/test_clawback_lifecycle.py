@@ -4,6 +4,8 @@ from typing import Optional
 
 import pytest
 from chik_rs import AugSchemeMPL, G1Element, G2Element, PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 from chik._tests.klvm.benchmark_costs import cost_of_spend_bundle
 from chik._tests.klvm.test_puzzles import public_key_for_index, secret_exponent_for_index
@@ -12,13 +14,11 @@ from chik._tests.util.spend_sim import CostLogger, SimClient, SpendSim, sim_and_
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.program import INFINITE_COST, Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.util.condition_tools import conditions_dict_for_solution, pkm_pairs_for_conditions_dict
 from chik.util.errors import Err
-from chik.util.ints import uint64
 from chik.util.streamable import VersionedBlob
 from chik.wallet.puzzles.clawback.drivers import (
     create_augmented_cond_puzzle_hash,

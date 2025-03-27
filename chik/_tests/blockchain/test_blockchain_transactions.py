@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 from klvm.casts import int_to_bytes
 
 from chik._tests.blockchain.blockchain_test_utils import _validate_and_add_block
@@ -14,12 +16,10 @@ from chik.server.server import ChikServer
 from chik.simulator.add_blocks_in_batches import add_blocks_in_batches
 from chik.simulator.block_tools import BlockTools, test_constants
 from chik.simulator.wallet_tools import WalletTool
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
 from chik.types.spend_bundle import SpendBundle, estimate_fees
 from chik.util.errors import Err
-from chik.util.ints import uint32, uint64
 from chik.wallet.conditions import AssertCoinAnnouncement, AssertPuzzleAnnouncement
 
 BURN_PUZZLE_HASH = bytes32(b"0" * 32)
@@ -65,9 +65,7 @@ class TestBlockchainTransactions:
         assert sb == spend_bundle
 
         last_block = blocks[-1]
-        result = await full_node_1.mempool_manager.create_bundle_from_mempool(
-            last_block.header_hash, full_node_1.coin_store.get_unspent_lineage_info_for_puzzle_hash
-        )
+        result = await full_node_1.mempool_manager.create_bundle_from_mempool(last_block.header_hash)
         assert result is not None
         next_spendbundle, _ = result
 

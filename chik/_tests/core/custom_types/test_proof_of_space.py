@@ -6,12 +6,12 @@ from typing import Optional
 
 import pytest
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32, bytes48
+from chik_rs.sized_ints import uint8, uint32
 
 from chik._tests.util.misc import Marks, datacases
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.proof_of_space import ProofOfSpace, passes_plot_filter, verify_and_get_quality_string
-from chik.types.blockchain_format.sized_bytes import bytes32, bytes48
-from chik.util.ints import uint8, uint32
 
 
 @dataclass

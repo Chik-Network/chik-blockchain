@@ -5,22 +5,20 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from chik_rs import Coin
+from chik_puzzles_py.programs import CHIKLISP_DESERIALISATION
+from chik_rs import Coin, ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
-from chik.consensus.constants import ConsensusConstants
+from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
 from chik.types.generator_types import BlockGenerator
-from chik.util.ints import uint32, uint64
 from chik.wallet.cat_wallet.cat_utils import match_cat_puzzle
-from chik.wallet.puzzles.load_klvm import load_serialized_klvm_maybe_recompile
 from chik.wallet.uncurried_puzzle import uncurry_puzzle
 
-DESERIALIZE_MOD = load_serialized_klvm_maybe_recompile(
-    "chiklisp_deserialisation.clsp", package_or_requirement="chik.consensus.puzzles"
-)
+DESERIALIZE_MOD = Program.from_bytes(CHIKLISP_DESERIALISATION)
 
 
 @dataclass

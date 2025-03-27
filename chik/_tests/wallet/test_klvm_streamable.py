@@ -4,10 +4,10 @@ import dataclasses
 from typing import Optional
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint64
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.signer_protocol import Coin, Spend
 from chik.wallet.util.klvm_streamable import (

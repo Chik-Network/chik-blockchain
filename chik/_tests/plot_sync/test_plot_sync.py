@@ -11,6 +11,8 @@ from typing import Any, Callable, Optional
 
 import pytest
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik._tests.plot_sync.util import start_harvester_service
 from chik._tests.plotting.test_plot_manager import Directory, MockPlotInfo
@@ -29,9 +31,7 @@ from chik.protocols.harvester_protocol import Plot
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.simulator.block_tools import BlockTools
 from chik.types.aliases import FarmerService, HarvesterService
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.config import create_default_chik_config, lock_and_load_config, save_config
-from chik.util.ints import uint8, uint32, uint64
 from chik.util.streamable import _T_Streamable
 
 

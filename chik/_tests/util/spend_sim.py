@@ -10,11 +10,18 @@ from pathlib import Path
 from typing import Any, Callable, Optional, TypeVar
 
 import anyio
-from chik_rs import DONT_VALIDATE_SIGNATURE, G2Element, get_flags_for_height_and_constants, run_block_generator2
+from chik_rs import (
+    DONT_VALIDATE_SIGNATURE,
+    ConsensusConstants,
+    G2Element,
+    get_flags_for_height_and_constants,
+    run_block_generator2,
+)
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.consensus.coinbase import create_farmer_coin, create_pool_coin
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.full_node.bundle_tools import simple_solution_generator
 from chik.full_node.coin_store import CoinStore
@@ -24,7 +31,6 @@ from chik.full_node.mempool_check_conditions import get_puzzle_and_solution_for_
 from chik.full_node.mempool_manager import MempoolManager
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import INFINITE_COST
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.coin_spend import CoinSpend
 from chik.types.generator_types import BlockGenerator
@@ -34,7 +40,6 @@ from chik.types.spend_bundle import SpendBundle, T_SpendBundle
 from chik.util.db_wrapper import DBWrapper2
 from chik.util.errors import Err, ValidationError
 from chik.util.hash import std_hash
-from chik.util.ints import uint32, uint64
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.util.compute_hints import HintedCoin, compute_spend_hints_and_additions
 
@@ -271,7 +276,6 @@ class SpendSim:
             if peak is not None:
                 result = await self.mempool_manager.create_bundle_from_mempool(
                     last_tb_header_hash=peak.header_hash,
-                    get_unspent_lineage_info_for_puzzle_hash=self.coin_store.get_unspent_lineage_info_for_puzzle_hash,
                     item_inclusion_filter=item_inclusion_filter,
                 )
 

@@ -4,6 +4,8 @@ from dataclasses import field
 from typing import Optional
 
 import click
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 from chik.cmds.cmd_classes import ChikCliContext, chik_command, option
 from chik.cmds.cmd_helpers import NeedsWalletRPC
@@ -13,9 +15,7 @@ from chik.cmds.param_types import (
     CliAddress,
     TransactionFeeParamType,
 )
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.errors import CliRpcConnectionError
-from chik.util.ints import uint64
 
 
 @click.group("plotnft", help="Manage your plot NFTs")

@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 from klvm.casts import int_to_bytes
 
 from chik._tests.util.db_connection import DBConnection
@@ -12,10 +14,8 @@ from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.wallet_tools import WalletTool
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
-from chik.util.ints import uint64
 
 log = logging.getLogger(__name__)
 

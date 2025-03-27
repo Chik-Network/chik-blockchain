@@ -5,6 +5,7 @@ from collections.abc import Coroutine
 from typing import Any, Optional, TypeVar
 
 import pytest
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik._tests.conftest import FarmerOneHarvester
 from chik._tests.connection_utils import add_dummy_connection, add_dummy_connection_wsc
@@ -19,7 +20,6 @@ from chik.protocols import farmer_protocol
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.server.outbound_message import Message, NodeType
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint32, uint64
 from chik.util.task_referencer import create_referenced_task
 
 T = TypeVar("T")

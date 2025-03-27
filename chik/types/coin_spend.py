@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Union
 
 import chik_rs
+from chik_rs.sized_ints import uint64
 
 from chik.consensus.condition_costs import ConditionCost
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
@@ -13,7 +14,6 @@ from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
 from chik.util.errors import Err, ValidationError
-from chik.util.ints import uint64
 from chik.util.streamable import Streamable, streamable
 
 CoinSpend = chik_rs.CoinSpend

@@ -5,6 +5,8 @@ import pathlib
 
 import pytest
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 from klvm_tools import binutils
 
 from chik._tests.core.make_block_generator import make_block_generator
@@ -19,9 +21,7 @@ from chik.simulator.block_tools import BlockTools, test_constants
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.generator_types import BlockGenerator
-from chik.util.ints import uint32, uint64
 from chik.wallet.puzzles import p2_delegated_puzzle_or_hidden_puzzle
 
 BURN_PUZZLE_HASH = bytes32(b"0" * 32)

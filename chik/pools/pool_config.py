@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
 
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.config import load_config, lock_and_load_config, save_config
 from chik.util.streamable import Streamable, streamable

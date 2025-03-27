@@ -5,8 +5,9 @@ import random
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+from chik_rs import ConsensusConstants
+
 from chik.consensus.blockchain import Blockchain
-from chik.consensus.constants import ConsensusConstants
 from chik.full_node.block_store import BlockStore
 from chik.full_node.coin_store import CoinStore
 from chik.util.db_wrapper import DBWrapper2

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from chik.types.blockchain_format.sized_bytes import bytes32
+from chik_rs.sized_bytes import bytes32
 
 
 class IntegrityError(Exception):

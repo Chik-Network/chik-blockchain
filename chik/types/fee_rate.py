@@ -4,10 +4,10 @@ import math
 from dataclasses import dataclass
 
 import typing_extensions
+from chik_rs.sized_ints import uint64
 
 from chik.types.klvm_cost import KLVMCost
 from chik.types.mojos import Mojos
-from chik.util.ints import uint64
 from chik.util.streamable import Streamable, streamable
 
 

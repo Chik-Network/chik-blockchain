@@ -1,6 +1,21 @@
 from __future__ import annotations
 
-from chik_rs import G1Element, G2Element, RewardChainBlockUnfinished
+from chik_rs import (
+    Foliage,
+    FoliageBlockData,
+    FoliageTransactionBlock,
+    G1Element,
+    G2Element,
+    PoolTarget,
+    RewardChainBlock,
+    RewardChainBlockUnfinished,
+    SubEpochChallengeSegment,
+    SubEpochData,
+    SubSlotData,
+    TransactionsInfo,
+)
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import int16, uint8, uint16, uint32, uint64, uint128
 
 from chik.protocols import (
     farmer_protocol,
@@ -14,12 +29,8 @@ from chik.protocols import (
 from chik.protocols.shared_protocol import Error
 from chik.types.blockchain_format.classgroup import ClassgroupElement
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.foliage import Foliage, FoliageBlockData, FoliageTransactionBlock, TransactionsInfo
-from chik.types.blockchain_format.pool_target import PoolTarget
 from chik.types.blockchain_format.proof_of_space import ProofOfSpace
-from chik.types.blockchain_format.reward_chain_block import RewardChainBlock
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.slots import (
     ChallengeChainSubSlot,
     InfusedChallengeChainSubSlot,
@@ -35,9 +46,8 @@ from chik.types.header_block import HeaderBlock
 from chik.types.peer_info import TimestampedPeerInfo
 from chik.types.spend_bundle import SpendBundle
 from chik.types.unfinished_block import UnfinishedBlock
-from chik.types.weight_proof import RecentChainData, SubEpochChallengeSegment, SubEpochData, SubSlotData, WeightProof
+from chik.types.weight_proof import RecentChainData, WeightProof
 from chik.util.errors import Err
-from chik.util.ints import int16, uint8, uint16, uint32, uint64, uint128
 
 # SHARED PROTOCOL
 error_without_data = Error(int16(Err.UNKNOWN.value), "Unknown", None)

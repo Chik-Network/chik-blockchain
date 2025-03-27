@@ -4,17 +4,16 @@ import logging
 from typing import Callable, Optional
 
 import pytest
-from chik_rs import Coin, G2Element
+from chik_rs import Coin, ConsensusConstants, G2Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint64
 
 from chik._tests.util.spend_sim import SimClient, SpendSim, sim_and_client
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.full_node.bitcoin_fee_estimator import BitcoinFeeEstimator
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import make_spend
 from chik.types.spend_bundle import SpendBundle
-from chik.util.ints import uint8, uint64
 
 log = logging.getLogger(__name__)
 

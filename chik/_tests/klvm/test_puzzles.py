@@ -3,17 +3,17 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from chik_rs import AugSchemeMPL, G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.klvm.coin_store import CoinStore, CoinTimestamp
 from chik._tests.core.make_block_generator import int_to_public_key
 from chik._tests.util.key_tool import KeyTool
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import make_spend
 from chik.types.spend_bundle import SpendBundle
 from chik.util.hash import std_hash
-from chik.util.ints import uint32, uint64
 from chik.wallet.puzzles import (
     p2_conditions,
     p2_delegated_conditions,

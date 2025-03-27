@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from chik.util.ints import uint8, uint32
+from chik_rs.sized_ints import uint8, uint32
+
 from chik.util.streamable import Streamable, streamable
 
 

@@ -7,19 +7,19 @@ from time import monotonic
 from typing import Optional
 
 from chik_rs import G2Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 from klvm.casts import int_to_bytes
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.full_node.mempool_manager import MempoolManager
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.coin_spend import CoinSpend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.eligible_coin_spends import UnspentLineageInfo
 from chik.types.spend_bundle import SpendBundle
-from chik.util.ints import uint32, uint64
 
 # this is one week worth of blocks
 NUM_ITERS = 32256

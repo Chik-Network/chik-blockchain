@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik._tests.conftest import ConsensusMode
 from chik._tests.core.test_farmer_harvester_rpc import wait_for_plot_sync
@@ -17,9 +19,7 @@ from chik.rpc.harvester_rpc_client import HarvesterRpcClient
 from chik.simulator.block_tools import create_block_tools_async, test_constants
 from chik.types.aliases import HarvesterService
 from chik.types.blockchain_format.proof_of_space import get_plot_id, passes_plot_filter
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.full_block import FullBlock
-from chik.util.ints import uint8, uint32, uint64
 from chik.util.keychain import Keychain
 
 

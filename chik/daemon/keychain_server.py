@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from chik_rs import PrivateKey
+from chik_rs.sized_ints import uint32
 
 from chik.cmds.init_funcs import check_keys
 from chik.util.errors import KeychainException, KeychainFingerprintNotFound
-from chik.util.ints import uint32
 from chik.util.keychain import Keychain, KeyData
 from chik.util.streamable import Streamable, streamable
 

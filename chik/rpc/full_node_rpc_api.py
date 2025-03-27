@@ -3,6 +3,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, cast
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64, uint128
+
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain import Blockchain, BlockchainMutexPriority
 from chik.consensus.get_block_generator import get_block_generator
@@ -17,7 +20,6 @@ from chik.full_node.mempool_check_conditions import (
 from chik.rpc.rpc_server import Endpoint, EndpointResult
 from chik.server.outbound_message import NodeType
 from chik.types.blockchain_format.proof_of_space import calculate_prefix_bits
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.coin_spend import CoinSpend
 from chik.types.full_block import FullBlock
@@ -27,7 +29,6 @@ from chik.types.spend_bundle import SpendBundle
 from chik.types.spend_bundle_conditions import SpendBundleConditions
 from chik.types.unfinished_header_block import UnfinishedHeaderBlock
 from chik.util.byte_types import hexstr_to_bytes
-from chik.util.ints import uint32, uint64, uint128
 from chik.util.log_exceptions import log_exceptions
 from chik.util.math import make_monotonically_decreasing
 from chik.util.ws_message import WsRpcMessage, create_payload_dict

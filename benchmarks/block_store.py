@@ -7,6 +7,10 @@ import sys
 from pathlib import Path
 from time import monotonic
 
+from chik_rs import Foliage, FoliageBlockData, FoliageTransactionBlock, PoolTarget, RewardChainBlock, TransactionsInfo
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64, uint128
+
 from benchmarks.utils import setup_db
 from chik._tests.util.benchmarks import (
     klvm_generator,
@@ -21,15 +25,10 @@ from chik._tests.util.benchmarks import (
 )
 from chik.consensus.block_record import BlockRecord
 from chik.full_node.block_store import BlockStore
-from chik.types.blockchain_format.foliage import Foliage, FoliageBlockData, FoliageTransactionBlock, TransactionsInfo
-from chik.types.blockchain_format.pool_target import PoolTarget
 from chik.types.blockchain_format.proof_of_space import ProofOfSpace
-from chik.types.blockchain_format.reward_chain_block import RewardChainBlock
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.full_block import FullBlock
-from chik.util.ints import uint8, uint32, uint64, uint128
 
 # to run this benchmark:
 # python -m benchmarks.coin_store

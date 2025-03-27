@@ -5,6 +5,8 @@ import random
 from typing import Any
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16, uint32, uint64
 
 from chik._tests.util.setup_nodes import SimulatorsAndWalletsServices
 from chik._tests.util.time_out_assert import time_out_assert, time_out_assert_not_none
@@ -15,10 +17,8 @@ from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.simulator_protocol import FarmNewBlockProtocol
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
 from chik.util.bech32m import decode_puzzle_hash, encode_puzzle_hash
-from chik.util.ints import uint16, uint32, uint64
 from chik.wallet.did_wallet.did_wallet import DIDWallet
 from chik.wallet.nft_wallet.nft_wallet import NFTWallet
 from chik.wallet.nft_wallet.uncurry_nft import UncurriedNFT
@@ -694,10 +694,7 @@ async def test_nft_mint_from_xck(
     metadata_list = [
         {
             "program": Program.to(
-                [
-                    ("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]),
-                    ("h", bytes32.random(seeded_random).hex()),
-                ]
+                [("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]), ("h", bytes32.random(seeded_random).hex())]
             ),
             "royalty_pc": royalty_pc,
             "royalty_ph": royalty_addr,

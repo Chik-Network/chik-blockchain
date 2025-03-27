@@ -19,7 +19,6 @@ chik.timelord.timelord_launcher
 chik.types.blockchain_format.program
 chik.wallet.did_wallet.did_wallet
 chik.wallet.key_val_store
-chik.wallet.payment
 chik.wallet.puzzles.load_klvm
 chik.wallet.puzzles.p2_conditions
 chik.wallet.puzzles.p2_delegated_puzzle
@@ -57,11 +56,9 @@ chik._tests.core.daemon.test_daemon
 chik._tests.core.full_node.full_sync.test_full_sync
 chik._tests.core.full_node.stores.test_sync_store
 chik._tests.core.full_node.test_address_manager
-chik._tests.core.full_node.test_full_node
 chik._tests.core.full_node.test_node_load
 chik._tests.core.full_node.test_performance
 chik._tests.core.full_node.test_transactions
-chik._tests.core.server.test_dos
 chik._tests.core.server.test_rate_limits
 chik._tests.core.ssl.test_ssl
 chik._tests.core.test_crawler_rpc
@@ -85,7 +82,5 @@ chik._tests.tools.test_run_block
 chik._tests.util.benchmark_cost
 chik._tests.util.test_full_block_utils
 chik._tests.util.test_misc
-chik._tests.util.time_out_assert
 chik._tests.wallet.did_wallet.test_did
 chik._tests.wallet.rpc.test_wallet_rpc
-tools.analyze-chain

@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from typing import Callable, ClassVar, cast
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import int16, uint32
 from packaging.version import Version
 
 from chik import __version__
@@ -23,10 +25,8 @@ from chik.server.start_full_node import create_full_node_service
 from chik.server.start_wallet import create_wallet_service
 from chik.server.ws_connection import WSChikConnection, error_response_version
 from chik.simulator.block_tools import BlockTools
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
 from chik.util.errors import ApiError, Err
-from chik.util.ints import int16, uint32
 
 
 @dataclass

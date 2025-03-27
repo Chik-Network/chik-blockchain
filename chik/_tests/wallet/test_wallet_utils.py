@@ -5,9 +5,9 @@ from typing import Optional
 
 import pytest
 from chik_rs import Coin, CoinState
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32, uint64
 from chik.wallet.util.peer_request_cache import PeerRequestCache
 from chik.wallet.util.wallet_sync_utils import sort_coin_states
 

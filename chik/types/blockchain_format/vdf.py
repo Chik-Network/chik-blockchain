@@ -6,13 +6,12 @@ from enum import IntEnum
 from functools import lru_cache
 from typing import Optional
 
-from chik_rs import VDFInfo, VDFProof
+from chik_rs import ConsensusConstants, VDFInfo, VDFProof
+from chik_rs.sized_bytes import bytes32, bytes100
+from chik_rs.sized_ints import uint8, uint64
 from chikvdf import create_discriminant, verify_n_wesolowski
 
-from chik.consensus.constants import ConsensusConstants
 from chik.types.blockchain_format.classgroup import ClassgroupElement
-from chik.types.blockchain_format.sized_bytes import bytes32, bytes100
-from chik.util.ints import uint8, uint64
 
 log = logging.getLogger(__name__)
 

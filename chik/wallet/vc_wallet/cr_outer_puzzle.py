@@ -3,12 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 from klvm_tools.binutils import disassemble
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint64
 from chik.wallet.puzzle_drivers import PuzzleInfo, Solver
 from chik.wallet.uncurried_puzzle import UncurriedPuzzle, uncurry_puzzle
 from chik.wallet.vc_wallet.cr_cat_drivers import PROOF_FLAGS_CHECKER, construct_cr_layer, match_cr_layer, solve_cr_layer

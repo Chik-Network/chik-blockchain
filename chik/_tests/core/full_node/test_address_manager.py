@@ -5,11 +5,11 @@ import time
 from pathlib import Path
 
 import pytest
+from chik_rs.sized_ints import uint16, uint64
 
 from chik.server.address_manager import AddressManager, ExtendedPeerInfo
 from chik.server.address_manager_store import AddressManagerStore
 from chik.types.peer_info import PeerInfo, TimestampedPeerInfo
-from chik.util.ints import uint16, uint64
 
 
 class AddressManagerTest(AddressManager):

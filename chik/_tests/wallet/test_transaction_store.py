@@ -5,13 +5,13 @@ import random
 from typing import Any, Optional
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik._tests.util.db_connection import DBConnection
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.util.errors import Err
-from chik.util.ints import uint8, uint32, uint64
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.transaction_record import TransactionRecord, TransactionRecordOld, minimum_send_attempts
 from chik.wallet.util.query_filter import TransactionTypeFilter

@@ -6,7 +6,18 @@ import random
 from typing import Callable, Optional
 
 import pytest
-from chik_rs import G1Element, G2Element, get_flags_for_height_and_constants
+from chik_rs import (
+    ELIGIBLE_FOR_FF,
+    ENABLE_KECCAK,
+    ENABLE_KECCAK_OPS_OUTSIDE_GUARD,
+    AugSchemeMPL,
+    G1Element,
+    G2Element,
+    get_flags_for_height_and_constants,
+    run_block_generator2,
+)
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 from klvm.casts import int_to_bytes
 from klvm_tools import binutils
 from klvm_tools.binutils import assemble
@@ -35,7 +46,7 @@ from chik.full_node.fee_estimation import EmptyMempoolInfo, MempoolInfo
 from chik.full_node.full_node_api import FullNodeAPI
 from chik.full_node.mempool import Mempool
 from chik.full_node.mempool_check_conditions import get_puzzle_and_solution_for_coin
-from chik.full_node.mempool_manager import MEMPOOL_MIN_FEE_INCREASE
+from chik.full_node.mempool_manager import MEMPOOL_MIN_FEE_INCREASE, LineageInfoCache
 from chik.full_node.pending_tx_cache import ConflictTxCache, PendingTxCache
 from chik.protocols import full_node_protocol, wallet_protocol
 from chik.protocols.wallet_protocol import TransactionAck
@@ -51,7 +62,6 @@ from chik.simulator.wallet_tools import WalletTool
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.klvm_cost import KLVMCost
 from chik.types.coin_spend import CoinSpend, make_spend
 from chik.types.condition_opcodes import ConditionOpcode
@@ -66,7 +76,6 @@ from chik.types.spend_bundle import SpendBundle, estimate_fees
 from chik.types.spend_bundle_conditions import SpendBundleConditions
 from chik.util.errors import Err
 from chik.util.hash import std_hash
-from chik.util.ints import uint32, uint64
 from chik.util.recursive_replace import recursive_replace
 from chik.wallet.conditions import AssertCoinAnnouncement, AssertPuzzleAnnouncement
 
@@ -2923,6 +2932,39 @@ def test_items_by_feerate(items: list[MempoolItem], expected: list[Coin]) -> Non
         last_fpc = mi.fee_per_cost
 
 
+# make sure that after failing to pick 3 fast-forward spends, we skip
+# FF spends
+@pytest.mark.anyio
+async def test_skip_error_items() -> None:
+    fee_estimator = create_bitcoin_fee_estimator(uint64(11000000000))
+    mempool_info = MempoolInfo(
+        KLVMCost(uint64(11000000000 * 3)),
+        FeeRate(uint64(1000000)),
+        KLVMCost(uint64(11000000000)),
+    )
+    mempool = Mempool(mempool_info, fee_estimator)
+
+    # all 50 items support fast forward
+    for i in range(50):
+        item = mk_item(coins[i : i + 1], flags=[ELIGIBLE_FOR_FF], fee=0, cost=50)
+        add_info = mempool.add_to_pool(item)
+        assert add_info.error is None
+
+    called = 0
+
+    async def local_get_unspent_lineage_info(ph: bytes32) -> Optional[UnspentLineageInfo]:
+        nonlocal called
+        called += 1
+        raise RuntimeError("failed to find fast forward coin")
+
+    result = await mempool.create_block_generator(local_get_unspent_lineage_info, DEFAULT_CONSTANTS, uint32(10))
+    assert result is not None
+    generator, _, _, _ = result
+
+    assert called == 3
+    assert generator.program == SerializedProgram.from_bytes(bytes.fromhex("ff01ff8080"))
+
+
 def rand_hash() -> bytes32:
     rng = random.Random()
     ret = bytearray(32)
@@ -3093,23 +3135,21 @@ def test_get_items_by_coin_ids(items: list[MempoolItem], coin_ids: list[bytes32]
     assert set(result) == set(expected)
 
 
+def make_test_spendbundle(coin: Coin, *, fee: int = 0, with_higher_cost: bool = False) -> SpendBundle:
+    conditions = []
+    actual_fee = fee
+    if with_higher_cost:
+        conditions.extend([[ConditionOpcode.CREATE_COIN, IDENTITY_PUZZLE_HASH, i] for i in range(3)])
+        actual_fee += 3
+    conditions.append([ConditionOpcode.CREATE_COIN, IDENTITY_PUZZLE_HASH, coin.amount - actual_fee])
+    sb = spend_bundle_from_conditions(conditions, coin)
+    return sb
+
+
 @pytest.mark.anyio
 async def test_aggregating_on_a_solution_then_a_more_cost_saving_one_appears() -> None:
-    def always(_: bytes32) -> bool:
-        return True
-
     async def get_unspent_lineage_info_for_puzzle_hash(_: bytes32) -> Optional[UnspentLineageInfo]:
         assert False  # pragma: no cover
-
-    def make_test_spendbundle(coin: Coin, *, fee: int = 0, with_higher_cost: bool = False) -> SpendBundle:
-        conditions = []
-        actual_fee = fee
-        if with_higher_cost:
-            conditions.extend([[ConditionOpcode.CREATE_COIN, IDENTITY_PUZZLE_HASH, i] for i in range(3)])
-            actual_fee += 3
-        conditions.append([ConditionOpcode.CREATE_COIN, IDENTITY_PUZZLE_HASH, coin.amount - actual_fee])
-        sb = spend_bundle_from_conditions(conditions, coin)
-        return sb
 
     def agg_and_add_sb_returning_cost_info(mempool: Mempool, spend_bundles: list[SpendBundle]) -> uint64:
         sb = SpendBundle.aggregate(spend_bundles)
@@ -3142,7 +3182,7 @@ async def test_aggregating_on_a_solution_then_a_more_cost_saving_one_appears() -
     saved_cost_on_solution_A = agg_and_add_sb_returning_cost_info(mempool, [sb_A, sb_low_rate])
     invariant_check_mempool(mempool)
     result = await mempool.create_bundle_from_mempool_items(
-        always, get_unspent_lineage_info_for_puzzle_hash, test_constants, uint32(0)
+        get_unspent_lineage_info_for_puzzle_hash, test_constants, uint32(0)
     )
     assert result is not None
     agg, _ = result
@@ -3163,7 +3203,7 @@ async def test_aggregating_on_a_solution_then_a_more_cost_saving_one_appears() -
     # sb_A1 gets picked before them (~10 FPC), so from then on only sb_A2 (~2 FPC)
     # would get picked
     result = await mempool.create_bundle_from_mempool_items(
-        always, get_unspent_lineage_info_for_puzzle_hash, test_constants, uint32(0)
+        get_unspent_lineage_info_for_puzzle_hash, test_constants, uint32(0)
     )
     assert result is not None
     agg, _ = result
@@ -3181,9 +3221,65 @@ def test_get_puzzle_and_solution_for_coin_failure() -> None:
         get_puzzle_and_solution_for_coin(BlockGenerator(SerializedProgram.to(None), []), TEST_COIN, 0, test_constants)
 
 
-# TODO: import this from chik_rs once we bump the version we depend on
-ENABLE_KECCAK = 0x200
-ENABLE_KECCAK_OPS_OUTSIDE_GUARD = 0x100
+@pytest.mark.anyio
+async def test_create_block_generator() -> None:
+    async def get_unspent_lineage_info_for_puzzle_hash(_: bytes32) -> Optional[UnspentLineageInfo]:
+        assert False  # pragma: no cover
+
+    mempool_info = MempoolInfo(
+        KLVMCost(uint64(11000000000 * 3)),
+        FeeRate(uint64(1000000)),
+        KLVMCost(uint64(11000000000)),
+    )
+
+    fee_estimator = create_bitcoin_fee_estimator(test_constants.MAX_BLOCK_COST_KLVM)
+    mempool = Mempool(mempool_info, fee_estimator)
+    coins = [
+        Coin(IDENTITY_PUZZLE_HASH, IDENTITY_PUZZLE_HASH, uint64(amount)) for amount in range(2000000000, 2000000020, 2)
+    ]
+
+    spend_bundles = set(make_test_spendbundle(c) for c in coins)
+    expected_additions = set(Coin(c.name(), IDENTITY_PUZZLE_HASH, c.amount) for c in coins)
+    expected_signature = AugSchemeMPL.aggregate([sb.aggregated_signature for sb in spend_bundles])
+
+    for sb in spend_bundles:
+        mi = mempool_item_from_spendbundle(sb)
+        mempool.add_to_pool(mi)
+        invariant_check_mempool(mempool)
+
+    block = await mempool.create_block_generator(get_unspent_lineage_info_for_puzzle_hash, test_constants, uint32(0))
+    assert block is not None
+    generator, signature, additions, _ = block
+
+    assert set(additions) == expected_additions
+
+    assert len(additions) == len(expected_additions)
+    assert signature == expected_signature
+
+    err, conds = run_block_generator2(
+        bytes(generator.program),
+        generator.generator_refs,
+        test_constants.MAX_BLOCK_COST_KLVM,
+        0,
+        signature,
+        None,
+        test_constants,
+    )
+
+    assert err is None
+    assert conds is not None
+
+    assert len(conds.spends) == len(coins)
+
+    num_additions = 0
+    for spend in conds.spends:
+        assert Coin(spend.parent_id, spend.puzzle_hash, uint64(spend.coin_amount)) in coins
+        for add2 in spend.create_coin:
+            assert Coin(spend.coin_id, add2[0], uint64(add2[1])) in expected_additions
+            num_additions += 1
+
+    assert num_additions == len(additions)
+    invariant_check_mempool(mempool)
 
 
 def test_flags_for_height() -> None:
@@ -3253,3 +3349,50 @@ def test_keccak() -> None:
     cost, ret = keccak_prg.run_with_flags(994, ENABLE_KECCAK | ENABLE_KECCAK_OPS_OUTSIDE_GUARD, [])
     assert cost == 994
     assert ret.atom == b""
+
+
+@pytest.mark.anyio
+async def test_lineage_cache(seeded_random: random.Random) -> None:
+    called = 0
+
+    info1 = UnspentLineageInfo(
+        bytes32.random(seeded_random),
+        uint64.from_bytes(seeded_random.randbytes(8)),
+        bytes32.random(seeded_random),
+        uint64.from_bytes(seeded_random.randbytes(8)),
+        bytes32.random(seeded_random),
+    )
+
+    async def callback1(ph: bytes32) -> Optional[UnspentLineageInfo]:
+        nonlocal called
+        called += 1
+        return info1
+
+    cache = LineageInfoCache(callback1)
+
+    ph = bytes32.random(seeded_random)
+
+    # cache miss
+    assert await cache.get_unspent_lineage_info(ph) == info1
+    assert called == 1
+
+    # cache hit
+    assert await cache.get_unspent_lineage_info(ph) == info1
+    assert called == 1
+
+    called = 0
+
+    async def callback_none(ph: bytes32) -> Optional[UnspentLineageInfo]:
+        nonlocal called
+        called += 1
+        return None
+
+    cache = LineageInfoCache(callback_none)
+
+    # cache miss
+    assert await cache.get_unspent_lineage_info(ph) is None
+    assert called == 1
+
+    # cache hit
+    assert await cache.get_unspent_lineage_info(ph) is None
+    assert called == 1

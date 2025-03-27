@@ -3,10 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from chik_rs.sized_ints import uint32, uint64
+
 from chik.types.klvm_cost import KLVMCost
 from chik.types.fee_rate import FeeRate
 from chik.types.mojos import Mojos
-from chik.util.ints import uint32, uint64
 
 
 @dataclass(frozen=True)

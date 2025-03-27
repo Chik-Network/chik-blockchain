@@ -9,6 +9,7 @@ from time import sleep, time
 from typing import Optional
 
 from chik_rs import G1Element
+from chik_rs.sized_ints import uint32
 from chikpos import Verifier
 
 from chik.plotting.manager import PlotManager
@@ -25,7 +26,6 @@ from chik.util.bech32m import encode_puzzle_hash
 from chik.util.config import load_config
 from chik.util.cpu import available_logical_cores
 from chik.util.hash import std_hash
-from chik.util.ints import uint32
 from chik.util.keychain import Keychain
 from chik.wallet.derive_keys import master_sk_to_farmer_sk, master_sk_to_local_sk
 
@@ -241,7 +241,9 @@ def check_plots(
                 )
                 bad_plots_list.append(plot_path)
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, context_count)) as executor:
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=max(1, context_count), thread_name_prefix="check-plots-"
+        ) as executor:
             logger_lock = Lock()
             futures = []
             for plot_path, plot_info in plot_manager.plots.items():

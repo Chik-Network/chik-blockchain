@@ -14,13 +14,13 @@ import pytest
 
 # TODO: update after resolution in https://github.com/pytest-dev/pytest/issues/7469
 from _pytest.fixtures import SubRequest
-from chik_rs import G1Element
+from chik_rs import ConsensusConstants, G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.environments.wallet import WalletStateTransition, WalletTestFramework
 from chik._tests.util.setup_nodes import setup_simulators_and_wallets_service
 from chik._tests.util.time_out_assert import time_out_assert
-from chik.consensus.constants import ConsensusConstants
-from chik.pools.pool_puzzles import SINGLETON_LAUNCHER_HASH
 from chik.pools.pool_wallet_info import PoolSingletonState, PoolWalletInfo
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.add_blocks_in_batches import add_blocks_in_batches
@@ -29,13 +29,12 @@ from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.simulator_protocol import ReorgProtocol
 from chik.simulator.start_simulator import SimulatorFullNodeService
 from chik.types.aliases import WalletService
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.config import load_config
-from chik.util.ints import uint32, uint64
 from chik.wallet.derive_keys import find_authentication_sk, find_owner_sk
+from chik.wallet.singleton import SINGLETON_LAUNCHER_PUZZLE_HASH as SINGLETON_LAUNCHER_HASH
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.transaction_type import TransactionType
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG

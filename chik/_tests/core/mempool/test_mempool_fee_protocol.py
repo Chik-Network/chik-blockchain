@@ -4,6 +4,7 @@ import datetime
 from typing import Union
 
 import pytest
+from chik_rs.sized_ints import uint64
 
 from chik._tests.core.node_height import node_height_at_least
 from chik._tests.util.time_out_assert import time_out_assert
@@ -14,7 +15,6 @@ from chik.protocols.wallet_protocol import RespondFeeEstimates
 from chik.server.server import ChikServer
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
-from chik.util.ints import uint64
 from chik.wallet.wallet import Wallet
 
 

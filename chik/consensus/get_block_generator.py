@@ -3,10 +3,11 @@ from __future__ import annotations
 from collections.abc import Awaitable
 from typing import Callable, Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
+
 from chik.types.block_protocol import BlockInfo
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.generator_types import BlockGenerator
-from chik.util.ints import uint32
 
 
 async def get_block_generator(

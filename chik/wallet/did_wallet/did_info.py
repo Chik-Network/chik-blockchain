@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16, uint64
+
 from chik.protocols.wallet_protocol import CoinState
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint16, uint64
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.lineage_proof import LineageProof
 

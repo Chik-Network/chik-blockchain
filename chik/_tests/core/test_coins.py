@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from itertools import permutations
 
+from chik_rs.sized_bytes import bytes32
+
 from chik._tests.util.benchmarks import rand_hash
 from chik.types.blockchain_format.coin import hash_coin_ids
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.hash import std_hash
 
 

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
+from chik_rs.sized_bytes import bytes32
+
 from chik.consensus.blockchain import StateChangeSummary
-from chik.types.blockchain_format.sized_bytes import bytes32
 
 
 def get_hints_and_subscription_coin_ids(

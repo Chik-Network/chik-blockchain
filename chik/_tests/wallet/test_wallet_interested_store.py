@@ -3,11 +3,11 @@ from __future__ import annotations
 import random
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 from chik._tests.util.db_connection import DBConnection
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint64
 from chik.wallet.wallet_interested_store import WalletInterestedStore
 
 

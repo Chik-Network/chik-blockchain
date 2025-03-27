@@ -5,13 +5,12 @@ from typing import Optional, cast
 
 import chik_rs
 from bitstring import BitArray
-from chik_rs import AugSchemeMPL, G1Element, PrivateKey
+from chik_rs import AugSchemeMPL, ConsensusConstants, G1Element, PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 from chikpos import Verifier
 
-from chik.consensus.constants import ConsensusConstants
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.hash import std_hash
-from chik.util.ints import uint32
 
 ProofOfSpace = chik_rs.ProofOfSpace
 

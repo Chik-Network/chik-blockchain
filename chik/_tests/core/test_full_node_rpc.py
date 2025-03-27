@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 from chik_rs import AugSchemeMPL
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8
 from klvm.casts import int_to_bytes
 
 from chik import __version__
@@ -22,14 +24,12 @@ from chik.simulator.simulator_protocol import FarmNewBlockProtocol, ReorgProtoco
 from chik.simulator.wallet_tools import WalletTool
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import compute_additions
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
 from chik.types.full_block import FullBlock
 from chik.types.unfinished_block import UnfinishedBlock
 from chik.util.hash import std_hash
-from chik.util.ints import uint8
 from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 

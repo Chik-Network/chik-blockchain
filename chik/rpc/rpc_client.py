@@ -10,13 +10,13 @@ from ssl import SSLContext
 from typing import Any, Optional, TypeVar
 
 import aiohttp
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16
 
 from chik.server.outbound_message import NodeType
 from chik.server.server import ssl_context_for_client
 from chik.server.ssl_context import private_ssl_ca_paths
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.byte_types import hexstr_to_bytes
-from chik.util.ints import uint16
 from chik.util.task_referencer import create_referenced_task
 
 _T_RpcClient = TypeVar("_T_RpcClient", bound="RpcClient")

@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from typing import Union
 
+from chik_rs import ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
+
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
-from chik.consensus.constants import ConsensusConstants
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.header_block import HeaderBlock
-from chik.util.ints import uint32
 
 
 async def find_fork_point_in_chain(

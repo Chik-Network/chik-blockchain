@@ -5,11 +5,11 @@ from dataclasses import dataclass, field, replace
 from typing import Optional
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint16, uint32, uint64
 
 from chik._tests.util.db_connection import DBConnection
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint8, uint16, uint32, uint64
 from chik.util.streamable import Streamable, UInt32Range, UInt64Range, VersionedBlob
 from chik.wallet.puzzles.clawback.metadata import ClawbackMetadata
 from chik.wallet.util.query_filter import AmountFilter, HashFilter

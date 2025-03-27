@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import Any, Callable, Optional, TypeVar, Union
 
 import click
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 from chik.cmds import options
 from chik.cmds.param_types import Bytes32ParamType
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint64
 
 _T = TypeVar("_T")
 

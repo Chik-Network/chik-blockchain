@@ -5,6 +5,8 @@ import json
 
 import pytest
 from chik_rs import AugSchemeMPL, G1Element, G2Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16, uint32, uint64
 
 from chik._tests.conftest import ConsensusMode
 from chik._tests.environments.wallet import WalletStateTransition, WalletTestFramework
@@ -17,13 +19,11 @@ from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.simulator_protocol import FarmNewBlockProtocol
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.peer_info import PeerInfo
 from chik.types.signing_mode import CHIP_0002_SIGN_MESSAGE_PREFIX
 from chik.util.bech32m import decode_puzzle_hash, encode_puzzle_hash
 from chik.util.condition_tools import conditions_dict_for_solution
-from chik.util.ints import uint16, uint32, uint64
 from chik.wallet.did_wallet.did_wallet import DIDWallet
 from chik.wallet.singleton import create_singleton_puzzle
 from chik.wallet.util.address_type import AddressType
@@ -1705,7 +1705,7 @@ class TestDIDWallet:
         async with wallet_0.wallet_state_manager.new_action_scope(
             wallet_environments.tx_config.override(excluded_coin_ids=[coin_id]), push=True
         ) as action_scope:
-            await wallet_0.generate_signed_transaction(odd_amount, ph_1, action_scope, fee)
+            await wallet_0.generate_signed_transaction([odd_amount], [ph_1], action_scope, fee)
 
         await wallet_environments.process_pending_states(
             [

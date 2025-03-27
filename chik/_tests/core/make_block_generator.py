@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from chik_rs import G1Element, G2Element, PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 from chik.full_node.bundle_tools import simple_solution_generator
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.generator_types import BlockGenerator
 from chik.types.spend_bundle import SpendBundle
-from chik.util.ints import uint64
 from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import puzzle_for_pk, solution_for_conditions
 
 GROUP_ORDER = 0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001

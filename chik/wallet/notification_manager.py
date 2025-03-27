@@ -4,14 +4,14 @@ import logging
 from typing import Any, Optional
 
 from chik_rs import G2Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik.protocols.wallet_protocol import CoinState
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, make_spend
 from chik.util.db_wrapper import DBWrapper2
-from chik.util.ints import uint32, uint64
 from chik.wallet.conditions import AssertCoinAnnouncement, Condition
 from chik.wallet.notification_store import Notification, NotificationStore
 from chik.wallet.util.compute_memos import compute_memos_for_spend
@@ -101,13 +101,13 @@ class NotificationManager:
         )
         extra_spend_bundle = WalletSpendBundle([notification_spend], G2Element())
         await self.wallet_state_manager.main_wallet.generate_signed_transaction(
-            amount,
-            notification_hash,
+            [amount],
+            [notification_hash],
             action_scope,
             fee,
             coins=coins,
             origin_id=origin_coin,
-            memos=[target, msg],
+            memos=[[target, msg]],
             extra_conditions=(
                 *extra_conditions,
                 AssertCoinAnnouncement(asserted_id=notification_coin.name(), asserted_msg=b""),

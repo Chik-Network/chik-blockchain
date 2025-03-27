@@ -7,8 +7,9 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Optional
 
+from chik_rs import ConsensusConstants
+
 from chik.consensus.blockchain import Blockchain
-from chik.consensus.constants import ConsensusConstants
 from chik.full_node.block_store import BlockStore
 from chik.full_node.coin_store import CoinStore
 from chik.simulator.block_tools import BlockTools

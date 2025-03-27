@@ -7,15 +7,15 @@ from collections.abc import Coroutine
 from typing import Any, Callable, Optional
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16, uint32, uint64, uint128
 
 from chik._tests.util.time_out_assert import time_out_assert, time_out_assert_not_none
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.simulator_protocol import FarmNewBlockProtocol
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
-from chik.util.ints import uint16, uint32, uint64, uint128
 from chik.wallet.cat_wallet.cat_wallet import CATWallet
 from chik.wallet.did_wallet.did_wallet import DIDWallet
 from chik.wallet.nft_wallet.nft_wallet import NFTWallet

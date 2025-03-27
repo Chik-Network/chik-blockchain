@@ -4,12 +4,12 @@ import random
 from dataclasses import dataclass, field
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.util.db_connection import DBConnection
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32, uint64
 from chik.wallet.lineage_proof import LineageProof
 from chik.wallet.nft_wallet.nft_info import NFTCoinInfo
 from chik.wallet.wallet_nft_store import WalletNftStore

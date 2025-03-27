@@ -59,13 +59,6 @@ repos:
       - id: debug-statements
   - repo: local
     hooks:
-      - id: klvm_hex
-        name: .clsp.hex files
-        entry: ./activated.py python tools/manage_klvm.py check
-        language: system
-        pass_filenames: false
-  - repo: local
-    hooks:
       - id: chiklispp
         name: Pretty print chiklisp files
         entry: ./activated.py python tools/chiklispp.py .

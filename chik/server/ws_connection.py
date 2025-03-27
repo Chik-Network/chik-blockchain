@@ -12,6 +12,8 @@ from typing import Any, Callable, Optional, Union
 from aiohttp import ClientSession, WebSocketError, WSCloseCode, WSMessage, WSMsgType
 from aiohttp.client import ClientWebSocketResponse
 from aiohttp.web import WebSocketResponse
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import int16, uint8, uint16
 from packaging.version import Version
 from typing_extensions import Protocol, final
 
@@ -29,10 +31,8 @@ from chik.server.api_protocol import ApiMetadata, ApiProtocol
 from chik.server.capabilities import known_active_capabilities
 from chik.server.outbound_message import Message, NodeType, make_msg
 from chik.server.rate_limits import RateLimiter
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
 from chik.util.errors import ApiError, ConsensusError, Err, ProtocolError, TimestampError
-from chik.util.ints import int16, uint8, uint16
 from chik.util.log_exceptions import log_exceptions
 
 # Each message is prepended with LENGTH_BYTES bytes specifying the length
@@ -463,8 +463,7 @@ class WSChikConnection:
 
             response: Optional[Message] = await asyncio.wait_for(wrapped_coroutine(), timeout=timeout)
             self.log.debug(
-                f"Time taken to process {message_type} from {self.peer_node_id} is "
-                f"{time.time() - start_time} seconds"
+                f"Time taken to process {message_type} from {self.peer_node_id} is {time.time() - start_time} seconds"
             )
 
             if response is not None:

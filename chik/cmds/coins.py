@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from typing import Optional
 
 import click
+from chik_rs.sized_bytes import bytes32
 
 from chik.cmds.cmd_classes import (
     chik_command,
@@ -16,7 +17,6 @@ from chik.cmds.cmd_helpers import (
     transaction_endpoint_runner,
 )
 from chik.cmds.param_types import AmountParamType, Bytes32ParamType, CliAmount
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.wallet.transaction_record import TransactionRecord
 
 

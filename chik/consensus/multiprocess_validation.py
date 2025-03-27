@@ -10,19 +10,25 @@ from concurrent.futures import Executor
 from dataclasses import dataclass
 from typing import Optional
 
-from chik_rs import SpendBundleConditions, get_flags_for_height_and_constants, run_block_generator, run_block_generator2
+from chik_rs import (
+    ConsensusConstants,
+    SpendBundleConditions,
+    get_flags_for_height_and_constants,
+    run_block_generator,
+    run_block_generator2,
+)
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16, uint32, uint64
 
 from chik.consensus.block_header_validation import validate_finished_header_block
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.full_block_to_block_record import block_to_block_record
 from chik.consensus.get_block_challenge import get_block_challenge
 from chik.consensus.get_block_generator import get_block_generator
 from chik.consensus.pot_iterations import calculate_iterations_quality, is_overflow_block
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.proof_of_space import verify_and_get_quality_string
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.full_block import FullBlock
 from chik.types.generator_types import BlockGenerator
@@ -30,7 +36,6 @@ from chik.types.validation_state import ValidationState
 from chik.util.augmented_chain import AugmentedBlockchain
 from chik.util.errors import Err
 from chik.util.generator_tools import get_block_header, tx_removals_and_additions
-from chik.util.ints import uint16, uint32, uint64
 from chik.util.streamable import Streamable, streamable
 
 log = logging.getLogger(__name__)

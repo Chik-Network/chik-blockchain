@@ -2,21 +2,20 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from chik_rs import AugSchemeMPL, G1Element, G2Element, PrivateKey
+from chik_rs import AugSchemeMPL, ConsensusConstants, G1Element, G2Element, PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 from klvm.casts import int_from_bytes, int_to_bytes
 
-from chik.consensus.constants import ConsensusConstants
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
 from chik.types.spend_bundle import SpendBundle
 from chik.util.condition_tools import agg_sig_additional_data, conditions_dict_for_solution, make_aggsig_final_message
 from chik.util.hash import std_hash
-from chik.util.ints import uint32, uint64
 from chik.wallet.conditions import AssertCoinAnnouncement
 from chik.wallet.derive_keys import master_sk_to_wallet_sk
 from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import (

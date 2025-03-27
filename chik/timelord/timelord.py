@@ -15,9 +15,11 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, ClassVar, Optional, cast
 
+from chik_rs import ConsensusConstants, RewardChainBlock
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint16, uint32, uint64, uint128
 from chikvdf import create_discriminant, prove
 
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.pot_iterations import calculate_sp_iters, is_overflow_block
 from chik.protocols import timelord_protocol
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
@@ -29,8 +31,6 @@ from chik.timelord.iters_from_block import iters_from_block
 from chik.timelord.timelord_state import LastState
 from chik.timelord.types import Chain, IterationType, StateType
 from chik.types.blockchain_format.classgroup import ClassgroupElement
-from chik.types.blockchain_format.reward_chain_block import RewardChainBlock
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.slots import (
     ChallengeChainSubSlot,
     InfusedChallengeChainSubSlot,
@@ -40,7 +40,6 @@ from chik.types.blockchain_format.slots import (
 from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.blockchain_format.vdf import VDFInfo, VDFProof, validate_vdf
 from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
-from chik.util.ints import uint8, uint16, uint32, uint64, uint128
 from chik.util.streamable import Streamable, streamable
 from chik.util.task_referencer import create_referenced_task
 
@@ -167,6 +166,7 @@ class Timelord:
                 self._executor_shutdown_tempfile = _create_shutdown_file()
                 self.bluebox_pool = ThreadPoolExecutor(
                     max_workers=workers,
+                    thread_name_prefix="blue-box-",
                 )
                 self.main_loop = create_referenced_task(
                     self._start_manage_discriminant_queue_sanitizer_slow(self.bluebox_pool, workers)
@@ -937,18 +937,13 @@ class Timelord:
         disc: int = create_discriminant(challenge, self.constants.DISCRIMINANT_SIZE_BITS)
 
         try:
-            # Depending on the flags 'fast_algorithm' and 'bluebox_mode',
-            # the timelord tells the vdf_client what to execute.
+            # Depending on the flag 'bluebox_mode', the timelord tells the vdf_client what to execute.
             async with self.lock:
                 if self.bluebox_mode:
                     writer.write(b"S")
                 else:
-                    if self.config["fast_algorithm"]:
-                        # Run n-wesolowski (fast) algorithm.
-                        writer.write(b"N")
-                    else:
-                        # Run two-wesolowski (slow) algorithm.
-                        writer.write(b"T")
+                    # Run two-wesolowski algorithm.
+                    writer.write(b"T")
                 await writer.drain()
 
             prefix = str(len(str(disc)))

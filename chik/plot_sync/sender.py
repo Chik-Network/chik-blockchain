@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generic, Optional, TypeVar
 
+from chik_rs.sized_ints import int16, uint32, uint64
 from typing_extensions import Protocol
 
 from chik.plot_sync.exceptions import AlreadyStartedError, InvalidConnectionTypeError
@@ -28,7 +29,6 @@ from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.server.outbound_message import NodeType, make_msg
 from chik.server.ws_connection import WSChikConnection
 from chik.util.batches import to_batches
-from chik.util.ints import int16, uint32, uint64
 from chik.util.task_referencer import create_referenced_task
 
 log = logging.getLogger(__name__)

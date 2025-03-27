@@ -6,6 +6,8 @@ import random
 from typing import Any, Optional, Union
 
 from chik_rs import compute_merkle_set_root, confirm_included_already_hashed, confirm_not_included_already_hashed
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 
 from chik.full_node.full_node_api import FullNodeAPI
 from chik.protocols.shared_protocol import Capability
@@ -32,10 +34,8 @@ from chik.protocols.wallet_protocol import (
 )
 from chik.server.ws_connection import WSChikConnection
 from chik.types.blockchain_format.coin import Coin, hash_coin_ids
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, make_spend
 from chik.types.header_block import HeaderBlock
-from chik.util.ints import uint32
 from chik.util.task_referencer import create_referenced_task
 from chik.wallet.util.peer_request_cache import PeerRequestCache
 

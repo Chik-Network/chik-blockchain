@@ -14,11 +14,12 @@ This roughly corresponds to bitcoin's graftroot.
 
 from __future__ import annotations
 
+from chik_puzzles_py.programs import P2_DELEGATED_PUZZLE
+
 from chik.types.blockchain_format.program import Program
 from chik.wallet.puzzles import p2_conditions
-from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
 
-MOD = load_klvm_maybe_recompile("p2_delegated_puzzle.clsp")
+MOD = Program.from_bytes(P2_DELEGATED_PUZZLE)
 
 
 def puzzle_for_pk(public_key: bytes) -> Program:

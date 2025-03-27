@@ -11,6 +11,7 @@ from typing import Any, Optional, cast
 
 import aiohttp.client_exceptions
 import pytest
+from chik_rs.sized_ints import uint16
 from typing_extensions import Protocol
 
 from chik._tests.core.data_layer.util import ChikRoot
@@ -24,7 +25,6 @@ from chik.rpc.rpc_client import RpcClient
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.socket import find_available_listen_port
 from chik.util.config import lock_and_load_config, save_config
-from chik.util.ints import uint16
 from chik.util.timing import adjusted_timeout
 
 if sys.platform == "win32" or sys.platform == "cygwin":

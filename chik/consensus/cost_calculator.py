@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from chik_rs.sized_ints import uint16
+
 from chik.types.spend_bundle_conditions import SpendBundleConditions
-from chik.util.ints import uint16
 from chik.util.streamable import Streamable, streamable
 
 

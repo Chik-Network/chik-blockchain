@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from chik_rs.sized_ints import uint16
+
 from chik._tests.util.misc import DataCase, Marks, datacases
 from chik.server.outbound_message import NodeType
 from chik.types.peer_info import UnresolvedPeerInfo
 from chik.util.config import get_unresolved_peer_infos, set_peer_info
-from chik.util.ints import uint16
 
 
 @dataclass

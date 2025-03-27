@@ -4,6 +4,7 @@ import logging
 import random
 
 import pytest
+from chik_rs.sized_ints import uint64
 from klvm.casts import int_to_bytes
 
 from chik._tests.connection_utils import add_dummy_connection
@@ -13,24 +14,12 @@ from chik._tests.util.misc import BenchmarkRunner
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.pot_iterations import is_overflow_block
-from chik.full_node.full_node_api import FullNodeAPI
 from chik.protocols import full_node_protocol as fnp
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
 from chik.types.unfinished_block import UnfinishedBlock
-from chik.util.ints import uint64
 
 log = logging.getLogger(__name__)
-
-
-async def get_block_path(full_node: FullNodeAPI):
-    blocks_list = [await full_node.full_node.blockchain.get_full_peak()]
-    assert blocks_list[0] is not None
-    while blocks_list[0].height != 0:
-        b = await full_node.full_node.block_store.get_full_block(blocks_list[0].prev_header_hash)
-        assert b is not None
-        blocks_list.insert(0, b)
-    return blocks_list
 
 
 class TestPerformance:
@@ -134,9 +123,7 @@ class TestPerformance:
         curr: BlockRecord = peak
         while not curr.is_transaction_block:
             curr = full_node_1.full_node.blockchain.block_record(curr.prev_hash)
-        mempool_bundle = await full_node_1.full_node.mempool_manager.create_bundle_from_mempool(
-            curr.header_hash, full_node_1.full_node.coin_store.get_unspent_lineage_info_for_puzzle_hash
-        )
+        mempool_bundle = await full_node_1.full_node.mempool_manager.create_bundle_from_mempool(curr.header_hash)
         if mempool_bundle is None:
             spend_bundle = None
         else:

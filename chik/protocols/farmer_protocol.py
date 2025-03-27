@@ -3,16 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from chik_rs import G2Element
+from chik_rs import FoliageBlockData, FoliageTransactionBlock, G2Element, PoolTarget, RewardChainBlockUnfinished
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik.types.blockchain_format.classgroup import ClassgroupElement
-from chik.types.blockchain_format.foliage import FoliageBlockData, FoliageTransactionBlock
-from chik.types.blockchain_format.pool_target import PoolTarget
 from chik.types.blockchain_format.proof_of_space import ProofOfSpace
-from chik.types.blockchain_format.reward_chain_block import RewardChainBlockUnfinished
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.slots import ChallengeChainSubSlot, RewardChainSubSlot
-from chik.util.ints import uint8, uint32, uint64
 from chik.util.streamable import Streamable, streamable
 
 """

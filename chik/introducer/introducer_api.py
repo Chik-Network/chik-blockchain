@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, ClassVar, Optional, cast
 
+from chik_rs.sized_ints import uint64
+
 from chik.introducer.introducer import Introducer
 from chik.protocols.introducer_protocol import RequestPeersIntroducer, RespondPeersIntroducer
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
@@ -11,7 +13,6 @@ from chik.server.api_protocol import ApiMetadata
 from chik.server.outbound_message import Message, make_msg
 from chik.server.ws_connection import WSChikConnection
 from chik.types.peer_info import TimestampedPeerInfo
-from chik.util.ints import uint64
 
 
 class IntroducerAPI:
@@ -63,6 +64,13 @@ class IntroducerAPI:
 
             if len(peers) >= max_peers:
                 break
+
+        if len(peers) < max_peers:
+            peers_needed = max_peers - len(peers)
+            self.introducer.log.info(f"Querying dns servers for {peers_needed} peers")
+            extra_peers = await self.introducer.get_peers_from_dns(peers_needed)
+            self.introducer.log.info(f"Received {len(extra_peers)} peers from dns server")
+            peers.extend(extra_peers)
 
         self.introducer.log.info(f"Sending vetted {peers}")
 

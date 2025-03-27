@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint64
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
+
 from chik.util.streamable import Streamable
 from chik.wallet.signer_protocol import (
     KeyHints,

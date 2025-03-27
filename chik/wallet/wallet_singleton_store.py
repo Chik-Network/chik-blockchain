@@ -5,16 +5,16 @@ import logging
 from sqlite3 import Row
 from typing import Optional, TypeVar, Union
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 from klvm.casts import int_from_bytes
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.util.condition_tools import conditions_dict_for_solution
 from chik.util.db_wrapper import DBWrapper2, execute_fetchone
-from chik.util.ints import uint32, uint64
 from chik.wallet import singleton
 from chik.wallet.lineage_proof import LineageProof
 from chik.wallet.singleton import get_inner_puzzle_from_singleton, get_singleton_id_from_puzzle

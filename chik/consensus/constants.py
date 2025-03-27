@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from chik_rs import ConsensusConstants as ConsensusConstants  # noqa: PLC0414
+from chik_rs import ConsensusConstants
 
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.hash import std_hash

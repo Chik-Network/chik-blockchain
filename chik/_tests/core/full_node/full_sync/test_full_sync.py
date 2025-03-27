@@ -5,19 +5,17 @@ import logging
 import time
 
 import pytest
+from chik_rs.sized_ints import uint16
 
 from chik._tests.core.node_height import node_height_between, node_height_exactly
 from chik._tests.util.time_out_assert import time_out_assert
-from chik.full_node.full_node import FullNode
 from chik.full_node.full_node_api import FullNodeAPI
 from chik.protocols import full_node_protocol
 from chik.protocols.shared_protocol import Capability
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.full_block import FullBlock
 from chik.types.peer_info import PeerInfo
 from chik.util.hash import std_hash
-from chik.util.ints import uint16
 
 log = logging.getLogger(__name__)
 
@@ -437,7 +435,3 @@ class TestFullSync:
         block = blocks[-1]
         full_node_1.full_node.add_to_bad_peak_cache(block.header_hash, block.height)
         assert len(full_node_1.full_node.bad_peak_cache) == 1
-
-
-def has_peers_with_peak(node: FullNode, header_hash: bytes32) -> bool:
-    return len(node.sync_store.get_peers_that_have_peak([header_hash])) > 0

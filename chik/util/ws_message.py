@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from chik_rs.sized_bytes import bytes32
 from typing_extensions import TypedDict
 
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.json_util import dict_to_json_str
 
 # Messages must follow this format

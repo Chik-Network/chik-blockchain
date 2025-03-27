@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import NewType
 
-from chik.util.ints import uint64
+from chik_rs.sized_ints import uint64
 
 """
 KLVM Cost is the cost to run a KLVM program on the KLVM.

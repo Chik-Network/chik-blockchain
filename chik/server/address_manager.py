@@ -8,9 +8,10 @@ from random import choice, randrange
 from secrets import randbits
 from typing import Optional
 
+from chik_rs.sized_ints import uint16, uint64
+
 from chik.types.peer_info import PeerInfo, TimestampedPeerInfo
 from chik.util.hash import std_hash
-from chik.util.ints import uint16, uint64
 
 TRIED_BUCKETS_PER_GROUP = 8
 NEW_BUCKETS_PER_SOURCE_GROUP = 64

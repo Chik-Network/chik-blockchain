@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint128
+
 from chik.rpc.full_node_rpc_client import FullNodeRpcClient
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.full_block import FullBlock
 from chik.util.bech32m import encode_puzzle_hash
-from chik.util.ints import uint128
 
 
 class SimulatorFullNodeRpcClient(FullNodeRpcClient):

@@ -6,23 +6,22 @@ from collections.abc import Awaitable, Collection
 from dataclasses import dataclass, field
 from typing import Callable, Optional, Union
 
-from chik_rs import SpendBundleConditions, compute_merkle_set_root
+from chik_rs import ConsensusConstants, SpendBundleConditions, compute_merkle_set_root
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 from chikbip158 import PyBIP158
 
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
 from chik.consensus.coinbase import create_farmer_coin, create_pool_coin
-from chik.consensus.constants import ConsensusConstants
 from chik.full_node.mempool_check_conditions import mempool_check_time_locks
 from chik.types.blockchain_format.coin import Coin, hash_coin_ids
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.full_block import FullBlock
 from chik.types.unfinished_block import UnfinishedBlock
 from chik.util.errors import Err
 from chik.util.hash import std_hash
-from chik.util.ints import uint32, uint64
 
 log = logging.getLogger(__name__)
 

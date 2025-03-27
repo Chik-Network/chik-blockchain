@@ -5,6 +5,8 @@ from bisect import bisect_left
 from dataclasses import dataclass
 from typing import Optional
 
+from chik_rs.sized_ints import uint8, uint32, uint64
+
 from chik.full_node.fee_estimate_store import FeeStore
 from chik.full_node.fee_estimation import MempoolItemInfo
 from chik.full_node.fee_estimator_constants import (
@@ -27,7 +29,6 @@ from chik.full_node.fee_estimator_constants import (
     SUFFICIENT_FEE_TXS,
 )
 from chik.full_node.fee_history import FeeStatBackup, FeeTrackerBackup
-from chik.util.ints import uint8, uint32, uint64
 
 
 @dataclass

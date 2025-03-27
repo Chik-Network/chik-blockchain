@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 from klvm.casts import int_from_bytes
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import INFINITE_COST
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend
 from chik.types.condition_opcodes import ConditionOpcode
-from chik.util.ints import uint64
 from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 

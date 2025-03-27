@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from chik_rs import AugSchemeMPL, G1Element, G2Element, PrivateKey
+from chik_rs.sized_ints import uint32
 
 from chik.consensus.coinbase import create_puzzlehash_for_pk
 from chik.types.signing_mode import SigningMode
@@ -15,7 +16,6 @@ from chik.util.bech32m import bech32_encode, convertbits, encode_puzzle_hash
 from chik.util.config import load_config
 from chik.util.errors import KeychainException
 from chik.util.file_keyring import MAX_LABEL_LENGTH
-from chik.util.ints import uint32
 from chik.util.keychain import (
     Keychain,
     KeyData,

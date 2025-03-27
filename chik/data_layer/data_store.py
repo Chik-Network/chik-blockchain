@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, BinaryIO, Callable, Optional, Union
 
 import aiosqlite
+from chik_rs.sized_bytes import bytes32
 
 from chik.data_layer.data_layer_errors import KeyNotFoundError, NodeHashError, TreeGenerationIncrementingError
 from chik.data_layer.data_layer_util import (
@@ -41,7 +42,6 @@ from chik.data_layer.data_layer_util import (
     unspecified,
 )
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.db_wrapper import SQLITE_MAX_VARIABLE_NUMBER, DBWrapper2
 
 log = logging.getLogger(__name__)

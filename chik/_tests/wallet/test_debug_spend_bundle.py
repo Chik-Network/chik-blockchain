@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import pytest
 from chik_rs import AugSchemeMPL, PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.util.hash import std_hash
-from chik.util.ints import uint64
 from chik.wallet.util.debug_spend_bundle import debug_spend_bundle
 from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 

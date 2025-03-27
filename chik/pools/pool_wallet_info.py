@@ -5,11 +5,11 @@ from enum import IntEnum
 from typing import Any, Optional
 
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32
 
 from chik.protocols.pool_protocol import POOL_PROTOCOL_VERSION
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint8, uint32
 from chik.util.streamable import Streamable, streamable
 
 

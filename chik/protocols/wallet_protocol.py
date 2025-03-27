@@ -5,14 +5,14 @@ from enum import IntEnum
 from typing import Optional
 
 import chik_rs
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64, uint128
 
 from chik.full_node.fee_estimate import FeeEstimateGroup
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.header_block import HeaderBlock
 from chik.types.spend_bundle import SpendBundle
-from chik.util.ints import uint8, uint32, uint64, uint128
 from chik.util.streamable import Streamable, streamable
 
 """

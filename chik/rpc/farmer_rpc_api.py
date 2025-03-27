@@ -4,14 +4,14 @@ import dataclasses
 import operator
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional, cast
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 from typing_extensions import Protocol
 
 from chik.farmer.farmer import Farmer
 from chik.plot_sync.receiver import Receiver
 from chik.protocols.harvester_protocol import Plot
 from chik.rpc.rpc_server import Endpoint, EndpointResult
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32
 from chik.util.paginator import Paginator
 from chik.util.streamable import Streamable, streamable
 from chik.util.ws_message import WsRpcMessage, create_payload_dict

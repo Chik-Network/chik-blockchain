@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.data_layer.data_layer_wallet import DataLayerWallet
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint64
 from chik.wallet.puzzle_drivers import Solver
 from chik.wallet.trade_record import TradeRecord
 from chik.wallet.trading.offer import Offer

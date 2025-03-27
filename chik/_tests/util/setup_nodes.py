@@ -10,10 +10,12 @@ from pathlib import Path
 from typing import Optional, Union
 
 import anyio
+from chik_rs import ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16, uint32
 
 from chik._tests.environments.full_node import FullNodeEnvironment
 from chik._tests.environments.wallet import WalletEnvironment
-from chik.consensus.constants import ConsensusConstants
 from chik.daemon.server import WebSocketServer
 from chik.farmer.farmer import Farmer
 from chik.full_node.full_node_api import FullNodeAPI
@@ -39,10 +41,8 @@ from chik.simulator.setup_services import (
 from chik.simulator.socket import find_available_listen_port
 from chik.simulator.start_simulator import SimulatorFullNodeService
 from chik.types.aliases import FarmerService, FullNodeService, HarvesterService, TimelordService, WalletService
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import UnresolvedPeerInfo
 from chik.util.hash import std_hash
-from chik.util.ints import uint16, uint32
 from chik.util.keychain import Keychain
 from chik.util.timing import adjusted_timeout, backoff_times
 from chik.wallet.wallet_node import WalletNode
@@ -390,6 +390,7 @@ async def setup_full_system_inner(
         introducer_service = await async_exit_stack.enter_async_context(setup_introducer(shared_b_tools, uint16(0)))
         introducer = introducer_service._api
         introducer_server = introducer_service._node.server
+        introducer.introducer.dns_servers = []
 
         # Then start the full node so we can use the port for the farmer and timelord
         node_1 = await async_exit_stack.enter_async_context(

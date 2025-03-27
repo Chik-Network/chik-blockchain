@@ -6,7 +6,9 @@ from dataclasses import dataclass, field, fields
 from typing import Any, Callable, Optional, get_type_hints
 
 import pytest
-from chik_rs import G1Element
+from chik_rs import G1Element, SubEpochChallengeSegment
+from chik_rs.sized_bytes import bytes4, bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 from klvm_tools import binutils
 from typing_extensions import Literal, get_args
 
@@ -14,10 +16,7 @@ from chik.protocols.wallet_protocol import RespondRemovals
 from chik.simulator.block_tools import BlockTools, test_constants
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes4, bytes32
 from chik.types.full_block import FullBlock
-from chik.types.weight_proof import SubEpochChallengeSegment
-from chik.util.ints import uint8, uint32, uint64
 from chik.util.streamable import (
     ConversionError,
     DefinitionError,

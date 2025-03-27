@@ -17,14 +17,26 @@ from random import Random
 from typing import Any, Callable, Optional
 
 import anyio
-from chik_rs import MEMPOOL_MODE, AugSchemeMPL, G1Element, G2Element, PrivateKey, solution_generator
+from chik_puzzles_py.programs import CHIKLISP_DESERIALISATION, ROM_BOOTSTRAP_GENERATOR
+from chik_rs import (
+    MEMPOOL_MODE,
+    AugSchemeMPL,
+    ConsensusConstants,
+    G1Element,
+    G2Element,
+    PoolTarget,
+    PrivateKey,
+    solution_generator,
+)
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint16, uint32, uint64, uint128
 
 from chik.consensus.block_creation import create_unfinished_block, unfinished_block_to_full_block
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
 from chik.consensus.coinbase import create_puzzlehash_for_pk
 from chik.consensus.condition_costs import ConditionCost
-from chik.consensus.constants import ConsensusConstants, replace_str_to_bytes
+from chik.consensus.constants import replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.consensus.deficit import calculate_deficit
 from chik.consensus.full_block_to_block_record import block_to_block_record
@@ -63,7 +75,6 @@ from chik.simulator.wallet_tools import WalletTool
 from chik.ssl.create_ssl import create_all_ssl
 from chik.types.blockchain_format.classgroup import ClassgroupElement
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.pool_target import PoolTarget
 from chik.types.blockchain_format.program import INFINITE_COST, Program
 from chik.types.blockchain_format.proof_of_space import (
     ProofOfSpace,
@@ -75,7 +86,6 @@ from chik.types.blockchain_format.proof_of_space import (
     verify_and_get_quality_string,
 )
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.slots import (
     ChallengeChainSubSlot,
     InfusedChallengeChainSubSlot,
@@ -102,7 +112,6 @@ from chik.util.config import (
 )
 from chik.util.default_root import DEFAULT_ROOT_PATH
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint16, uint32, uint64, uint128
 from chik.util.keychain import Keychain, bytes_to_mnemonic
 from chik.util.ssl_check import fix_ssl
 from chik.util.timing import adjusted_timeout, backoff_times
@@ -113,15 +122,10 @@ from chik.wallet.derive_keys import (
     master_sk_to_pool_sk,
     master_sk_to_wallet_sk,
 )
-from chik.wallet.puzzles.load_klvm import load_serialized_klvm_maybe_recompile
 
-GENERATOR_MOD: SerializedProgram = load_serialized_klvm_maybe_recompile(
-    "rom_bootstrap_generator.clsp", package_or_requirement="chik.consensus.puzzles"
-)
+DESERIALIZE_MOD = Program.from_bytes(CHIKLISP_DESERIALISATION)
 
-DESERIALIZE_MOD = load_serialized_klvm_maybe_recompile(
-    "chiklisp_deserialisation.clsp", package_or_requirement="chik.consensus.puzzles"
-)
+GENERATOR_MOD: SerializedProgram = SerializedProgram.from_bytes(ROM_BOOTSTRAP_GENERATOR)
 
 test_constants = DEFAULT_CONSTANTS.replace(
     MIN_PLOT_SIZE=uint8(18),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from chik_rs.sized_ints import uint8, uint32
 
 from chik._tests.util.db_connection import DBConnection
 from chik._tests.util.setup_nodes import OldSimulatorsAndWallets
@@ -11,7 +12,6 @@ from chik.types.blockchain_format.vdf import VDFProof
 from chik.types.full_block import FullBlock
 from chik.types.header_block import HeaderBlock
 from chik.util.generator_tools import get_block_header
-from chik.util.ints import uint8, uint32
 from chik.wallet.key_val_store import KeyValStore
 from chik.wallet.wallet_blockchain import WalletBlockchain
 

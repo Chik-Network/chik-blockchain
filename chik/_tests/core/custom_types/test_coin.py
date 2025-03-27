@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.hash import std_hash
-from chik.util.ints import uint64
 
 
 def coin_serialize(amount: uint64, klvm_serialize: bytes, full_serialize: bytes):

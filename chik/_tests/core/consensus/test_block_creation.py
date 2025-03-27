@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.core.make_block_generator import make_block_generator
 from chik.consensus.block_creation import compute_block_cost, compute_block_fee
 from chik.consensus.condition_costs import ConditionCost
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32, uint64
 
 
 @pytest.mark.parametrize("add_amount", [[0], [1, 2, 3], []])

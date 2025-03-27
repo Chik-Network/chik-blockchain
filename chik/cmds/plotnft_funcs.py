@@ -11,6 +11,8 @@ from pprint import pprint
 from typing import Any, Callable, Optional
 
 import aiohttp
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik.cmds.cmd_helpers import WalletClientInfo
 from chik.cmds.cmds_util import (
@@ -28,11 +30,9 @@ from chik.rpc.farmer_rpc_client import FarmerRpcClient
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.server.server import ssl_context_for_root
 from chik.ssl.create_ssl import get_mozilla_ca_crt
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.default_root import DEFAULT_ROOT_PATH
 from chik.util.errors import CliRpcConnectionError
-from chik.util.ints import uint32, uint64
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.address_type import AddressType
 from chik.wallet.util.wallet_types import WalletType

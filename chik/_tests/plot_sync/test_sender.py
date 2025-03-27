@@ -3,6 +3,8 @@ from __future__ import annotations
 import random
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import int16, uint64
 
 from chik._tests.plot_sync.util import get_dummy_connection, plot_sync_identifier
 from chik.plot_sync.exceptions import AlreadyStartedError, InvalidConnectionTypeError
@@ -13,8 +15,6 @@ from chik.protocols.harvester_protocol import PlotSyncIdentifier, PlotSyncRespon
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.server.outbound_message import NodeType
 from chik.simulator.block_tools import BlockTools
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import int16, uint64
 
 
 def test_default_values(bt: BlockTools) -> None:

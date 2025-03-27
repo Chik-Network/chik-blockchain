@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Optional, Union
 
-from chik.consensus.constants import ConsensusConstants
+from chik_rs import ConsensusConstants, RewardChainBlock, RewardChainBlockUnfinished
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
+
 from chik.consensus.pot_iterations import calculate_ip_iters, calculate_iterations_quality, calculate_sp_iters
 from chik.types.blockchain_format.proof_of_space import verify_and_get_quality_string
-from chik.types.blockchain_format.reward_chain_block import RewardChainBlock, RewardChainBlockUnfinished
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32, uint64
 
 
 def iters_from_block(

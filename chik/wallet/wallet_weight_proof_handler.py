@@ -8,11 +8,12 @@ from concurrent.futures.process import ProcessPoolExecutor
 from multiprocessing.context import BaseContext
 from typing import IO, Optional
 
+from chik_rs import ConsensusConstants
+from chik_rs.sized_ints import uint32
+
 from chik.consensus.block_record import BlockRecord
-from chik.consensus.constants import ConsensusConstants
 from chik.full_node.weight_proof import _validate_sub_epoch_summaries, validate_weight_proof_inner
 from chik.types.weight_proof import WeightProof
-from chik.util.ints import uint32
 from chik.util.setproctitle import getproctitle, setproctitle
 
 log = logging.getLogger(__name__)

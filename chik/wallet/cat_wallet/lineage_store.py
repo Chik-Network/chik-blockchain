@@ -3,7 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from chik.types.blockchain_format.sized_bytes import bytes32
+from chik_rs.sized_bytes import bytes32
+
 from chik.util.db_wrapper import DBWrapper2
 from chik.wallet.lineage_proof import LineageProof
 

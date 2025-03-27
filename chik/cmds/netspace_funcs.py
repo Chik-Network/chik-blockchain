@@ -3,9 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+
 from chik.cmds.cmds_util import format_bytes, get_any_service_client
 from chik.rpc.full_node_rpc_client import FullNodeRpcClient
-from chik.types.blockchain_format.sized_bytes import bytes32
 
 
 async def netstorge_async(root_path: Path, rpc_port: Optional[int], delta_block_height: str, start: str) -> None:

@@ -2,12 +2,18 @@ from __future__ import annotations
 
 from typing import Optional, Union
 
+from chik_puzzles_py.programs import (
+    SINGLETON_LAUNCHER,
+    SINGLETON_LAUNCHER_HASH,
+    SINGLETON_TOP_LAYER_V1_1,
+    SINGLETON_TOP_LAYER_V1_1_HASH,
+)
+from chik_rs.sized_bytes import bytes32
+
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, compute_additions
-from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
 from chik.wallet.util.curry_and_treehash import (
     calculate_hash_of_quoted_mod_hash,
     curry_and_treehash,
@@ -15,12 +21,12 @@ from chik.wallet.util.curry_and_treehash import (
     shatree_pair,
 )
 
-SINGLETON_TOP_LAYER_MOD = load_klvm_maybe_recompile("singleton_top_layer_v1_1.clsp")
-SINGLETON_TOP_LAYER_MOD_HASH = SINGLETON_TOP_LAYER_MOD.get_tree_hash()
+SINGLETON_TOP_LAYER_MOD = Program.from_bytes(SINGLETON_TOP_LAYER_V1_1)
+SINGLETON_TOP_LAYER_MOD_HASH = bytes32(SINGLETON_TOP_LAYER_V1_1_HASH)
 SINGLETON_TOP_LAYER_MOD_HASH_TREE_HASH = shatree_atom(SINGLETON_TOP_LAYER_MOD_HASH)
 SINGLETON_TOP_LAYER_MOD_HASH_QUOTED = calculate_hash_of_quoted_mod_hash(SINGLETON_TOP_LAYER_MOD_HASH)
-SINGLETON_LAUNCHER_PUZZLE = load_klvm_maybe_recompile("singleton_launcher.clsp")
-SINGLETON_LAUNCHER_PUZZLE_HASH = SINGLETON_LAUNCHER_PUZZLE.get_tree_hash()
+SINGLETON_LAUNCHER_PUZZLE = Program.from_bytes(SINGLETON_LAUNCHER)
+SINGLETON_LAUNCHER_PUZZLE_HASH = bytes32(SINGLETON_LAUNCHER_HASH)
 SINGLETON_LAUNCHER_PUZZLE_HASH_TREE_HASH = shatree_atom(SINGLETON_LAUNCHER_PUZZLE_HASH)
 
 

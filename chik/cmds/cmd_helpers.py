@@ -7,12 +7,13 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, Callable, Optional, TypeVar
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
+
 from chik.cmds.cmd_classes import ChikCliContext, command_helper, option
 from chik.cmds.cmds_util import CMDCoinSelectionConfigLoader, CMDTXConfigLoader, TransactionBundle, get_wallet_client
 from chik.cmds.param_types import AmountParamType, Bytes32ParamType, CliAmount, TransactionFeeParamType, cli_amount_none
 from chik.rpc.wallet_rpc_client import WalletRpcClient
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint64
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.tx_config import CoinSelectionConfig, TXConfig
@@ -33,8 +34,7 @@ class NeedsWalletRPC:
         "-wp",
         "--wallet-rpc_port",
         help=(
-            "Set the port where the Wallet is hosting the RPC interface."
-            "See the rpc_port under wallet in config.yaml."
+            "Set the port where the Wallet is hosting the RPC interface. See the rpc_port under wallet in config.yaml."
         ),
         type=int,
         default=None,

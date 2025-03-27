@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from chik_rs.sized_ints import uint64, uint128
 
 from chik._tests.util.misc import BenchmarkRunner, wallet_height_at_least
 from chik._tests.util.setup_nodes import OldSimulatorsAndWallets
@@ -9,7 +10,6 @@ from chik.simulator.add_blocks_in_batches import add_blocks_in_batches
 from chik.types.full_block import FullBlock
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.types.peer_info import PeerInfo
-from chik.util.ints import uint64, uint128
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 from chik.wallet.wallet_node import WalletNode
 
@@ -45,7 +45,7 @@ async def test_mempool_update_performance(
 
     ph = await wallet.get_new_puzzlehash()
     async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=False, sign=True) as action_scope:
-        await wallet.generate_signed_transaction(send_amount, ph, action_scope, fee_amount)
+        await wallet.generate_signed_transaction([send_amount], [ph], action_scope, fee_amount)
     [big_transaction] = action_scope.side_effects.transactions
     assert big_transaction.spend_bundle is not None
     status, err = await full_node.add_transaction(

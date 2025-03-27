@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from chik_rs.sized_ints import int16
+
 from chik.util.errors import Err
-from chik.util.ints import int16
 
 
 def test_error_codes_int16() -> None:

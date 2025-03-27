@@ -3,15 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16, uint32, uint64
+
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint16, uint32, uint64
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.lineage_proof import LineageProof
-from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
+from chik.wallet.singleton import SINGLETON_LAUNCHER_PUZZLE_HASH
 
-LAUNCHER_PUZZLE = load_klvm_maybe_recompile("singleton_launcher.clsp")
 IN_TRANSACTION_STATUS = "IN_TRANSACTION"
 DEFAULT_STATUS = "DEFAULT"
 
@@ -85,7 +85,7 @@ class NFTInfo(Streamable):
     minter_did: Optional[bytes32] = None
     """DID of the NFT minter"""
 
-    launcher_puzhash: bytes32 = LAUNCHER_PUZZLE.get_tree_hash()
+    launcher_puzhash: bytes32 = SINGLETON_LAUNCHER_PUZZLE_HASH
     """Puzzle hash of the singleton launcher in hex"""
 
     off_chain_metadata: Optional[str] = None

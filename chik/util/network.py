@@ -12,10 +12,10 @@ from typing import Any, Literal, Optional, Union
 
 from aiohttp import web
 from aiohttp.log import web_logger
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16
 from typing_extensions import final
 
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint16
 from chik.util.ip_address import IPAddress
 from chik.util.task_referencer import create_referenced_task
 

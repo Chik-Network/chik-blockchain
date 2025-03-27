@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 from chik_rs import G1Element, PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 from chikpos import DiskProver
 from typing_extensions import final
 
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.config import load_config, lock_and_load_config, save_config
-from chik.util.ints import uint32
 from chik.util.streamable import Streamable, streamable
 
 log = logging.getLogger(__name__)

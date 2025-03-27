@@ -7,6 +7,7 @@ from typing import Optional, TypeVar
 import aiohttp
 import anyio
 import pytest
+from chik_rs.sized_ints import uint64
 
 from chik._tests.util.misc import RecordingWebServer
 from chik._tests.util.split_managers import SplitAsyncManager, SplitManager, split_async_manager, split_manager
@@ -16,7 +17,6 @@ from chik.types.blockchain_format.program import Program
 from chik.types.transaction_queue_entry import ValuedEvent
 from chik.util.batches import to_batches
 from chik.util.errors import InvalidPathError
-from chik.util.ints import uint64
 from chik.util.timing import adjusted_timeout, backoff_times
 
 T = TypeVar("T")

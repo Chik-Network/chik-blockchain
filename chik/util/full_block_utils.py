@@ -3,14 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from chik_rs import G1Element, G2Element, serialized_length
+from chik_rs import G1Element, G2Element, TransactionsInfo, serialized_length
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 from chikbip158 import PyBIP158
 
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.foliage import TransactionsInfo
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32
 
 
 def skip_list(buf: memoryview, skip_item: Callable[[memoryview], memoryview]) -> memoryview:

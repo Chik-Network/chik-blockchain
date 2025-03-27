@@ -4,6 +4,8 @@ import re
 from typing import Any
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 from chik.rpc.full_node_rpc_api import FullNodeRpcApi
 from chik.rpc.full_node_rpc_client import FullNodeRpcClient
@@ -14,9 +16,7 @@ from chik.simulator.start_simulator import SimulatorFullNodeService
 from chik.simulator.wallet_tools import WalletTool
 from chik.types.aliases import WalletService
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.spend_bundle import SpendBundle
-from chik.util.ints import uint64
 
 
 @pytest.fixture(scope="function")

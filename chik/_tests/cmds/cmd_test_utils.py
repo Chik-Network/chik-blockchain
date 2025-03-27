@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any, Optional, Union, cast
 
 from chik_rs import Coin, G2Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint16, uint32, uint64
 
 import chik.cmds.wallet_funcs
 from chik._tests.cmds.testing_classes import create_test_block_record
@@ -23,12 +25,10 @@ from chik.rpc.rpc_client import RpcClient
 from chik.rpc.wallet_request_types import GetSyncStatusResponse, SendTransactionMultiResponse
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.simulator_full_node_rpc_client import SimulatorFullNodeRpcClient
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.signing_mode import SigningMode
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.config import load_config
-from chik.util.ints import uint8, uint16, uint32, uint64
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.nft_wallet.nft_info import NFTInfo
 from chik.wallet.nft_wallet.nft_wallet import NFTWallet

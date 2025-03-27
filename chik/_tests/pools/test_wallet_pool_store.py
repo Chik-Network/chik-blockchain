@@ -5,15 +5,15 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 from klvm_tools import binutils
 
 from chik._tests.util.db_connection import DBConnection
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, compute_additions, make_spend
-from chik.util.ints import uint32, uint64
 from chik.wallet.wallet_pool_store import WalletPoolStore
 
 

@@ -3,9 +3,9 @@ from __future__ import annotations
 import random
 
 import pytest
+from chik_rs.sized_bytes import bytes32
 
 from chik.full_node.sync_store import SyncStore
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.hash import std_hash
 
 

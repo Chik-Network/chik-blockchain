@@ -10,10 +10,9 @@ from typing import Callable, Union, cast
 
 import click
 from chik_rs import G1Element
+from chik_rs.sized_ints import uint32
 from keyring.backends.macOS import Keyring as MacKeyring
 from keyring.backends.Windows import WinVaultKeyring as WinKeyring
-
-from chik.util.ints import uint32
 
 try:
     from keyrings.cryptfile.cryptfile import CryptFileKeyring

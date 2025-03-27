@@ -16,6 +16,7 @@ from typing import Any, Callable, Optional, cast
 import aiohttp
 import aiosqlite
 import pytest
+from chik_rs.sized_bytes import bytes32
 
 from chik._tests.core.data_layer.util import Example, add_0123_example, add_01234567_example
 from chik._tests.util.misc import BenchmarkRunner, Marks, boolean_datacases, datacases
@@ -46,7 +47,6 @@ from chik.data_layer.download_data import (
     write_files_for_root,
 )
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.db_wrapper import DBWrapper2, generate_in_memory_db_uri
 

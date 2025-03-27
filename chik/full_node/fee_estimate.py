@@ -4,8 +4,9 @@ import math
 from dataclasses import dataclass
 from typing import Optional
 
+from chik_rs.sized_ints import uint64
+
 from chik.types.fee_rate import FeeRate, FeeRateV2
-from chik.util.ints import uint64
 from chik.util.streamable import Streamable, streamable
 
 

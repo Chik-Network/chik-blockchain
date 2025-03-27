@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from chik.types.blockchain_format.sized_bytes import bytes32
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
+
 from chik.types.condition_opcodes import ConditionOpcode
-from chik.util.ints import uint64
 
 
 def make_create_coin_condition(puzzle_hash: bytes32, amount: uint64, memos: list[bytes]) -> list[Any]:

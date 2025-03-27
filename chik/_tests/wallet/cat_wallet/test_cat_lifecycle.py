@@ -4,6 +4,7 @@ from typing import Optional
 
 import pytest
 from chik_rs import AugSchemeMPL, G2Element, PrivateKey
+from chik_rs.sized_ints import uint64
 from klvm.casts import int_to_bytes
 
 from chik._tests.klvm.benchmark_costs import cost_of_spend_bundle
@@ -15,7 +16,6 @@ from chik.types.blockchain_format.program import Program
 from chik.types.coin_spend import make_spend
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.util.errors import Err
-from chik.util.ints import uint64
 from chik.wallet.cat_wallet.cat_utils import (
     CAT_MOD,
     SpendableCAT,

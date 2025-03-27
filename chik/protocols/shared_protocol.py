@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import Optional
 
+from chik_rs.sized_ints import int16, uint8, uint16
+
 from chik.server.outbound_message import NodeType
-from chik.util.ints import int16, uint8, uint16
 from chik.util.streamable import Streamable, streamable
 
 protocol_version = {

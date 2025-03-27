@@ -5,8 +5,9 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
+from chik_rs.sized_ints import uint16, uint64
+
 from chik.types.peer_info import PeerInfo
-from chik.util.ints import uint16, uint64
 
 
 @dataclass(frozen=False)

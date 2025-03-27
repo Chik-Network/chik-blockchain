@@ -3,12 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional, cast
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
+
 from chik._tests.cmds.cmd_test_utils import TestRpcClients, TestWalletRpcClient, logType, run_cli_command_and_assert
 from chik._tests.cmds.wallet.test_consts import FINGERPRINT, FINGERPRINT_ARG, get_bytes32
 from chik.rpc.wallet_request_types import GetNotifications, GetNotificationsResponse
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.bech32m import encode_puzzle_hash
-from chik.util.ints import uint32, uint64
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.notification_store import Notification
 from chik.wallet.transaction_record import TransactionRecord

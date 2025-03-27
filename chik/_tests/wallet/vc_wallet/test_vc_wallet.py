@@ -6,6 +6,8 @@ from typing import Any, Callable, Optional
 
 import pytest
 from chik_rs import G2Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 from typing_extensions import Literal
 
 from chik._tests.environments.wallet import WalletEnvironment, WalletStateTransition, WalletTestFramework
@@ -15,11 +17,9 @@ from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.types.blockchain_format.coin import coin_as_list
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import make_spend
 from chik.types.peer_info import PeerInfo
 from chik.util.bech32m import encode_puzzle_hash
-from chik.util.ints import uint64
 from chik.wallet.cat_wallet.cat_utils import CAT_MOD, construct_cat_puzzle
 from chik.wallet.cat_wallet.cat_wallet import CATWallet
 from chik.wallet.did_wallet.did_wallet import DIDWallet
@@ -719,8 +719,10 @@ async def test_self_revoke(wallet_environments: WalletTestFramework) -> None:
             wallet_environments.tx_config, push=False
         ) as action_scope:
             await (await wallet_node_0.wallet_state_manager.get_or_create_vc_wallet()).generate_signed_transaction(
-                new_vc_record.vc.launcher_id,
+                [uint64(1)],
+                [await wallet_0.get_puzzle_hash(new=not action_scope.config.tx_config.reuse_puzhash)],
                 action_scope,
+                vc_id=new_vc_record.vc.launcher_id,
                 new_proof_hash=bytes32.zeros,
                 self_revoke=True,
             )

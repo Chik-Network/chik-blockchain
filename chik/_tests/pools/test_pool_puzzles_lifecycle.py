@@ -5,13 +5,14 @@ from unittest import TestCase
 
 import pytest
 from chik_rs import AugSchemeMPL, G1Element, G2Element, PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.klvm.coin_store import BadSpendBundleError, CoinStore, CoinTimestamp
 from chik._tests.klvm.test_puzzles import public_key_for_index, secret_exponent_for_index
 from chik._tests.util.key_tool import KeyTool
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.pools.pool_puzzles import (
-    SINGLETON_MOD_HASH,
     create_absorb_spend,
     create_p2_singleton_puzzle,
     create_p2_singleton_puzzle_hash,
@@ -29,10 +30,8 @@ from chik.pools.pool_puzzles import (
 from chik.pools.pool_wallet_info import PoolState
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, make_spend
 from chik.types.spend_bundle import SpendBundle
-from chik.util.ints import uint32, uint64
 from chik.wallet.puzzles import singleton_top_layer
 from chik.wallet.puzzles.p2_conditions import puzzle_for_conditions
 from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import (
@@ -41,6 +40,7 @@ from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import (
     puzzle_for_pk,
     solution_for_conditions,
 )
+from chik.wallet.puzzles.singleton_top_layer import SINGLETON_MOD_HASH
 from chik.wallet.singleton import get_most_recent_singleton_coin_from_coin_spend
 
 """

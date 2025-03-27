@@ -7,6 +7,8 @@ from typing import Optional, cast
 
 import pytest
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 # TODO: update after resolution in https://github.com/pytest-dev/pytest/issues/7469
 from pytest_mock import MockerFixture
@@ -38,11 +40,9 @@ from chik.pools.pool_config import PoolWalletConfig, load_pool_config, update_po
 from chik.pools.pool_wallet_info import PoolSingletonState, PoolWalletInfo
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.setup_services import setup_farmer
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.config import lock_and_load_config, save_config
 from chik.util.errors import CliRpcConnectionError
-from chik.util.ints import uint64
 from chik.wallet.util.address_type import AddressType
 from chik.wallet.util.wallet_types import WalletType
 from chik.wallet.wallet_state_manager import WalletStateManager

@@ -5,11 +5,11 @@ import time
 
 import pytest
 from chik_rs import G2Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.util.db_connection import DBConnection
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32, uint64
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.trade_record import TradeRecord, TradeRecordOld
 from chik.wallet.trading.offer import Offer

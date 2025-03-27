@@ -3,9 +3,11 @@ from __future__ import annotations
 import logging
 from typing import Optional, Union
 
+from chik_rs import ConsensusConstants
+from chik_rs.sized_ints import uint8, uint32, uint64, uint128
+
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.deficit import calculate_deficit
 from chik.consensus.difficulty_adjustment import (
     _get_next_difficulty,
@@ -18,7 +20,6 @@ from chik.consensus.pot_iterations import calculate_ip_iters, calculate_sp_iters
 from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.full_block import FullBlock
 from chik.types.unfinished_block import UnfinishedBlock
-from chik.util.ints import uint8, uint32, uint64, uint128
 
 log = logging.getLogger(__name__)
 

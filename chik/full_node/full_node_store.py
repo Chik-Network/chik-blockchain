@@ -6,9 +6,12 @@ import logging
 import time
 from typing import Optional
 
+from chik_rs import ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64, uint128
+
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.difficulty_adjustment import can_finish_sub_and_full_epoch
 from chik.consensus.make_sub_epoch_summary import make_sub_epoch_summary
 from chik.consensus.multiprocess_validation import PreValidationResult
@@ -17,12 +20,10 @@ from chik.full_node.signage_point import SignagePoint
 from chik.protocols import timelord_protocol
 from chik.server.outbound_message import Message
 from chik.types.blockchain_format.classgroup import ClassgroupElement
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.vdf import VDFInfo, validate_vdf
 from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
 from chik.types.full_block import FullBlock
 from chik.types.unfinished_block import UnfinishedBlock
-from chik.util.ints import uint8, uint32, uint64, uint128
 from chik.util.lru_cache import LRUCache
 from chik.util.streamable import Streamable, streamable
 

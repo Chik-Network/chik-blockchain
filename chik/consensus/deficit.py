@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Optional
 
+from chik_rs import ConsensusConstants
+from chik_rs.sized_ints import uint8, uint32
+
 from chik.consensus.block_record import BlockRecord
-from chik.consensus.constants import ConsensusConstants
-from chik.util.ints import uint8, uint32
 
 
 def calculate_deficit(

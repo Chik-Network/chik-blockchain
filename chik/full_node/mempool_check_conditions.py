@@ -3,28 +3,27 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from chik_puzzles_py.programs import CHIKLISP_DESERIALISATION
 from chik_rs import (
+    ConsensusConstants,
     get_flags_for_height_and_constants,
     run_chik_program,
 )
 from chik_rs import get_puzzle_and_solution_for_coin2 as get_puzzle_and_solution_for_coin_rust
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
-from chik.consensus.constants import ConsensusConstants
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.types.coin_spend import CoinSpend, CoinSpendWithConditions, SpendInfo, make_spend
 from chik.types.generator_types import BlockGenerator
 from chik.types.spend_bundle_conditions import SpendBundleConditions
 from chik.util.condition_tools import conditions_for_solution
 from chik.util.errors import Err
-from chik.util.ints import uint32, uint64
-from chik.wallet.puzzles.load_klvm import load_serialized_klvm_maybe_recompile
 
-DESERIALIZE_MOD = load_serialized_klvm_maybe_recompile(
-    "chiklisp_deserialisation.clsp", package_or_requirement="chik.consensus.puzzles"
-)
+DESERIALIZE_MOD = Program.from_bytes(CHIKLISP_DESERIALISATION)
+
 
 log = logging.getLogger(__name__)
 

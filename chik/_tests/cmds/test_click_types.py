@@ -5,6 +5,8 @@ from pathlib import Path
 
 import click
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 from click import BadParameter
 
 from chik.cmds.cmd_classes import ChikCliContext
@@ -18,9 +20,7 @@ from chik.cmds.param_types import (
     Uint64ParamType,
 )
 from chik.cmds.units import units
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.bech32m import encode_puzzle_hash
-from chik.util.ints import uint64
 from chik.wallet.util.address_type import AddressType
 
 """

@@ -2,14 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import chik_rs
+from chik_rs import RewardChainBlock, SubEpochChallengeSegment, SubEpochData
 
-from chik.types.blockchain_format.reward_chain_block import RewardChainBlock
 from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
 from chik.types.header_block import HeaderBlock
 from chik.util.streamable import Streamable, streamable
-
-SubEpochData = chik_rs.SubEpochData
 
 # number of challenge blocks
 # Average iters for challenge blocks
@@ -20,11 +17,6 @@ SubEpochData = chik_rs.SubEpochData
 # |----------------------------A---------------------------------|       Attackers chain 1000
 #                            0.48
 # total number of challenge blocks == total number of reward chain blocks
-
-
-SubEpochChallengeSegment = chik_rs.SubEpochChallengeSegment
-SubEpochSegments = chik_rs.SubEpochSegments
-SubSlotData = chik_rs.SubSlotData
 
 
 @streamable

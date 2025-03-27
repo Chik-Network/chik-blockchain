@@ -8,9 +8,9 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 
 import aiosqlite
+from chik_rs.sized_ints import uint32, uint64
 
 from chik.seeder.peer_record import PeerRecord, PeerReliability
-from chik.util.ints import uint32, uint64
 
 log = logging.getLogger(__name__)
 

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import Optional
 
+from chik_rs import ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64, uint128
+
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
-from chik.consensus.constants import ConsensusConstants
 from chik.types.blockchain_format.classgroup import ClassgroupElement
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
-from chik.util.ints import uint64, uint128
 
 
 def get_signage_point_vdf_info(

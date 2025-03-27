@@ -8,6 +8,9 @@ from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Union, cast
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
+
 from chik._tests.environments.common import ServiceEnvironment
 from chik.cmds.cmd_helpers import NeedsTXConfig, NeedsWalletRPC, TransactionEndpoint, TransactionsOut, WalletClientInfo
 from chik.cmds.param_types import CliAmount, cli_amount_none
@@ -18,8 +21,6 @@ from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.server.server import ChikServer
 from chik.server.start_service import Service
 from chik.simulator.full_node_simulator import FullNodeSimulator
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32, uint64
 from chik.wallet.transaction_record import LightTransactionRecord
 from chik.wallet.util.transaction_type import CLAWBACK_INCOMING_TRANSACTION_TYPES
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG, TXConfig

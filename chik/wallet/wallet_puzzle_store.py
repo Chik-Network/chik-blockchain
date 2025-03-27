@@ -5,10 +5,10 @@ import logging
 from typing import Optional
 
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.db_wrapper import DBWrapper2, execute_fetchone
-from chik.util.ints import uint32
 from chik.util.lru_cache import LRUCache
 from chik.wallet.derivation_record import DerivationRecord
 from chik.wallet.util.wallet_types import WalletIdentifier, WalletType

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Optional
 
+from chik_rs.sized_ints import uint32
+
 from chik.util.db_wrapper import DBWrapper2, execute_fetchone
-from chik.util.ints import uint32
 from chik.wallet.util.wallet_types import WalletType
 from chik.wallet.wallet_info import WalletInfo
 

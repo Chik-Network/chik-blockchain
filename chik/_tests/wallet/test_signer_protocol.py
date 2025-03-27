@@ -6,6 +6,8 @@ from typing import Optional
 import click
 import pytest
 from chik_rs import AugSchemeMPL, G1Element, G2Element, PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 from click.testing import CliRunner
 
 from chik._tests.cmds.test_cmd_framework import check_click_parsing
@@ -34,10 +36,8 @@ from chik.rpc.wallet_request_types import (
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.types.blockchain_format.coin import Coin as ConsensusCoin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend, make_spend
 from chik.util.hash import std_hash
-from chik.util.ints import uint64
 from chik.util.streamable import Streamable
 from chik.wallet.conditions import AggSigMe
 from chik.wallet.derivation_record import DerivationRecord
@@ -615,7 +615,7 @@ async def test_signer_commands(wallet_environments: WalletTestFramework) -> None
 
     AMOUNT = uint64(1)
     async with wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, sign=False, push=False) as action_scope:
-        await wallet.generate_signed_transaction(AMOUNT, bytes32.zeros, action_scope)
+        await wallet.generate_signed_transaction([AMOUNT], [bytes32.zeros], action_scope)
     [tx] = action_scope.side_effects.transactions
 
     runner = CliRunner()

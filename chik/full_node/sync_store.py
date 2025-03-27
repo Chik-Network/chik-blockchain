@@ -9,9 +9,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import typing_extensions
-
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32, uint128
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint128
 
 log = logging.getLogger(__name__)
 

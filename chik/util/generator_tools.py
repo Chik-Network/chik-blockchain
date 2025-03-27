@@ -3,14 +3,14 @@ from __future__ import annotations
 from collections.abc import Collection
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 from chikbip158 import PyBIP158
 
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.full_block import FullBlock
 from chik.types.header_block import HeaderBlock
 from chik.types.spend_bundle_conditions import SpendBundleConditions
-from chik.util.ints import uint64
 
 
 def get_block_header(

@@ -4,20 +4,18 @@ import logging
 from dataclasses import dataclass
 from typing import Optional, TypeVar
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16
+
 from chik.protocols.wallet_protocol import CoinState
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend
-from chik.util.ints import uint16
 from chik.util.streamable import Streamable, streamable
-from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
+from chik.wallet.nft_wallet.nft_puzzles import NFT_OWNERSHIP_LAYER
+from chik.wallet.nft_wallet.nft_puzzles import NFT_STATE_LAYER_MOD as NFT_MOD
+from chik.wallet.singleton import SINGLETON_TOP_LAYER_MOD
 
 log = logging.getLogger(__name__)
-SINGLETON_TOP_LAYER_MOD = load_klvm_maybe_recompile("singleton_top_layer_v1_1.clsp")
-NFT_MOD = load_klvm_maybe_recompile("nft_state_layer.clsp", package_or_requirement="chik.wallet.nft_wallet.puzzles")
-NFT_OWNERSHIP_LAYER = load_klvm_maybe_recompile(
-    "nft_ownership_layer.clsp", package_or_requirement="chik.wallet.nft_wallet.puzzles"
-)
 
 _T_UncurriedNFT = TypeVar("_T_UncurriedNFT", bound="UncurriedNFT")
 

@@ -3,16 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Optional
 
-from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.wallet.puzzle_drivers import PuzzleInfo, Solver
-from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
-from chik.wallet.uncurried_puzzle import UncurriedPuzzle, uncurry_puzzle
+from chik_rs.sized_bytes import bytes32
 
-NFT_STATE_LAYER_MOD = load_klvm_maybe_recompile(
-    "nft_state_layer.clsp", package_or_requirement="chik.wallet.nft_wallet.puzzles"
+from chik.types.blockchain_format.program import Program
+from chik.wallet.nft_wallet.nft_puzzles import (
+    NFT_STATE_LAYER_MOD,
+    NFT_STATE_LAYER_MOD_HASH,
 )
-NFT_STATE_LAYER_MOD_HASH = NFT_STATE_LAYER_MOD.get_tree_hash()
+from chik.wallet.puzzle_drivers import PuzzleInfo, Solver
+from chik.wallet.uncurried_puzzle import UncurriedPuzzle, uncurry_puzzle
 
 
 def match_metadata_layer_puzzle(puzzle: UncurriedPuzzle) -> tuple[bool, list[Program]]:

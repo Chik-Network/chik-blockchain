@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from typing import Callable, Optional, Union
 
+from chik_rs.sized_bytes import bytes32
 from klvm.KLVMObject import KLVMStorage
 from klvm.SExp import SExp
 
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.hash import std_hash
 
 ValueType = Union[bytes, KLVMStorage]

@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from typing import Union
 
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint32
 from chik.wallet.util.wallet_types import WalletType
 
 

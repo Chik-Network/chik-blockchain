@@ -3,13 +3,13 @@ from __future__ import annotations
 import random
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
 from chik.server.server import ChikServer
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
-from chik.util.ints import uint64
 from chik.wallet.puzzles.clawback.metadata import ClawbackMetadata
 from chik.wallet.wallet_node import WalletNode
 

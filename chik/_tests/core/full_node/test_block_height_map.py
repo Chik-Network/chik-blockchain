@@ -6,14 +6,14 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32
 
 from chik._tests.util.db_connection import DBConnection
 from chik.full_node.block_height_map import BlockHeightMap, SesCache
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.util.db_wrapper import DBWrapper2
 from chik.util.files import write_file_async
-from chik.util.ints import uint8, uint32
 
 
 def gen_block_hash(height: int) -> bytes32:

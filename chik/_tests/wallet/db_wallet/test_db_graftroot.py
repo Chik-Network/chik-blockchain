@@ -2,19 +2,17 @@ from __future__ import annotations
 
 import pytest
 from chik_rs import G2Element
+from chik_rs.sized_bytes import bytes32
 
 from chik._tests.util.spend_sim import CostLogger, sim_and_client
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import make_spend
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.util.errors import Err
-from chik.wallet.puzzles.load_klvm import load_klvm
+from chik.wallet.db_wallet.db_wallet_puzzles import GRAFTROOT_DL_OFFERS
 from chik.wallet.util.merkle_utils import build_merkle_tree, build_merkle_tree_from_binary_tree, simplify_merkle_proof
 from chik.wallet.wallet_spend_bundle import WalletSpendBundle
-
-GRAFTROOT_MOD = load_klvm("graftroot_dl_offers.clsp", package_or_requirement="chik.data_layer.puzzles")
 
 # Always returns the last value
 # (mod solution
@@ -46,7 +44,7 @@ async def test_graftroot(cost_logger: CostLogger) -> None:
         desired_key_values = ((bytes32.zeros, bytes32([1] * 32)), (bytes32([7] * 32), bytes32([8] * 32)))
         desired_row_hashes: list[bytes32] = [build_merkle_tree_from_binary_tree(kv)[0] for kv in desired_key_values]
         fake_struct: Program = Program.to((ACS_PH, NIL_PH))
-        graftroot_puzzle: Program = GRAFTROOT_MOD.curry(
+        graftroot_puzzle: Program = GRAFTROOT_DL_OFFERS.curry(
             # Do everything twice to test depending on multiple singleton updates
             p2_conditions,
             [fake_struct, fake_struct],

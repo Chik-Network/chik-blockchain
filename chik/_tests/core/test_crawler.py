@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 from typing import cast
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64, uint128
 
 from chik._tests.util.setup_nodes import SimulatorsAndWalletsServices
 from chik._tests.util.time_out_assert import time_out_assert
@@ -16,9 +18,7 @@ from chik.protocols.wallet_protocol import RequestChildren
 from chik.seeder.peer_record import PeerRecord, PeerReliability
 from chik.server.outbound_message import make_msg
 from chik.types.aliases import CrawlerService
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
-from chik.util.ints import uint32, uint64, uint128
 
 
 @pytest.mark.anyio

@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 import aiohttp
+from chik_rs.sized_ints import uint32
 
-from chik.util.ints import uint32
 from chik.util.json_util import dict_to_json_str
 from chik.util.task_referencer import create_referenced_task
 from chik.util.ws_message import WsRpcMessage, create_payload_dict

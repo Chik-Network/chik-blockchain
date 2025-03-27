@@ -20,6 +20,7 @@ from aiohttp import (
     WSMsgType,
     web,
 )
+from chik_rs.sized_ints import uint16
 from typing_extensions import Protocol, final
 
 from chik import __version__
@@ -35,7 +36,6 @@ from chik.types.peer_info import PeerInfo
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.chik_logging import default_log_level, set_log_level
 from chik.util.config import str2bool
-from chik.util.ints import uint16
 from chik.util.json_util import dict_to_json_str
 from chik.util.network import WebServer, resolve
 from chik.util.task_referencer import create_referenced_task

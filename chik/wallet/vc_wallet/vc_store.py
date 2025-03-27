@@ -5,12 +5,12 @@ from functools import cmp_to_key
 from typing import Optional, TypeVar
 
 from aiosqlite import Row
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.db_wrapper import DBWrapper2
-from chik.util.ints import uint32, uint64
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.lineage_proof import LineageProof
 from chik.wallet.util.merkle_utils import list_to_binary_tree

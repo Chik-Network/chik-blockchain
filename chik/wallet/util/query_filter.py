@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import IntEnum
 
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint8, uint64
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint64
+
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.util.transaction_type import TransactionType
 

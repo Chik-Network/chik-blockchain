@@ -3,18 +3,19 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, ClassVar, Optional, cast
 
+from chik_rs import ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32, uint64
+
 from chik.consensus.block_header_validation import validate_finished_header_block
 from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain import AddBlockResult
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.find_fork_point import find_fork_point_in_chain
 from chik.consensus.full_block_to_block_record import block_to_block_record
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.header_block import HeaderBlock
 from chik.types.validation_state import ValidationState
 from chik.types.weight_proof import WeightProof
 from chik.util.errors import Err
-from chik.util.ints import uint32, uint64
 from chik.wallet.key_val_store import KeyValStore
 from chik.wallet.wallet_weight_proof_handler import WalletWeightProofHandler
 
@@ -173,9 +174,9 @@ class WalletBlockchain:
         if self._peak is not None:
             return self._peak
         header_block = await self._basic_store.get_object("PEAK_BLOCK", HeaderBlock)
-        assert header_block is None or isinstance(
-            header_block, HeaderBlock
-        ), f"get_peak_block expected Optional[HeaderBlock], got {type(header_block)}"
+        assert header_block is None or isinstance(header_block, HeaderBlock), (
+            f"get_peak_block expected Optional[HeaderBlock], got {type(header_block)}"
+        )
         return header_block
 
     async def set_finished_sync_up_to(self, height: int, *, in_rollback: bool = False) -> None:
@@ -192,7 +193,11 @@ class WalletBlockchain:
     def get_latest_timestamp(self) -> uint64:
         return self._latest_timestamp
 
-    def contains_block(self, header_hash: bytes32) -> bool:
+    def contains_block(self, header_hash: bytes32, height: Optional[uint32] = None) -> bool:
+        """
+        True if we have already added this block to the chain. This may return false for orphan blocks
+        that we have added but no longer keep in memory.
+        """
         return header_hash in self._block_records
 
     def contains_height(self, height: uint32) -> bool:

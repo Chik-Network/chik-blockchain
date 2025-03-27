@@ -3,9 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
+
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint64
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.lineage_proof import LineageProof
 from chik.wallet.vc_wallet.cr_cat_drivers import ProofsChecker

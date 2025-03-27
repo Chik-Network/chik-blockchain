@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Any, ClassVar, Optional, cast
 
 import aiohttp
 import pytest
+from chik_rs.sized_ints import uint16
 
 from chik.rpc.rpc_server import Endpoint, EndpointResult, RpcServer, RpcServiceProtocol
 from chik.ssl.create_ssl import create_all_ssl
 from chik.util.config import load_config
-from chik.util.ints import uint16
 from chik.util.ws_message import WsRpcMessage
 
 root_logger = logging.getLogger()

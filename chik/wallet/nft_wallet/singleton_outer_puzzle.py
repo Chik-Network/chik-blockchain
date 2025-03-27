@@ -3,11 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
+
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_spend import CoinSpend
-from chik.util.ints import uint64
 from chik.wallet.lineage_proof import LineageProof
 from chik.wallet.puzzle_drivers import PuzzleInfo, Solver
 from chik.wallet.puzzles.singleton_top_layer_v1_1 import (

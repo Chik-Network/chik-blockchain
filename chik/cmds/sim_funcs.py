@@ -9,18 +9,18 @@ from typing import Any, Optional
 
 from aiohttp import ClientConnectorError
 from chik_rs import PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 
 from chik.cmds.cmds_util import get_any_service_client
 from chik.cmds.start_funcs import async_start
 from chik.consensus.coinbase import create_puzzlehash_for_pk
 from chik.server.outbound_message import NodeType
 from chik.simulator.simulator_full_node_rpc_client import SimulatorFullNodeRpcClient
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.coin_record import CoinRecord
 from chik.util.bech32m import decode_puzzle_hash, encode_puzzle_hash
 from chik.util.config import load_config, save_config, set_peer_info
 from chik.util.errors import KeychainFingerprintExists
-from chik.util.ints import uint32
 from chik.util.keychain import Keychain, bytes_to_mnemonic
 from chik.wallet.derive_keys import (
     master_sk_to_farmer_sk,

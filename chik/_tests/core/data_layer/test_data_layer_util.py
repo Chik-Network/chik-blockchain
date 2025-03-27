@@ -7,6 +7,7 @@ import pytest
 
 # TODO: update after resolution in https://github.com/pytest-dev/pytest/issues/7469
 from _pytest.fixtures import SubRequest
+from chik_rs.sized_bytes import bytes32
 
 from chik._tests.util.misc import Marks, datacases, measure_runtime
 from chik.data_layer.data_layer_util import (
@@ -24,7 +25,6 @@ from chik.data_layer.data_layer_util import (
 from chik.rpc.data_layer_rpc_util import MarshallableProtocol
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 
 pytestmark = pytest.mark.data_layer
 

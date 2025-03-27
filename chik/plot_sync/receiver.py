@@ -6,6 +6,8 @@ from collections.abc import Awaitable, Collection, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Union
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import int16, uint32, uint64
 from typing_extensions import Protocol
 
 from chik.consensus.pos_quality import UI_ACTUAL_SPACE_CONSTANT_FACTOR, _expected_plot_size
@@ -33,8 +35,6 @@ from chik.protocols.harvester_protocol import (
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.server.outbound_message import make_msg
 from chik.server.ws_connection import WSChikConnection
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import int16, uint32, uint64
 
 log = logging.getLogger(__name__)
 

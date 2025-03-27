@@ -5,6 +5,8 @@ import contextlib
 import logging
 
 import pytest
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik._tests.util.rpc import validate_get_routes
 from chik._tests.util.setup_nodes import SimulatorsAndWalletsServices
@@ -14,9 +16,7 @@ from chik.data_layer.data_layer_util import DLProof, HashOnlyProof, ProofLayer, 
 from chik.data_layer.data_layer_wallet import Mirror
 from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.simulator_protocol import FarmNewBlockProtocol
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
-from chik.util.ints import uint8, uint32, uint64
 from chik.wallet.db_wallet.db_wallet_puzzles import create_mirror_puzzle
 
 log = logging.getLogger(__name__)

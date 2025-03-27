@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from chik_rs import ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint64
 from chikvdf import prove
 
-from chik.consensus.constants import ConsensusConstants
 from chik.types.blockchain_format.classgroup import ClassgroupElement
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.vdf import VDFInfo, VDFProof
-from chik.util.ints import uint8, uint64
 
 
 def get_vdf_info_and_proof(

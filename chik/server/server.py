@@ -20,6 +20,8 @@ from aiohttp import (
     client_exceptions,
     web,
 )
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
@@ -33,10 +35,8 @@ from chik.server.introducer_peers import IntroducerPeers
 from chik.server.outbound_message import Message, NodeType
 from chik.server.ssl_context import private_ssl_paths, public_ssl_paths
 from chik.server.ws_connection import ConnectionCallback, WSChikConnection
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.peer_info import PeerInfo
 from chik.util.errors import Err, ProtocolError
-from chik.util.ints import uint16
 from chik.util.network import WebServer, is_in_network, is_localhost, is_trusted_peer
 from chik.util.ssl_check import verify_ssl_certs_and_keys
 from chik.util.streamable import Streamable

@@ -4,10 +4,10 @@ import logging
 from dataclasses import dataclass, field
 
 from chik_rs import Coin
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.spend_bundle_conditions import SpendBundleConditions
-from chik.util.ints import uint64
 
 log = logging.getLogger(__name__)
 

@@ -8,9 +8,10 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+
 from chik.data_layer.data_layer_util import Side, TerminalNode, leaf_hash
 from chik.data_layer.data_store import DataStore
-from chik.types.blockchain_format.sized_bytes import bytes32
 
 
 async def generate_datastore(num_nodes: int, slow_mode: bool) -> None:

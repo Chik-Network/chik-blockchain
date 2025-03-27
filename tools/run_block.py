@@ -43,9 +43,10 @@ from pathlib import Path
 from typing import Any
 
 import click
+from chik_rs import ConsensusConstants
 
 from chik._tests.util.run_block import run_json_block
-from chik.consensus.constants import ConsensusConstants, replace_str_to_bytes
+from chik.consensus.constants import replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.util.config import load_config
 from chik.util.default_root import DEFAULT_ROOT_PATH

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 
 import pytest
+from chik_rs.sized_ints import uint32
 
 from chik._tests.conftest import node_with_params
 from chik._tests.util.time_out_assert import time_out_assert
@@ -17,7 +18,6 @@ from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 from chik.simulator.block_tools import BlockTools
 from chik.types.peer_info import PeerInfo
-from chik.util.ints import uint32
 
 rl_v2 = [Capability.BASE, Capability.BLOCK_HEADERS, Capability.RATE_LIMITS_V2]
 rl_v1 = [Capability.BASE]

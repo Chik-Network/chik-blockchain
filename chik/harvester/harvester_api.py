@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Optional, cast
 
 from chik_rs import AugSchemeMPL, G1Element, G2Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik.consensus.pot_iterations import calculate_iterations_quality, calculate_sp_interval_iters
 from chik.harvester.harvester import Harvester
@@ -24,8 +26,6 @@ from chik.types.blockchain_format.proof_of_space import (
     generate_plot_public_key,
     passes_plot_filter,
 )
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint8, uint32, uint64
 from chik.wallet.derive_keys import master_sk_to_local_sk
 
 

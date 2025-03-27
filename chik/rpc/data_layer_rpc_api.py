@@ -4,6 +4,9 @@ import dataclasses
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union, cast
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint64
+
 from chik.data_layer.data_layer_errors import OfferIntegrityError
 from chik.data_layer.data_layer_util import (
     CancelOfferRequest,
@@ -31,11 +34,7 @@ from chik.data_layer.data_layer_wallet import DataLayerWallet, Mirror, verify_of
 from chik.rpc.data_layer_rpc_util import marshal
 from chik.rpc.rpc_server import Endpoint, EndpointResult
 from chik.rpc.util import marshal as streamable_marshal
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.byte_types import hexstr_to_bytes
-
-# todo input assertions for all rpc's
-from chik.util.ints import uint8, uint64
 from chik.util.streamable import recurse_jsonify
 from chik.util.ws_message import WsRpcMessage
 from chik.wallet.trading.offer import Offer as TradingOffer

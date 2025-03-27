@@ -4,18 +4,18 @@ from functools import lru_cache
 from typing import Callable, Union
 
 from chik_rs import G1Element
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
 from klvm.casts import int_from_bytes, int_to_bytes
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
 from chik.types.spend_bundle_conditions import SpendBundleConditions, SpendConditions
 from chik.util.errors import ConsensusError, Err
 from chik.util.hash import std_hash
-from chik.util.ints import uint64
 
 
 def parse_sexp_to_condition(sexp: Program) -> ConditionWithArgs:

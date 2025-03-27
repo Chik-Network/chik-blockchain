@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16
 from klvm_tools.binutils import assemble
 
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint16
 from chik.wallet.nft_wallet.ownership_outer_puzzle import puzzle_for_ownership_layer
 from chik.wallet.nft_wallet.transfer_program_puzzle import puzzle_for_transfer_program
 from chik.wallet.outer_puzzles import construct_puzzle, get_inner_puzzle, get_inner_solution, match_puzzle, solve_puzzle

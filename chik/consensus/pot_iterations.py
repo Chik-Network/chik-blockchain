@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from chik.consensus.constants import ConsensusConstants
+from chik_rs import ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint64, uint128
+
 from chik.consensus.pos_quality import _expected_plot_size
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.hash import std_hash
-from chik.util.ints import uint8, uint64, uint128
 
 
 def is_overflow_block(constants: ConsensusConstants, signage_point_index: uint8) -> bool:

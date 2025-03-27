@@ -5,17 +5,17 @@ import logging
 from chik_rs import (
     DONT_VALIDATE_SIGNATURE,
     MEMPOOL_MODE,
+    ConsensusConstants,
     G2Element,
     get_flags_for_height_and_constants,
     run_block_generator,
     run_block_generator2,
 )
+from chik_rs.sized_ints import uint16, uint32
 
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.cost_calculator import NPCResult
 from chik.types.generator_types import BlockGenerator
 from chik.util.errors import Err
-from chik.util.ints import uint16, uint32
 
 log = logging.getLogger(__name__)
 

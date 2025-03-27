@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from chik_rs import PrivateKey
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint32
 
 from chik.consensus.coinbase import create_puzzlehash_for_pk
 from chik.daemon.server import WebSocketServer, daemon_launch_lock_path
@@ -21,11 +23,9 @@ from chik.simulator.ssl_certs import (
 )
 from chik.simulator.start_simulator import async_main as start_simulator_main
 from chik.ssl.create_ssl import create_all_ssl
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.config import create_default_chik_config, load_config, save_config
 from chik.util.errors import KeychainFingerprintExists
-from chik.util.ints import uint32
 from chik.util.keychain import Keychain
 from chik.util.lock import Lockfile
 from chik.wallet.derive_keys import master_sk_to_wallet_sk

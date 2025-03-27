@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import Optional
 
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint64
+
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
-from chik.util.ints import uint64
 from chik.wallet.outer_puzzles import (
     construct_puzzle,
     create_asset_id,

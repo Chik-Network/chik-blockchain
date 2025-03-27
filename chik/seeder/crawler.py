@@ -13,8 +13,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional, cast
 
 import aiosqlite
+from chik_rs import ConsensusConstants
+from chik_rs.sized_ints import uint32, uint64
 
-from chik.consensus.constants import ConsensusConstants
 from chik.full_node.full_node_api import FullNodeAPI
 from chik.protocols import full_node_protocol
 from chik.protocols.full_node_protocol import RespondPeers
@@ -26,7 +27,6 @@ from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 from chik.types.peer_info import PeerInfo
 from chik.util.chik_version import chik_short_version
-from chik.util.ints import uint32, uint64
 from chik.util.network import resolve
 from chik.util.path import path_from_root
 from chik.util.task_referencer import create_referenced_task

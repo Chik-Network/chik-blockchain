@@ -12,6 +12,8 @@ from typing import Callable, Optional, cast
 
 import aiosqlite
 import zstd
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint16
 
 from chik._tests.util.constants import test_constants as TEST_CONSTANTS
 from chik.cmds.init_funcs import chik_init
@@ -24,12 +26,11 @@ from chik.server.outbound_message import Message, NodeType
 from chik.server.server import ChikServer
 from chik.server.ws_connection import ConnectionCallback, WSChikConnection
 from chik.simulator.block_tools import make_unfinished_block
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.full_block import FullBlock
 from chik.types.peer_info import PeerInfo
 from chik.types.validation_state import ValidationState
+from chik.util.augmented_chain import AugmentedBlockchain
 from chik.util.config import load_config
-from chik.util.ints import uint16
 
 
 class ExitOnError(logging.Handler):
@@ -184,6 +185,7 @@ async def run_sync_test(
                 worst_batch_height = None
                 worst_batch_time_per_block = None
                 peer_info = peer.get_peer_logging()
+                blockchain = AugmentedBlockchain(full_node.blockchain)
                 async for r in rows:
                     batch_start_time = time.monotonic()
                     with enable_profiler(profile, height):
@@ -216,6 +218,7 @@ async def run_sync_test(
                                 peer_info,
                                 ForkInfo(fork_height, fork_height, header_hash),
                                 ValidationState(ssi, diff, None),
+                                blockchain,
                             )
                             end_height = block_batch[-1].height
                             full_node.blockchain.clean_block_record(end_height - full_node.constants.BLOCKS_CACHE_SIZE)
@@ -226,7 +229,7 @@ async def run_sync_test(
                             assert summary is not None
 
                         time_per_block = (time.monotonic() - batch_start_time) / len(block_batch)
-                        if not worst_batch_height or worst_batch_time_per_block > time_per_block:
+                        if worst_batch_time_per_block is None or worst_batch_time_per_block > time_per_block:
                             worst_batch_height = height
                             worst_batch_time_per_block = time_per_block
 

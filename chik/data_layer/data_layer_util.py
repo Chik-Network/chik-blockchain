@@ -7,15 +7,15 @@ from hashlib import sha256
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 import aiosqlite
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint64
 from typing_extensions import final
 
 from chik.data_layer.data_layer_errors import ProofIntegrityError
 from chik.server.ws_connection import WSChikConnection
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.db_wrapper import DBWrapper2
-from chik.util.ints import uint8, uint64
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.db_wallet.db_wallet_puzzles import create_host_fullpuz
 

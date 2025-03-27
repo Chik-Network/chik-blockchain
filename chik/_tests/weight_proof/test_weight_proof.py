@@ -3,22 +3,22 @@ from __future__ import annotations
 from typing import Optional
 
 import pytest
+from chik_rs import ConsensusConstants
+from chik_rs.sized_bytes import bytes32
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik._tests.util.blockchain_mock import BlockchainMock
 from chik.consensus.block_record import BlockRecord
-from chik.consensus.constants import ConsensusConstants
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.consensus.full_block_to_block_record import block_to_block_record
 from chik.consensus.pot_iterations import calculate_iterations_quality
 from chik.full_node.weight_proof import WeightProofHandler, _map_sub_epoch_summaries, _validate_summaries_weight
 from chik.simulator.block_tools import BlockTools
 from chik.types.blockchain_format.proof_of_space import calculate_prefix_bits, verify_and_get_quality_string
-from chik.types.blockchain_format.sized_bytes import bytes32
 from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.full_block import FullBlock
 from chik.types.header_block import HeaderBlock
 from chik.util.generator_tools import get_block_header
-from chik.util.ints import uint8, uint32, uint64
 
 
 async def load_blocks_dont_validate(
