@@ -764,7 +764,7 @@ files = [
 
 [package.dependencies]
 klvm-rs = ">=0.2.3,<0.3.0"
-klvm-tools-rs = ">=0.1.45,<0.2.0"
+klvm-tools-rs = ">=0.1.44,<0.2.0"
 pytest = ">=8.3.3,<9.0.0"
 
 [[package]]
@@ -1873,11 +1873,6 @@ files = [
     {file = "miniupnpc-2.2.2-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1920851bb316c1454ca603e919ff29ecd981563016ce1fb4ee9027a57d682057"},
     {file = "miniupnpc-2.2.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c03549903fb9023c84b5a69d85ba48c992ec67d92cade2c77660c754a7fe0851"},
     {file = "miniupnpc-2.2.2-cp311-cp311-win_amd64.whl", hash = "sha256:815b2747cae3cfc27545b737472dbe707ac2dde02d0fc3a60f994810004413c8"},
-    {file = "miniupnpc-2.2.2-cp312-cp312-macosx_10_14_x86_64.whl", hash = "sha256:0e965e2920b959946e722930c34299b797c321bc518fb168901b3dd6585a7dea"},
-    {file = "miniupnpc-2.2.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:ef06d2b966805e787afb3ddae3375cef669ff42cd358f6426241a259f539615d"},
-    {file = "miniupnpc-2.2.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9bdec2a5f6544af1b1cc6619f08e5dd2bfc92e489b424377ec4a37f109483950"},
-    {file = "miniupnpc-2.2.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bf689d111d9a4ccc0e02b7b678f326a3a2bfe650cbf50a0bd9199fec88a16c2d"},
-    {file = "miniupnpc-2.2.2-cp312-cp312-win_amd64.whl", hash = "sha256:5bec8bf1c7bacd522fd7965c93575915f43f719f37d3d552ea3c57e874bbdc20"},
     {file = "miniupnpc-2.2.2-cp37-cp37m-macosx_10_14_x86_64.whl", hash = "sha256:ea40595375999cb0fd4f958ad4dcbf9a7ae358c83279d0348e687f413227d815"},
     {file = "miniupnpc-2.2.2-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:081d048b81b0279e8f05fb84bcd43edcf3812a3e3301286dd7c9adff915aa87c"},
     {file = "miniupnpc-2.2.2-cp37-cp37m-manylinux2010_x86_64.whl", hash = "sha256:0f45faa06df724b8048bc76e449e12baaeda1cad4b25992549d90606b62b9d21"},
@@ -3338,4 +3333,4 @@ upnp = ["miniupnpc"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9, <4"
-content-hash = "3e0d4867fe4d0bf45e14c37058267efdae64492cf6d74a9e78b810dd98dd7b48"
+content-hash = "01d6031c2c569317600e0430461931fdc285779305fd4285eed36c530964f791"
