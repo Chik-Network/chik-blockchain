@@ -764,7 +764,7 @@ files = [
 
 [package.dependencies]
 klvm-rs = ">=0.2.3,<0.3.0"
-klvm-tools-rs = ">=0.1.44,<0.2.0"
+klvm-tools-rs = ">=0.1.45,<0.2.0"
 pytest = ">=8.3.3,<9.0.0"
 
 [[package]]

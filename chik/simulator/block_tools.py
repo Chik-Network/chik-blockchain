@@ -19,7 +19,6 @@ from typing import Any, Callable, Optional
 import anyio
 from chik_puzzles_py.programs import CHIKLISP_DESERIALISATION, ROM_BOOTSTRAP_GENERATOR
 from chik_rs import (
-    MEMPOOL_MODE,
     AugSchemeMPL,
     ConsensusConstants,
     G1Element,
@@ -75,7 +74,7 @@ from chik.simulator.wallet_tools import WalletTool
 from chik.ssl.create_ssl import create_all_ssl
 from chik.types.blockchain_format.classgroup import ClassgroupElement
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.program import INFINITE_COST, Program
+from chik.types.blockchain_format.program import DEFAULT_FLAGS, INFINITE_COST, Program
 from chik.types.blockchain_format.proof_of_space import (
     ProofOfSpace,
     calculate_pos_challenge,
@@ -1951,7 +1950,7 @@ def compute_cost_test(generator: BlockGenerator, constants: ConsensusConstants, 
 
     if height >= constants.HARD_FORK_HEIGHT:
         blocks = generator.generator_refs
-        cost, result = generator.program._run(INFINITE_COST, MEMPOOL_MODE, [DESERIALIZE_MOD, blocks])
+        cost, result = generator.program._run(INFINITE_COST, DEFAULT_FLAGS, [DESERIALIZE_MOD, blocks])
         klvm_cost += cost
 
         for spend in result.first().as_iter():
@@ -1960,13 +1959,13 @@ def compute_cost_test(generator: BlockGenerator, constants: ConsensusConstants, 
             puzzle = spend.at("rf")
             solution = spend.at("rrrf")
 
-            cost, result = puzzle._run(INFINITE_COST, MEMPOOL_MODE, solution)
+            cost, result = puzzle._run(INFINITE_COST, DEFAULT_FLAGS, solution)
             klvm_cost += cost
             condition_cost += conditions_cost(result)
 
     else:
         block_program_args = SerializedProgram.to([generator.generator_refs])
-        klvm_cost, result = GENERATOR_MOD._run(INFINITE_COST, MEMPOOL_MODE, [generator.program, block_program_args])
+        klvm_cost, result = GENERATOR_MOD._run(INFINITE_COST, DEFAULT_FLAGS, [generator.program, block_program_args])
 
         for res in result.first().as_iter():
             # each condition item is:

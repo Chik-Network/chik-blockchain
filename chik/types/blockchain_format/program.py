@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 
-from chik_rs import MEMPOOL_MODE, run_chik_program, tree_hash
+from chik_rs import ENABLE_KECCAK, MEMPOOL_MODE, run_chik_program, tree_hash
 from chik_rs.sized_bytes import bytes32
 from klvm.casts import int_from_bytes
 from klvm.KLVMObject import KLVMStorage
@@ -17,7 +17,7 @@ from chik.util.hash import std_hash
 
 INFINITE_COST = 11000000000
 
-DEFAULT_FLAGS = MEMPOOL_MODE
+DEFAULT_FLAGS = MEMPOOL_MODE | ENABLE_KECCAK
 
 T_KLVMStorage = TypeVar("T_KLVMStorage", bound=KLVMStorage)
 T_Program = TypeVar("T_Program", bound="Program")

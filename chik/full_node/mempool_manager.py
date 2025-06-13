@@ -150,6 +150,143 @@ QUOTE_BYTES = 2
 QUOTE_EXECUTION_COST = 20
 
 
+def is_atom_canonical(klvm_buffer: bytes, offset: int) -> tuple[int, bool]:
+    b = klvm_buffer[offset]
+    if (b & 0b11000000) == 0b10000000:
+        # 6 bits length prefix
+        mask = 0b00111111
+        prefix_len = 0
+        min_value = 1
+    elif (b & 0b11100000) == 0b11000000:
+        # 5 + 8 bits length prefix
+        mask = 0b00011111
+        prefix_len = 1
+        min_value = 1 << 6
+    elif (b & 0b11110000) == 0b11100000:
+        # 4 + 8 + 8 bits length prefix
+        mask = 0b00001111
+        prefix_len = 2
+        min_value = 1 << (5 + 8)
+    elif (b & 0b11111000) == 0b11110000:
+        # 3 + 8 + 8 + 8 bits length prefix
+        mask = 0b00000111
+        prefix_len = 3
+        min_value = 1 << (4 + 8 + 8)
+    elif (b & 0b11111100) == 0b11111000:
+        # 2 + 8 + 8 + 8 + 8 bits length prefix
+        mask = 0b00000011
+        prefix_len = 4
+        min_value = 1 << (3 + 8 + 8 + 8)
+    elif (b & 0b11111110) == 0b11111100:
+        # 1 + 8 + 8 + 8 + 8 + 8 bits length prefix
+        mask = 0b00000001
+        prefix_len = 5
+        min_value = 1 << (2 + 8 + 8 + 8 + 8)
+
+    atom_len = b & mask
+    for i in range(prefix_len):
+        atom_len <<= 8
+        offset += 1
+        atom_len |= klvm_buffer[offset]
+
+    return 1 + prefix_len + atom_len, atom_len >= min_value
+
+
+def is_klvm_canonical(klvm_buffer: bytes) -> bool:
+    """
+    checks whether the KLVM serialization is all canonical representation.
+    atoms can be serialized in more than one way by using more bytes than
+    necessary to encode the length prefix. This functions ensures that all atoms are
+    encoded with the shortest representation. back-references are not allowed
+    and will make this function return false
+    """
+    assert klvm_buffer != b""
+
+    offset = 0
+    tokens_left = 1
+    while True:
+        b = klvm_buffer[offset]
+
+        # pair
+        if b == 0xFF:
+            tokens_left += 1
+            offset += 1
+            continue
+
+        # back references cannot be considered canonical, since they may be
+        # encoded in many different ways
+        if b == 0xFE:
+            return False
+
+        # small atom or NIL
+        if b <= 0x80:
+            tokens_left -= 1
+            offset += 1
+        else:
+            atom_len, canonical = is_atom_canonical(klvm_buffer, offset)
+            if not canonical:
+                return False
+            tokens_left -= 1
+            offset += atom_len
+
+        if tokens_left == 0:
+            break
+
+    # if there's garbage at the end, it's not canonical
+    return offset == len(klvm_buffer)
+
+
+def check_removals(
+    removals: dict[bytes32, CoinRecord],
+    bundle_coin_spends: dict[bytes32, BundleCoinSpend],
+    *,
+    get_items_by_coin_ids: Callable[[list[bytes32]], list[MempoolItem]],
+) -> tuple[Optional[Err], list[MempoolItem]]:
+    """
+    This function checks for double spends, unknown spends and conflicting transactions in mempool.
+    Returns Error (if any), the set of existing MempoolItems with conflicting spends (if any).
+    Note that additions are not checked for duplicates, because having duplicate additions requires also
+    having duplicate removals.
+    """
+    conflicts = set()
+    for coin_id, coin_bcs in bundle_coin_spends.items():
+        # 1. Checks if it's been spent already
+        if removals[coin_id].spent and not coin_bcs.eligible_for_fast_forward:
+            return Err.DOUBLE_SPEND, []
+
+        # 2. Checks if there's a mempool conflict
+        conflicting_items = get_items_by_coin_ids([coin_id])
+        for item in conflicting_items:
+            if item in conflicts:
+                continue
+            conflict_bcs = item.bundle_coin_spends[coin_id]
+            # if the spend we're adding to the mempool is not DEDUP nor FF, it's
+            # just a regular conflict
+            if not coin_bcs.eligible_for_fast_forward and not coin_bcs.eligible_for_dedup:
+                conflicts.add(item)
+
+            # if the spend we're adding is FF, but there's a conflicting spend
+            # that isn't FF, they can't be chained, so that's a conflict
+            elif coin_bcs.eligible_for_fast_forward and not conflict_bcs.eligible_for_fast_forward:
+                conflicts.add(item)
+
+            # if the spend we're adding is DEDUP, but there's a conflicting spend
+            # that isn't DEDUP, we cannot merge them, so that's a conflict
+            elif coin_bcs.eligible_for_dedup and not conflict_bcs.eligible_for_dedup:
+                conflicts.add(item)
+
+            # if the spend we're adding is DEDUP but the existing spend has a
+            # different solution, we cannot merge them, so that's a conflict
+            elif coin_bcs.eligible_for_dedup and bytes(coin_bcs.coin_spend.solution) != bytes(
+                conflict_bcs.coin_spend.solution
+            ):
+                conflicts.add(item)
+
+    if len(conflicts) > 0:
+        return Err.MEMPOOL_CONFLICT, list(conflicts)
+    return None, []
+
+
 class MempoolManager:
     pool: Executor
     constants: ConsensusConstants
@@ -451,7 +588,7 @@ class MempoolManager:
             Optional[MempoolItem]: the item to add (to mempool or pending pool)
             list[bytes32]: conflicting mempool items to remove, if no Err
         """
-        start_time = time.time()
+        start_time = time.monotonic()
         if self.peak is None:
             return Err.MEMPOOL_NOT_INITIALIZED, None, []
 
@@ -462,7 +599,6 @@ class MempoolManager:
         addition_amount: int = 0
         # Map of coin ID to eligibility information
         eligibility_and_additions: dict[bytes32, EligibilityAndAdditions] = {}
-        non_eligible_coin_ids: list[bytes32] = []
         for spend in conds.spends:
             coin_id = bytes32(spend.coin_id)
             removal_names.add(coin_id)
@@ -480,7 +616,6 @@ class MempoolManager:
                 ff_puzzle_hash=bytes32(spend.puzzle_hash) if is_eligible_for_ff else None,
             )
         removal_names_from_coin_spends: set[bytes32] = set()
-        fast_forward_coin_ids: set[bytes32] = set()
         bundle_coin_spends: dict[bytes32, BundleCoinSpend] = {}
         for coin_spend in new_spend.coin_spends:
             coin_id = coin_spend.coin.name()
@@ -489,6 +624,11 @@ class MempoolManager:
                 coin_id,
                 EligibilityAndAdditions(is_eligible_for_dedup=False, spend_additions=[], ff_puzzle_hash=None),
             )
+
+            supports_dedup = eligibility_info.is_eligible_for_dedup
+            if supports_dedup and not is_klvm_canonical(bytes(coin_spend.solution)):
+                return Err.INVALID_COIN_SOLUTION, None, []
+
             mark_as_fast_forward = eligibility_info.ff_puzzle_hash is not None and supports_fast_forward(coin_spend)
             latest_singleton_coin = None
             if mark_as_fast_forward:
@@ -500,13 +640,9 @@ class MempoolManager:
                 if lineage_info is None:
                     return Err.DOUBLE_SPEND, None, []
                 latest_singleton_coin = lineage_info.coin_id
-                fast_forward_coin_ids.add(coin_id)
-            # We are now able to check eligibility of both dedup and fast forward
-            if not (eligibility_info.is_eligible_for_dedup or mark_as_fast_forward):
-                non_eligible_coin_ids.append(coin_id)
             bundle_coin_spends[coin_id] = BundleCoinSpend(
                 coin_spend=coin_spend,
-                eligible_for_dedup=eligibility_info.is_eligible_for_dedup,
+                eligible_for_dedup=supports_dedup,
                 eligible_for_fast_forward=mark_as_fast_forward,
                 additions=eligibility_info.spend_additions,
                 latest_singleton_coin=latest_singleton_coin,
@@ -580,7 +716,9 @@ class MempoolManager:
 
         # Check removals against UnspentDB + DiffStore + Mempool + SpendBundle
         # Use this information later when constructing a block
-        fail_reason, conflicts = self.check_removals(non_eligible_coin_ids, removal_record_dict, fast_forward_coin_ids)
+        fail_reason, conflicts = check_removals(
+            removal_record_dict, bundle_coin_spends, get_items_by_coin_ids=self.mempool.get_items_by_coin_ids
+        )
 
         # If we have a mempool conflict, continue, since we still want to keep around the TX in the pending pool.
         if fail_reason is not None and fail_reason is not Err.MEMPOOL_CONFLICT:
@@ -640,7 +778,7 @@ class MempoolManager:
             if not can_replace(conflicts, removal_names, potential):
                 return Err.MEMPOOL_CONFLICT, potential, []
 
-        duration = time.time() - start_time
+        duration = time.monotonic() - start_time
 
         log.log(
             logging.DEBUG if duration < 2 else logging.WARNING,
@@ -648,34 +786,11 @@ class MempoolManager:
             f"Cost: {cost} ({round(100.0 * cost / self.constants.MAX_BLOCK_COST_KLVM, 3)}% of max block cost)",
         )
 
-        return None, potential, [item.name for item in conflicts]
+        if duration > 2:
+            log.warning("validating spend took too long, rejecting")
+            return Err.INVALID_SPEND_BUNDLE, None, []
 
-    def check_removals(
-        self,
-        non_eligible_coin_ids: list[bytes32],
-        removals: dict[bytes32, CoinRecord],
-        fast_forward_coin_ids: set[bytes32],
-    ) -> tuple[Optional[Err], list[MempoolItem]]:
-        """
-        This function checks for double spends, unknown spends and conflicting transactions in mempool.
-        Returns Error (if any), the set of existing MempoolItems with conflicting spends (if any).
-        Note that additions are not checked for duplicates, because having duplicate additions requires also
-        having duplicate removals.
-        """
-        assert self.peak is not None
-        # 1. Checks if it's been spent already
-        for record in removals.values():
-            if record.spent:
-                # Only consider it a double spend if this is not a fast forward
-                if record.name not in fast_forward_coin_ids:
-                    return Err.DOUBLE_SPEND, []
-        # 2. Checks if there's a mempool conflict
-        # Only consider conflicts if the coin is not eligible for deduplication
-        conflicts = self.mempool.get_items_by_coin_ids(non_eligible_coin_ids)
-        if len(conflicts) > 0:
-            return Err.MEMPOOL_CONFLICT, conflicts
-        # 5. If coins can be spent return list of unspents as we see them in local storage
-        return None, []
+        return None, potential, [item.name for item in conflicts]
 
     def get_spendbundle(self, bundle_hash: bytes32) -> Optional[SpendBundle]:
         """Returns a full SpendBundle if it's inside one the mempools"""
@@ -721,6 +836,7 @@ class MempoolManager:
         assert new_peak.timestamp is not None
         self.fee_estimator.new_block_height(new_peak.height)
         included_items: list[MempoolItemInfo] = []
+        new_peak_start = time.monotonic()
 
         expired = self.mempool.new_tx_block(new_peak.height, new_peak.timestamp)
         mempool_item_removals: list[MempoolRemoveInfo] = [expired]
@@ -887,6 +1003,8 @@ class MempoolManager:
             f"minimum fee rate (in FPC) to get in for 5M cost tx: {self.mempool.get_min_fee_rate(5000000)}"
         )
         self.mempool.fee_estimator.new_block(FeeBlockInfo(new_peak.height, included_items))
+        duration = time.monotonic() - new_peak_start
+        log.log(logging.WARNING if duration > 1 else logging.INFO, f"new_peak() took {duration:0.2f} seconds")
         return NewPeakInfo(txs_added, mempool_item_removals)
 
     def get_items_not_in_filter(self, mempool_filter: PyBIP158, limit: int = 100) -> list[SpendBundle]:

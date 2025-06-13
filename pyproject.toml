@@ -47,7 +47,7 @@ boto3 = ">=1.35.43"  # AWS S3 for Data Layer S3 plugin
 chikbip158 = ">=1.5.2"  # bip158-style wallet filters
 chikpos = ">=2.0.10"  # proof of space
 chik-puzzles-py = ">=0.20.1"
-chik_rs = ">=0.21.1"
+chik_rs = ">=0.21.1, <0.22"
 chikvdf = ">=1.1.10"  # timelord and vdf verification
 click = ">=8.1.7"  # For the CLI
 klvm = ">=0.9.11"
