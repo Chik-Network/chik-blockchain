@@ -107,7 +107,7 @@ async def test_create_tree_accepts_bytes32(raw_data_store: DataStore) -> None:
     await raw_data_store.create_tree(store_id=store_id)
 
 
-@pytest.mark.parametrize(argnames=["length"], argvalues=[[length] for length in [*range(0, 32), *range(33, 48)]])
+@pytest.mark.parametrize(argnames=["length"], argvalues=[[length] for length in [*range(32), *range(33, 48)]])
 @pytest.mark.anyio
 async def test_create_store_fails_for_not_bytes32(raw_data_store: DataStore, length: int) -> None:
     bad_store_id = b"\0" * length
@@ -1355,13 +1355,13 @@ async def test_server_http_ban(
     async def mock_http_download(
         target_filename_path: Path,
         filename: str,
-        proxy_url: str,
+        proxy_url: Optional[str],
         server_info: ServerInfo,
         timeout: aiohttp.ClientTimeout,
         log: logging.Logger,
     ) -> None:
         if error:
-            raise aiohttp.ClientConnectionError()
+            raise aiohttp.ClientConnectionError
 
     start_timestamp = int(time.time())
     with monkeypatch.context() as m:
@@ -1885,7 +1885,7 @@ async def test_insert_from_delta_file(
     async def mock_http_download(
         target_filename_path: Path,
         filename: str,
-        proxy_url: str,
+        proxy_url: Optional[str],
         server_info: ServerInfo,
         timeout: int,
         log: logging.Logger,
@@ -1895,7 +1895,7 @@ async def test_insert_from_delta_file(
     async def mock_http_download_2(
         target_filename_path: Path,
         filename: str,
-        proxy_url: str,
+        proxy_url: Optional[str],
         server_info: ServerInfo,
         timeout: int,
         log: logging.Logger,

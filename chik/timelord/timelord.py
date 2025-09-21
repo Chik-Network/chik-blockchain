@@ -15,31 +15,32 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, ClassVar, Optional, cast
 
-from chik_rs import ConsensusConstants, RewardChainBlock
+from chik_rs import (
+    ChallengeChainSubSlot,
+    ConsensusConstants,
+    EndOfSubSlotBundle,
+    InfusedChallengeChainSubSlot,
+    RewardChainBlock,
+    RewardChainSubSlot,
+    SubEpochSummary,
+    SubSlotProofs,
+)
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint16, uint32, uint64, uint128
 from chikvdf import create_discriminant, prove
 
 from chik.consensus.pot_iterations import calculate_sp_iters, is_overflow_block
 from chik.protocols import timelord_protocol
+from chik.protocols.outbound_message import NodeType, make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.rpc.rpc_server import StateChangedProtocol, default_get_connections
-from chik.server.outbound_message import NodeType, make_msg
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 from chik.timelord.iters_from_block import iters_from_block
 from chik.timelord.timelord_state import LastState
 from chik.timelord.types import Chain, IterationType, StateType
 from chik.types.blockchain_format.classgroup import ClassgroupElement
-from chik.types.blockchain_format.slots import (
-    ChallengeChainSubSlot,
-    InfusedChallengeChainSubSlot,
-    RewardChainSubSlot,
-    SubSlotProofs,
-)
-from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.blockchain_format.vdf import VDFInfo, VDFProof, validate_vdf
-from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
 from chik.util.streamable import Streamable, streamable
 from chik.util.task_referencer import create_referenced_task
 
@@ -253,6 +254,7 @@ class Timelord:
                 sub_slot_iters,
                 difficulty,
                 self.get_height(),
+                self.last_state.get_last_tx_height(),
             )
         except Exception as e:
             log.warning(f"Received invalid unfinished block: {e}.")
@@ -555,6 +557,7 @@ class Timelord:
                             self.last_state.get_sub_slot_iters(),
                             self.last_state.get_difficulty(),
                             self.get_height(),
+                            uint32(0),
                         )
                     except Exception as e:
                         log.error(f"Error {e}")
@@ -628,7 +631,7 @@ class Timelord:
                     ):
                         # We don't know when the last block was, so we can't make peaks
                         return
-
+                    assert self.last_state.last_tx_block_block_height is not None
                     sp_total_iters = (
                         ip_total_iters
                         - ip_iters
@@ -1169,6 +1172,7 @@ class Timelord:
                     t1 = time.time()
                     log.info(
                         f"Working on compact proof for height: {picked_info.height}. "
+                        f"VDF: {picked_info.field_vdf}. "
                         f"Iters: {picked_info.new_proof_of_time.number_of_iterations}."
                     )
                     bluebox_process_data = BlueboxProcessData(

@@ -14,10 +14,8 @@ from chik_rs.sized_ints import uint32, uint64
 from chik._tests.environments.common import ServiceEnvironment
 from chik.cmds.cmd_helpers import NeedsTXConfig, NeedsWalletRPC, TransactionEndpoint, TransactionsOut, WalletClientInfo
 from chik.cmds.param_types import CliAmount, cli_amount_none
-from chik.rpc.full_node_rpc_client import FullNodeRpcClient
+from chik.full_node.full_node_rpc_client import FullNodeRpcClient
 from chik.rpc.rpc_server import RpcServer
-from chik.rpc.wallet_rpc_api import WalletRpcApi
-from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.server.server import ChikServer
 from chik.server.start_service import Service
 from chik.simulator.full_node_simulator import FullNodeSimulator
@@ -27,6 +25,8 @@ from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG, TXConfig
 from chik.wallet.wallet import Wallet
 from chik.wallet.wallet_node import Balance, WalletNode
 from chik.wallet.wallet_node_api import WalletNodeAPI
+from chik.wallet.wallet_rpc_api import WalletRpcApi
+from chik.wallet.wallet_rpc_client import WalletRpcClient
 from chik.wallet.wallet_state_manager import WalletStateManager
 
 STANDARD_TX_ENDPOINT_ARGS: dict[str, Any] = TransactionEndpoint(
@@ -355,7 +355,7 @@ class WalletTestFramework:
             for env in self.environments:
                 ph_indexes: dict[uint32, int] = {}
                 for wallet_id in env.wallet_state_manager.wallets:
-                    ph_indexes[wallet_id] = await env.wallet_state_manager.puzzle_store.get_unused_count(wallet_id)
+                    ph_indexes[wallet_id] = await env.wallet_state_manager.puzzle_store.get_used_count(wallet_id)
                 puzzle_hash_indexes.append(ph_indexes)
 
         pending_txs: list[list[LightTransactionRecord]] = []
@@ -426,5 +426,5 @@ class WalletTestFramework:
             for env, ph_indexes_before in zip(self.environments, puzzle_hash_indexes):
                 for wallet_id, ph_index in zip(env.wallet_state_manager.wallets, ph_indexes_before):
                     assert ph_indexes_before[wallet_id] == (
-                        await env.wallet_state_manager.puzzle_store.get_unused_count(wallet_id)
+                        await env.wallet_state_manager.puzzle_store.get_used_count(wallet_id)
                     )

@@ -3,9 +3,8 @@ from __future__ import annotations
 import dataclasses
 from typing import Optional
 
+from chik_rs import BlockRecord
 from chik_rs.sized_ints import uint64
-
-from chik.consensus.block_record import BlockRecord
 
 
 @dataclasses.dataclass

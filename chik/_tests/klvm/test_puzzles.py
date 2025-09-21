@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from chik_rs import AugSchemeMPL, G1Element
+from chik_rs import AugSchemeMPL, G1Element, SpendBundle
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
@@ -12,7 +12,6 @@ from chik._tests.util.key_tool import KeyTool
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.program import Program
 from chik.types.coin_spend import make_spend
-from chik.types.spend_bundle import SpendBundle
 from chik.util.hash import std_hash
 from chik.wallet.puzzles import (
     p2_conditions,

@@ -13,9 +13,9 @@ from chik_rs.sized_ints import uint8, uint16, uint64
 import chik.server.server
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.protocols import full_node_protocol
+from chik.protocols.outbound_message import Message, make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.protocols.shared_protocol import Capability, Handshake
-from chik.server.outbound_message import Message, make_msg
 from chik.server.rate_limits import RateLimiter
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection

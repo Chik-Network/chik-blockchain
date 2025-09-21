@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from chik.types.aliases import TimelordService
+from chik.server.aliases import TimelordService
 
 
 @pytest.mark.anyio

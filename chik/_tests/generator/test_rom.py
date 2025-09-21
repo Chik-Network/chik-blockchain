@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from chik_puzzles_py.programs import CHIKLISP_DESERIALISATION, ROM_BOOTSTRAP_GENERATOR
+from chik_rs import SpendConditions
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
 from klvm.KLVMObject import KLVMStorage
@@ -10,10 +11,9 @@ from klvm_tools.klvmc import compile_klvm_text
 from chik._tests.util.get_name_puzzle_conditions import get_name_puzzle_conditions
 from chik.consensus.condition_costs import ConditionCost
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
-from chik.types.blockchain_format.program import Program
+from chik.types.blockchain_format.program import Program, run_with_cost
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.generator_types import BlockGenerator
-from chik.types.spend_bundle_conditions import SpendConditions
 
 DESERIALIZE_MOD = Program.from_bytes(CHIKLISP_DESERIALISATION)
 
@@ -77,7 +77,7 @@ EXPECTED_OUTPUT = (
 def run_generator(self: BlockGenerator) -> tuple[int, Program]:
     """This mode is meant for accepting possibly soft-forked transactions into the mempool"""
     args = Program.to([self.generator_refs])
-    return GENERATOR_MOD.run_with_cost(MAX_COST, [self.program, args])
+    return run_with_cost(GENERATOR_MOD, MAX_COST, [self.program, args])
 
 
 def as_atom_list(prg: KLVMStorage) -> list[bytes]:
@@ -110,7 +110,7 @@ class TestROM:
 
         args = Program.to([DESERIALIZE_MOD, [FIRST_GENERATOR, SECOND_GENERATOR]])
         sp = to_sp(COMPILED_GENERATOR_CODE)
-        cost, r = sp.run_with_cost(MAX_COST, args)
+        cost, r = run_with_cost(sp, MAX_COST, args)
         assert cost == EXPECTED_ABBREVIATED_COST
         assert r.as_bin().hex() == EXPECTED_OUTPUT
 
@@ -155,6 +155,10 @@ class TestROM:
             agg_sig_parent_amount=[],
             agg_sig_parent_puzzle=[],
             flags=0,
+            # in run_block_generator() we don't have access to separate
+            # execution cost, just in run_block_generator2()
+            execution_cost=0 if softfork_height < DEFAULT_CONSTANTS.HARD_FORK_HEIGHT else 44,
+            condition_cost=1800000,
         )
 
         assert npc_result.conds.spends == [spend]

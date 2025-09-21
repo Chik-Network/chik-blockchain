@@ -18,10 +18,20 @@ from chik_rs.sized_ints import uint16
 from chik.cmds.init_funcs import init
 from chik.consensus.constants import replace_str_to_bytes
 from chik.daemon.server import WebSocketServer, daemon_launch_lock_path
+from chik.protocols.outbound_message import NodeType
 from chik.protocols.shared_protocol import Capability, default_capabilities
 from chik.seeder.dns_server import DNSServer, create_dns_server_service
 from chik.seeder.start_crawler import create_full_node_crawler_service
-from chik.server.outbound_message import NodeType
+from chik.server.aliases import (
+    CrawlerService,
+    FarmerService,
+    FullNodeService,
+    HarvesterService,
+    IntroducerService,
+    TimelordService,
+    WalletService,
+)
+from chik.server.resolve_peer_info import set_peer_info
 from chik.server.signal_handlers import SignalHandlers
 from chik.server.start_farmer import create_farmer_service
 from chik.server.start_full_node import create_full_node_service
@@ -35,18 +45,9 @@ from chik.simulator.ssl_certs import get_next_nodes_certs_and_keys, get_next_pri
 from chik.simulator.start_simulator import SimulatorFullNodeService, create_full_node_simulator_service
 from chik.ssl.create_ssl import create_all_ssl
 from chik.timelord.timelord_launcher import VDFClientProcessMgr, find_vdf_client, spawn_process
-from chik.types.aliases import (
-    CrawlerService,
-    FarmerService,
-    FullNodeService,
-    HarvesterService,
-    IntroducerService,
-    TimelordService,
-    WalletService,
-)
 from chik.types.peer_info import UnresolvedPeerInfo
 from chik.util.bech32m import encode_puzzle_hash
-from chik.util.config import config_path_for_filename, load_config, lock_and_load_config, save_config, set_peer_info
+from chik.util.config import config_path_for_filename, load_config, lock_and_load_config, save_config
 from chik.util.db_wrapper import generate_in_memory_db_uri
 from chik.util.keychain import bytes_to_mnemonic
 from chik.util.lock import Lockfile
@@ -316,7 +317,6 @@ async def setup_wallet_node(
                         # filesystem operations are async on windows
                         # [WinError 32] The process cannot access the file because it is
                         # being used by another process
-                        pass
             keychain.delete_all_keys()
 
 

@@ -14,7 +14,7 @@ from _pytest.capture import CaptureFixture
 
 import chik._tests
 from chik._tests.util.misc import Marks, datacases
-from chik.cmds.gh import Per, TestCMD, get_gh_token
+from chik.cmds.dev.gh import Per, TestCMD, get_gh_token
 
 test_root = Path(chik._tests.__file__).parent
 

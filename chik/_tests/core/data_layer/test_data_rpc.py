@@ -42,6 +42,8 @@ from chik.cmds.data_funcs import (
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.data_layer.data_layer import DataLayer
 from chik.data_layer.data_layer_errors import KeyNotFoundError, OfferIntegrityError
+from chik.data_layer.data_layer_rpc_api import DataLayerRpcApi
+from chik.data_layer.data_layer_rpc_client import DataLayerRpcClient
 from chik.data_layer.data_layer_util import (
     HashOnlyProof,
     OfferStore,
@@ -54,14 +56,11 @@ from chik.data_layer.data_layer_util import (
 from chik.data_layer.data_layer_wallet import DataLayerWallet, verify_offer
 from chik.data_layer.data_store import DataStore
 from chik.data_layer.download_data import get_delta_filename_path, get_full_tree_filename_path
-from chik.rpc.data_layer_rpc_api import DataLayerRpcApi
-from chik.rpc.data_layer_rpc_client import DataLayerRpcClient
-from chik.rpc.wallet_rpc_api import WalletRpcApi
+from chik.server.aliases import DataLayerService, WalletService
 from chik.server.start_data_layer import create_data_layer_service
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.simulator_protocol import FarmNewBlockProtocol
-from chik.types.aliases import DataLayerService, WalletService
 from chik.types.peer_info import PeerInfo
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.config import save_config
@@ -71,8 +70,11 @@ from chik.util.task_referencer import create_referenced_task
 from chik.util.timing import adjusted_timeout, backoff_times
 from chik.wallet.trading.offer import Offer as TradingOffer
 from chik.wallet.transaction_record import TransactionRecord
+from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 from chik.wallet.wallet import Wallet
 from chik.wallet.wallet_node import WalletNode
+from chik.wallet.wallet_request_types import DLLatestSingleton
+from chik.wallet.wallet_rpc_api import WalletRpcApi
 
 pytestmark = pytest.mark.data_layer
 nodes = tuple[WalletNode, FullNodeSimulator]
@@ -160,7 +162,8 @@ async def init_wallet_and_node(
     wallet_node = wallet_service._node
     full_node_api = full_node_service._api
     await wallet_node.server.start_client(PeerInfo(self_hostname, full_node_api.server.get_port()), None)
-    ph = await wallet_node.wallet_state_manager.main_wallet.get_new_puzzlehash()
+    async with wallet_node.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
+        ph = await action_scope.get_puzzle_hash(wallet_node.wallet_state_manager)
     await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph))
     await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph))
     funds = calculate_pool_reward(uint32(1)) + calculate_base_farmer_reward(uint32(1))
@@ -213,7 +216,7 @@ async def check_coin_state(wallet_node: WalletNode, coin_id: bytes32) -> bool:
 
 
 async def check_singleton_confirmed(dl: DataLayer, store_id: bytes32) -> bool:
-    return await dl.wallet_rpc.dl_latest_singleton(store_id, True) is not None
+    return (await dl.wallet_rpc.dl_latest_singleton(DLLatestSingleton(store_id, True))).singleton is not None
 
 
 async def process_block_and_check_offer_validity(offer: TradingOffer, offer_setup: OfferSetup) -> bool:
@@ -730,8 +733,9 @@ async def test_get_owned_stores(
     wallet_rpc_port = wallet_service.rpc_server.listen_port
     full_node_api = full_node_service._api
     await wallet_node.server.start_client(PeerInfo(self_hostname, full_node_api.server.get_port()), None)
-    ph = await wallet_node.wallet_state_manager.main_wallet.get_new_puzzlehash()
-    for i in range(0, num_blocks):
+    async with wallet_node.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
+        ph = await action_scope.get_puzzle_hash(wallet_node.wallet_state_manager)
+    for i in range(num_blocks):
         await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph))
     funds = sum(
         calculate_pool_reward(uint32(i)) + calculate_base_farmer_reward(uint32(i)) for i in range(1, num_blocks)
@@ -749,7 +753,7 @@ async def test_get_owned_stores(
             expected_store_ids.append(launcher_id)
 
         await time_out_assert(4, check_mempool_spend_count, True, full_node_api, 3)
-        for i in range(0, num_blocks):
+        for i in range(num_blocks):
             await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph))
             await asyncio.sleep(0.5)
 
@@ -3785,7 +3789,7 @@ async def test_auto_subscribe_to_local_stores(
 
     with monkeypatch.context() as m:
         m.setattr("chik.data_layer.data_store.DataStore.get_store_ids", mock_get_store_ids)
-        m.setattr("chik.rpc.wallet_rpc_client.WalletRpcClient.dl_track_new", mock_dl_track_new)
+        m.setattr("chik.wallet.wallet_rpc_client.WalletRpcClient.dl_track_new", mock_dl_track_new)
 
         config = bt.config
         config["data_layer"]["auto_subscribe_to_local_stores"] = auto_subscribe_to_local_stores

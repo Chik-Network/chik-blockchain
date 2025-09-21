@@ -2,3 +2,4 @@
 /.github/**/* @Chik-Network/actions-reviewers
 /PRETTY_GOOD_PRACTICES.md	@altendky @Chik-Network/required-reviewers
 /tests/ether.py @altendky @Chik-Network/required-reviewers
+/pyproject.toml @altendky @Chik-Network/required-reviewers

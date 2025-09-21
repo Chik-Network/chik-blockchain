@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from click.testing import CliRunner
 
 from chik._tests.util.misc import Marks, datacases
-from chik.util.dump_keyring import dump
+from chik.cmds.dump_keyring import dump
 from chik.util.keychain import Keychain
 
 output_prefix = """Attempting to dump contents of keyring file: {path}

@@ -9,8 +9,15 @@ from typing import Any, Optional
 import yaml
 
 from chik.cmds.configure import configure
-from chik.consensus.coinbase import create_puzzlehash_for_pk
 from chik.ssl.create_ssl import create_all_ssl
+from chik.ssl.ssl_check import (
+    DEFAULT_PERMISSIONS_CERT_FILE,
+    DEFAULT_PERMISSIONS_KEY_FILE,
+    RESTRICT_MASK_CERT_FILE,
+    RESTRICT_MASK_KEY_FILE,
+    check_and_fix_permissions_for_ssl_file,
+    fix_ssl,
+)
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.config import (
     create_default_chik_config,
@@ -23,14 +30,6 @@ from chik.util.config import (
 from chik.util.db_version import set_db_version
 from chik.util.keychain import Keychain
 from chik.util.path import path_from_root
-from chik.util.ssl_check import (
-    DEFAULT_PERMISSIONS_CERT_FILE,
-    DEFAULT_PERMISSIONS_KEY_FILE,
-    RESTRICT_MASK_CERT_FILE,
-    RESTRICT_MASK_KEY_FILE,
-    check_and_fix_permissions_for_ssl_file,
-    fix_ssl,
-)
 from chik.wallet.derive_keys import (
     _derive_path,
     _derive_path_unhardened,
@@ -38,6 +37,7 @@ from chik.wallet.derive_keys import (
     master_sk_to_wallet_sk_intermediate,
     master_sk_to_wallet_sk_unhardened_intermediate,
 )
+from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import puzzle_hash_for_pk
 
 
 def dict_add_new_default(updated: dict[str, Any], default: dict[str, Any], do_not_migrate_keys: dict[str, Any]) -> None:
@@ -94,11 +94,11 @@ def check_keys(new_root: Path, keychain: Optional[Keychain] = None) -> None:
 
                 all_targets.append(
                     encode_puzzle_hash(
-                        create_puzzlehash_for_pk(_derive_path_unhardened(intermediate_o, [i]).get_g1()), prefix
+                        puzzle_hash_for_pk(_derive_path_unhardened(intermediate_o, [i]).get_g1()), prefix
                     )
                 )
                 all_targets.append(
-                    encode_puzzle_hash(create_puzzlehash_for_pk(_derive_path(intermediate_n, [i]).get_g1()), prefix)
+                    encode_puzzle_hash(puzzle_hash_for_pk(_derive_path(intermediate_n, [i]).get_g1()), prefix)
                 )
                 if all_targets[-1] == config["farmer"].get("xck_target_address") or all_targets[-2] == config[
                     "farmer"

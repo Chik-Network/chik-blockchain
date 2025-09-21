@@ -3,7 +3,7 @@ from __future__ import annotations
 import types
 
 import pytest
-from chik_rs import Coin
+from chik_rs import Coin, SpendBundleConditions, SpendConditions
 from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.core.mempool.test_mempool_manager import (
@@ -28,7 +28,6 @@ from chik.simulator.wallet_tools import WalletTool
 from chik.types.klvm_cost import KLVMCost
 from chik.types.fee_rate import FeeRate, FeeRateV2
 from chik.types.mempool_item import MempoolItem
-from chik.types.spend_bundle_conditions import SpendBundleConditions, SpendConditions
 
 
 def make_mempoolitem() -> MempoolItem:

@@ -25,8 +25,8 @@ from chik.protocols.harvester_protocol import (
     PlotSyncResponse,
     PlotSyncStart,
 )
+from chik.protocols.outbound_message import NodeType, make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
-from chik.server.outbound_message import NodeType, make_msg
 from chik.server.ws_connection import WSChikConnection
 from chik.util.batches import to_batches
 from chik.util.task_referencer import create_referenced_task
@@ -125,7 +125,7 @@ class Sender:
             if not self._plot_manager.initial_refresh() or self._sync_id != 0:
                 self._reset()
         else:
-            raise AlreadyStartedError()
+            raise AlreadyStartedError
 
     def stop(self) -> None:
         self._stop_requested = True

@@ -17,9 +17,17 @@ from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional, TextIO, Uni
 
 from chik_rs import (
     AugSchemeMPL,
+    BlockRecord,
     BLSCache,
+    CoinState,
     ConsensusConstants,
+    EndOfSubSlotBundle,
+    FullBlock,
+    HeaderBlock,
     PoolTarget,
+    SpendBundle,
+    SubEpochSummary,
+    UnfinishedBlock,
     get_flags_for_height_and_constants,
     run_block_generator,
     run_block_generator2,
@@ -28,16 +36,20 @@ from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64, uint128
 from packaging.version import Version
 
+from chik.consensus.augmented_chain import AugmentedBlockchain
 from chik.consensus.block_body_validation import ForkInfo
 from chik.consensus.block_creation import unfinished_block_to_full_block
-from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain import AddBlockResult, Blockchain, BlockchainMutexPriority, StateChangeSummary
 from chik.consensus.blockchain_interface import BlockchainInterface
+from chik.consensus.coin_store_protocol import CoinStoreProtocol
+from chik.consensus.condition_tools import pkm_pairs
 from chik.consensus.cost_calculator import NPCResult
 from chik.consensus.difficulty_adjustment import get_next_sub_slot_iters_and_difficulty
 from chik.consensus.make_sub_epoch_summary import next_sub_epoch_summary
 from chik.consensus.multiprocess_validation import PreValidationResult, pre_validate_block
 from chik.consensus.pot_iterations import calculate_sp_iters
+from chik.consensus.signage_point import SignagePoint
+from chik.full_node.block_height_map import BlockHeightMap
 from chik.full_node.block_store import BlockStore
 from chik.full_node.check_fork_next_block import check_fork_next_block
 from chik.full_node.coin_store import CoinStore
@@ -47,40 +59,30 @@ from chik.full_node.hint_management import get_hints_and_subscription_coin_ids
 from chik.full_node.hint_store import HintStore
 from chik.full_node.mempool import MempoolRemoveInfo
 from chik.full_node.mempool_manager import MempoolManager, NewPeakItem
-from chik.full_node.signage_point import SignagePoint
 from chik.full_node.subscriptions import PeerSubscriptions, peers_for_spend_bundle
 from chik.full_node.sync_store import Peak, SyncStore
-from chik.full_node.tx_processing_queue import TransactionQueue
+from chik.full_node.tx_processing_queue import TransactionQueue, TransactionQueueEntry
 from chik.full_node.weight_proof import WeightProofHandler
 from chik.protocols import farmer_protocol, full_node_protocol, timelord_protocol, wallet_protocol
 from chik.protocols.farmer_protocol import SignagePointSourceData, SPSubSlotSourceData, SPVDFSourceData
 from chik.protocols.full_node_protocol import RequestBlocks, RespondBlock, RespondBlocks, RespondSignagePoint
+from chik.protocols.outbound_message import Message, NodeType, make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.protocols.shared_protocol import Capability
-from chik.protocols.wallet_protocol import CoinState, CoinStateUpdate, RemovedMempoolItem
+from chik.protocols.wallet_protocol import CoinStateUpdate, RemovedMempoolItem
 from chik.rpc.rpc_server import StateChangedProtocol
 from chik.server.node_discovery import FullNodePeers
-from chik.server.outbound_message import Message, NodeType, make_msg
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 from chik.types.blockchain_format.classgroup import ClassgroupElement
-from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.blockchain_format.vdf import CompressibleVDFField, VDFInfo, VDFProof, validate_vdf
 from chik.types.coin_record import CoinRecord
-from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
-from chik.types.full_block import FullBlock
-from chik.types.header_block import HeaderBlock
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.types.mempool_item import MempoolItem
 from chik.types.peer_info import PeerInfo
-from chik.types.spend_bundle import SpendBundle
-from chik.types.transaction_queue_entry import TransactionQueueEntry
-from chik.types.unfinished_block import UnfinishedBlock
 from chik.types.validation_state import ValidationState
 from chik.types.weight_proof import WeightProof
-from chik.util.augmented_chain import AugmentedBlockchain
 from chik.util.bech32m import encode_puzzle_hash
-from chik.util.condition_tools import pkm_pairs
 from chik.util.config import process_config_start_method
 from chik.util.db_synchronous import db_synchronous_on
 from chik.util.db_version import lookup_db_version, set_db_version_async
@@ -102,6 +104,7 @@ class PeakPostProcessingResult:
     fns_peak_result: FullNodeStorePeakResult  # The result of calling FullNodeStore.new_peak
     hints: list[tuple[bytes32, bytes]]  # The hints added to the DB
     lookup_coin_ids: list[bytes32]  # The coin IDs that we need to look up to notify wallets of changes
+    signage_points: list[tuple[RespondSignagePoint, WSChikConnection, Optional[EndOfSubSlotBundle]]]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -154,7 +157,7 @@ class FullNode:
     _db_wrapper: Optional[DBWrapper2] = None
     _hint_store: Optional[HintStore] = None
     _block_store: Optional[BlockStore] = None
-    _coin_store: Optional[CoinStore] = None
+    _coin_store: Optional[CoinStoreProtocol] = None
     _mempool_manager: Optional[MempoolManager] = None
     _init_weight_proof: Optional[asyncio.Task[None]] = None
     _blockchain: Optional[Blockchain] = None
@@ -262,11 +265,13 @@ class FullNode:
             log_coins = self.config.get("log_coins", False)
             multiprocessing_start_method = process_config_start_method(config=self.config, log=self.log)
             self.multiprocessing_context = multiprocessing.get_context(method=multiprocessing_start_method)
+            selected_network = self.config.get("selected_network")
+            height_map = await BlockHeightMap.create(self.db_path.parent, self._db_wrapper, selected_network)
             self._blockchain = await Blockchain.create(
                 coin_store=self.coin_store,
                 block_store=self.block_store,
                 consensus_constants=self.constants,
-                blockchain_dir=self.db_path.parent,
+                height_map=height_map,
                 reserved_cores=reserved_cores,
                 single_threaded=single_threaded,
                 log_coins=log_coins,
@@ -302,10 +307,9 @@ class FullNode:
             peak: Optional[BlockRecord] = self.blockchain.get_peak()
             if peak is None:
                 self.log.info(f"Initialized with empty blockchain time taken: {int(time_taken)}s")
-                num_unspent = await self.coin_store.num_unspent()
-                if num_unspent > 0:
+                if not await self.coin_store.is_empty():
                     self.log.error(
-                        f"Inconsistent blockchain DB file! Could not find peak block but found {num_unspent} coins! "
+                        "Inconsistent blockchain DB file! Could not find peak block but found some coins! "
                         "This is a fatal error. The blockchain database may be corrupt"
                     )
                     raise RuntimeError("corrupt blockchain DB")
@@ -344,10 +348,12 @@ class FullNode:
                 self.wallet_sync_task = create_referenced_task(self._wallets_sync_task_handler())
 
             self.initialized = True
-            if self.full_node_peers is not None:
-                create_referenced_task(self.full_node_peers.start(), known_unreferenced=True)
+
             try:
-                yield
+                async with contextlib.AsyncExitStack() as aexit_stack:
+                    if self.full_node_peers is not None:
+                        await aexit_stack.enter_async_context(self.full_node_peers.manage())
+                    yield
             finally:
                 self._shut_down = True
                 if self._init_weight_proof is not None:
@@ -359,9 +365,6 @@ class FullNode:
                 # same for mempool_manager
                 if self._mempool_manager is not None:
                     self.mempool_manager.shut_down()
-
-                if self.full_node_peers is not None:
-                    create_referenced_task(self.full_node_peers.close(), known_unreferenced=True)
                 if self.uncompact_task is not None:
                     self.uncompact_task.cancel()
                 if self._transaction_queue_task is not None:
@@ -416,7 +419,7 @@ class FullNode:
         return self._blockchain
 
     @property
-    def coin_store(self) -> CoinStore:
+    def coin_store(self) -> CoinStoreProtocol:
         assert self._coin_store is not None
         return self._coin_store
 
@@ -545,15 +548,15 @@ class FullNode:
             dns_servers.append("dns-introducer.chiknetwork.com")
         try:
             self.full_node_peers = FullNodePeers(
-                self.server,
-                self.config["target_outbound_peer_count"],
-                self.root_path / Path(self.config.get("peers_file_path", "db/peers.dat")),
-                self.config["introducer_peer"],
-                dns_servers,
-                self.config["peer_connect_interval"],
-                self.config["selected_network"],
-                default_port,
-                self.log,
+                server=self.server,
+                target_outbound_count=self.config["target_outbound_peer_count"],
+                peers_file_path=self.root_path / Path(self.config.get("peers_file_path", "db/peers.dat")),
+                introducer_info=self.config["introducer_peer"],
+                dns_servers=dns_servers,
+                peer_connect_interval=self.config["peer_connect_interval"],
+                selected_network=self.config["selected_network"],
+                default_port=default_port,
+                log=self.log,
             )
         except Exception as e:
             error_stack = traceback.format_exc()
@@ -837,7 +840,7 @@ class FullNode:
             peak_block = await self.blockchain.get_full_peak()
         if peak_block is not None:
             peak = self.blockchain.block_record(peak_block.header_hash)
-            difficulty = self.blockchain.get_next_difficulty(peak.header_hash, False)
+            difficulty = self.blockchain.get_next_sub_slot_iters_and_difficulty(peak.header_hash, False)[1]
             ses: Optional[SubEpochSummary] = next_sub_epoch_summary(
                 self.constants,
                 self.blockchain,
@@ -912,6 +915,7 @@ class FullNode:
 
         self._state_changed("add_connection")
         self._state_changed("sync_mode")
+        # TODO: this can probably be improved
         if self.full_node_peers is not None:
             create_referenced_task(self.full_node_peers.on_connect(connection))
 
@@ -1345,7 +1349,7 @@ class FullNode:
             ],
         ) -> None:
             nonlocal fork_info
-            block_rate = 0
+            block_rate = 0.0
             block_rate_time = time.monotonic()
             block_rate_height = -1
             while True:
@@ -1376,12 +1380,13 @@ class FullNode:
                     raise ValueError(f"Failed to validate block batch {start_height} to {end_height}: {err}")
                 if end_height - block_rate_height > 100:
                     now = time.monotonic()
-                    block_rate = int((end_height - block_rate_height) // (now - block_rate_time))
+                    block_rate = (end_height - block_rate_height) / (now - block_rate_time)
                     block_rate_time = now
                     block_rate_height = end_height
 
                 self.log.info(
-                    f"Added blocks {start_height} to {end_height} ({block_rate} blocks/s) (from: {peer.peer_info.ip})"
+                    f"Added blocks {start_height} to {end_height} "
+                    f"({block_rate:.3g} blocks/s) (from: {peer.peer_info.ip})"
                 )
                 peak: Optional[BlockRecord] = self.blockchain.get_peak()
                 if state_change_summary is not None:
@@ -1805,14 +1810,14 @@ class FullNode:
             # Makes sure to potentially update the difficulty if we are past the peak (into a new sub-slot)
             assert ip_sub_slot is not None
             if request.challenge_chain_vdf.challenge != ip_sub_slot.challenge_chain.get_hash():
-                next_difficulty = self.blockchain.get_next_difficulty(peak.header_hash, True)
-                next_sub_slot_iters = self.blockchain.get_next_slot_iters(peak.header_hash, True)
-                difficulty = next_difficulty
-                sub_slot_iters = next_sub_slot_iters
+                sub_slot_iters, difficulty = self.blockchain.get_next_sub_slot_iters_and_difficulty(
+                    peak.header_hash, True
+                )
         else:
             difficulty = self.constants.DIFFICULTY_STARTING
             sub_slot_iters = self.constants.SUB_SLOT_ITERS_STARTING
 
+        tx_peak = self.blockchain.get_tx_peak()
         # Notify farmers of the new signage point
         broadcast_farmer = farmer_protocol.NewSignagePoint(
             request.challenge_chain_vdf.challenge,
@@ -1822,6 +1827,7 @@ class FullNode:
             sub_slot_iters,
             request.index_from_challenge,
             uint32(0) if peak is None else peak.height,
+            tx_peak.height if tx_peak is not None else uint32(0),
             sp_source_data=SignagePointSourceData(
                 vdf_data=SPVDFSourceData(request.challenge_chain_vdf.output, request.reward_chain_vdf.output)
             ),
@@ -1843,8 +1849,7 @@ class FullNode:
         """
 
         record = state_change_summary.peak
-        difficulty = self.blockchain.get_next_difficulty(record.header_hash, False)
-        sub_slot_iters = self.blockchain.get_next_slot_iters(record.header_hash, False)
+        sub_slot_iters, difficulty = self.blockchain.get_next_sub_slot_iters_and_difficulty(record.header_hash, False)
 
         self.log.info(
             f"🌱 Updated peak to height {record.height}, weight {record.weight}, "
@@ -1893,6 +1898,7 @@ class FullNode:
             difficulty,
         )
 
+        signage_points: list[tuple[RespondSignagePoint, WSChikConnection, Optional[EndOfSubSlotBundle]]] = []
         if fns_peak_result.new_signage_points is not None and peer is not None:
             for index, sp in fns_peak_result.new_signage_points:
                 assert (
@@ -1901,8 +1907,13 @@ class FullNode:
                     and sp.rc_vdf is not None
                     and sp.rc_proof is not None
                 )
-                await self.signage_point_post_processing(
-                    RespondSignagePoint(index, sp.cc_vdf, sp.cc_proof, sp.rc_vdf, sp.rc_proof), peer, sub_slots[1]
+                # Collect the data for networking outside the mutex
+                signage_points.append(
+                    (
+                        RespondSignagePoint(index, sp.cc_vdf, sp.cc_proof, sp.rc_vdf, sp.rc_proof),
+                        peer,
+                        sub_slots[1],
+                    )
                 )
 
         if sub_slots[1] is None:
@@ -1932,6 +1943,7 @@ class FullNode:
             fns_peak_result,
             hints_to_add,
             lookup_coin_ids,
+            signage_points=signage_points,
         )
 
     async def peak_post_processing_2(
@@ -1946,6 +1958,8 @@ class FullNode:
         with peers
         """
         record = state_change_summary.peak
+        for signage_point in ppp_result.signage_points:
+            await self.signage_point_post_processing(*signage_point)
         for new_peak_item in ppp_result.mempool_peak_result:
             self.log.debug(f"Added transaction to mempool: {new_peak_item.transaction_id}")
             mempool_item = self.mempool_manager.get_mempool_item(new_peak_item.transaction_id)
@@ -2142,7 +2156,7 @@ class FullNode:
                         added = AddBlockResult.DISCONNECTED_BLOCK
                         error_code: Optional[Err] = Err.INVALID_PREV_BLOCK_HASH
                     elif Err(pre_validation_result.error) == Err.TIMESTAMP_TOO_FAR_IN_FUTURE:
-                        raise TimestampError()
+                        raise TimestampError
                     else:
                         raise ValueError(
                             f"Failed to validate block {header_hash} height "
@@ -2244,7 +2258,8 @@ class FullNode:
 
         state_changed_data: dict[str, Any] = {
             "transaction_block": False,
-            "k_size": block.reward_chain_block.proof_of_space.size,
+            "k_size": block.reward_chain_block.proof_of_space.size().size_v1,
+            "k_size2": block.reward_chain_block.proof_of_space.size().size_v2,
             "header_hash": block.header_hash,
             "fork_height": None,
             "rolled_back_records": None,
@@ -2356,7 +2371,7 @@ class FullNode:
             _, header_error = await self.blockchain.validate_unfinished_block_header(block)
             if header_error is not None:
                 if header_error == Err.TIMESTAMP_TOO_FAR_IN_FUTURE:
-                    raise TimestampError()
+                    raise TimestampError
                 else:
                     raise ConsensusError(header_error)
             validate_time = time.monotonic() - start_header_time
@@ -2670,8 +2685,9 @@ class FullNode:
 
             peak = self.blockchain.get_peak()
             if peak is not None and peak.height > 2:
-                next_sub_slot_iters = self.blockchain.get_next_slot_iters(peak.header_hash, True)
-                next_difficulty = self.blockchain.get_next_difficulty(peak.header_hash, True)
+                next_sub_slot_iters, next_difficulty = self.blockchain.get_next_sub_slot_iters_and_difficulty(
+                    peak.header_hash, True
+                )
             else:
                 next_sub_slot_iters = self.constants.SUB_SLOT_ITERS_STARTING
                 next_difficulty = self.constants.DIFFICULTY_STARTING
@@ -2708,7 +2724,7 @@ class FullNode:
 
                 for infusion in new_infusions:
                     await self.new_infusion_point_vdf(infusion)
-
+                tx_peak = self.blockchain.get_tx_peak()
                 # Notify farmers of the new sub-slot
                 broadcast_farmer = farmer_protocol.NewSignagePoint(
                     end_of_slot_bundle.challenge_chain.get_hash(),
@@ -2718,6 +2734,7 @@ class FullNode:
                     next_sub_slot_iters,
                     uint8(0),
                     uint32(0) if peak is None else peak.height,
+                    tx_peak.height if tx_peak is not None else uint32(0),
                     sp_source_data=SignagePointSourceData(
                         sub_slot_data=SPSubSlotSourceData(
                             end_of_slot_bundle.challenge_chain, end_of_slot_bundle.reward_chain

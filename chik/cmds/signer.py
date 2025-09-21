@@ -17,23 +17,24 @@ from segno import QRCode, make_qr
 from chik.cmds.cmd_classes import chik_command, command_helper, option
 from chik.cmds.cmd_helpers import NeedsWalletRPC, TransactionsIn, TransactionsOut
 from chik.rpc.util import ALL_TRANSLATION_LAYERS
-from chik.rpc.wallet_request_types import (
-    ApplySignatures,
-    ExecuteSigningInstructions,
-    GatherSigningInfo,
-    PushTransactions,
-)
 from chik.util.streamable import Streamable
 from chik.wallet.signer_protocol import SignedTransaction, SigningInstructions, SigningResponse, Spend
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.klvm_streamable import byte_deserialize_klvm_streamable, byte_serialize_klvm_streamable
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
+from chik.wallet.wallet_request_types import (
+    ApplySignatures,
+    ExecuteSigningInstructions,
+    GatherSigningInfo,
+    PushTransactions,
+)
 from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
 
 def _clear_screen() -> None:
     # Cross-platform screen clear
-    os.system("cls" if os.name == "nt" else "clear")
+    # TODO: consider if not-nt anyways could avoid os.system()
+    os.system("cls" if os.name == "nt" else "clear")  # noqa: S605
 
 
 @click.group("signer", help="Get information for an external signer")

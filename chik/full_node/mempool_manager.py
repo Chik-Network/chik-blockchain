@@ -13,7 +13,8 @@ from chik_rs import (
     ELIGIBLE_FOR_FF,
     BLSCache,
     ConsensusConstants,
-    G2Element,
+    SpendBundle,
+    SpendBundleConditions,
     supports_fast_forward,
     validate_klvm_and_signature,
 )
@@ -22,23 +23,21 @@ from chik_rs.sized_ints import uint32, uint64
 from chikbip158 import PyBIP158
 
 from chik.consensus.block_record import BlockRecordProtocol
+from chik.consensus.check_time_locks import check_time_locks
 from chik.consensus.cost_calculator import NPCResult
 from chik.full_node.bitcoin_fee_estimator import create_bitcoin_fee_estimator
+from chik.full_node.eligible_coin_spends import EligibilityAndAdditions
 from chik.full_node.fee_estimation import FeeBlockInfo, MempoolInfo, MempoolItemInfo
 from chik.full_node.fee_estimator_interface import FeeEstimatorInterface
 from chik.full_node.mempool import MEMPOOL_ITEM_FEE_LIMIT, Mempool, MempoolRemoveInfo, MempoolRemoveReason
-from chik.full_node.mempool_check_conditions import mempool_check_time_locks
 from chik.full_node.pending_tx_cache import ConflictTxCache, PendingTxCache
 from chik.types.blockchain_format.coin import Coin
 from chik.types.klvm_cost import KLVMCost
 from chik.types.coin_record import CoinRecord
-from chik.types.eligible_coin_spends import EligibilityAndAdditions, UnspentLineageInfo
 from chik.types.fee_rate import FeeRate
-from chik.types.generator_types import BlockGenerator
+from chik.types.generator_types import NewBlockGenerator
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
-from chik.types.mempool_item import BundleCoinSpend, MempoolItem
-from chik.types.spend_bundle import SpendBundle
-from chik.types.spend_bundle_conditions import SpendBundleConditions
+from chik.types.mempool_item import BundleCoinSpend, MempoolItem, UnspentLineageInfo
 from chik.util.db_wrapper import SQLITE_INT_MAX
 from chik.util.errors import Err, ValidationError
 from chik.util.inline_executor import InlineExecutor
@@ -259,7 +258,22 @@ def check_removals(
         for item in conflicting_items:
             if item in conflicts:
                 continue
-            conflict_bcs = item.bundle_coin_spends[coin_id]
+            conflict_bcs = item.bundle_coin_spends.get(coin_id)
+            if conflict_bcs is None:
+                # Check if this is an item that spends an older ff singleton
+                # version with a latest version that matches our coin ID.
+                conflict_bcs = next(
+                    (
+                        bcs
+                        for bcs in item.bundle_coin_spends.values()
+                        if bcs.latest_singleton_lineage is not None and bcs.latest_singleton_lineage.coin_id == coin_id
+                    ),
+                    None,
+                )
+                # We're not expected to get here but let's handle it gracefully
+                if conflict_bcs is None:
+                    log.warning(f"Coin ID {coin_id} expected but not found in mempool item {item.name}")
+                    return Err.INVALID_SPEND_BUNDLE, []
             # if the spend we're adding to the mempool is not DEDUP nor FF, it's
             # just a regular conflict
             if not coin_bcs.eligible_for_fast_forward and not coin_bcs.eligible_for_dedup:
@@ -362,43 +376,30 @@ class MempoolManager:
         self.pool.shutdown(wait=True)
 
     # TODO: remove this, use create_generator() instead
-    async def create_bundle_from_mempool(
-        self,
-        last_tb_header_hash: bytes32,
-        item_inclusion_filter: Optional[Callable[[bytes32], bool]] = None,
-    ) -> Optional[tuple[SpendBundle, list[Coin]]]:
+    def create_bundle_from_mempool(self, last_tb_header_hash: bytes32) -> Optional[tuple[SpendBundle, list[Coin]]]:
         """
         Returns aggregated spendbundle that can be used for creating new block,
         additions and removals in that spend_bundle
         """
-
-        lineage_cache = LineageInfoCache(self.get_unspent_lineage_info_for_puzzle_hash)
-
         if self.peak is None or self.peak.header_hash != last_tb_header_hash:
             return None
-        return await self.mempool.create_bundle_from_mempool_items(
-            lineage_cache.get_unspent_lineage_info, self.constants, self.peak.height, item_inclusion_filter
-        )
+        return self.mempool.create_bundle_from_mempool_items(self.constants, self.peak.height)
 
-    async def create_block_generator(
-        self,
-        last_tb_header_hash: bytes32,
-        item_inclusion_filter: Optional[Callable[[bytes32], bool]] = None,
-    ) -> Optional[tuple[BlockGenerator, G2Element, list[Coin], list[Coin]]]:
+    def create_block_generator(self, last_tb_header_hash: bytes32, timeout: float) -> Optional[NewBlockGenerator]:
         """
         Returns a block generator program, the aggregate signature and all additions and removals, for a new block
         """
         if self.peak is None or self.peak.header_hash != last_tb_header_hash:
             return None
+        return self.mempool.create_block_generator(self.constants, self.peak.height, timeout)
 
-        lineage_cache = LineageInfoCache(self.get_unspent_lineage_info_for_puzzle_hash)
-
-        return await self.mempool.create_block_generator(
-            lineage_cache.get_unspent_lineage_info,
-            self.constants,
-            self.peak.height,
-            item_inclusion_filter,
-        )
+    def create_block_generator2(self, last_tb_header_hash: bytes32, timeout: float) -> Optional[NewBlockGenerator]:
+        """
+        Returns a block generator program, the aggregate signature and all additions, for a new block
+        """
+        if self.peak is None or self.peak.header_hash != last_tb_header_hash:
+            return None
+        return self.mempool.create_block_generator2(self.constants, self.peak.height, timeout)
 
     def get_filter(self) -> bytes:
         all_transactions: set[bytes32] = set()
@@ -572,12 +573,13 @@ class MempoolManager:
         get_unspent_lineage_info_for_puzzle_hash: Callable[[bytes32], Awaitable[Optional[UnspentLineageInfo]]],
     ) -> tuple[Optional[Err], Optional[MempoolItem], list[bytes32]]:
         """
-        Validates new_spend with the given NPCResult, and spend_name, and the current mempool. The mempool should
+        Validates new_spend with the given SpendBundleConditions, and
+        spend_name, and the current mempool. The mempool should
         be locked during this call (blockchain lock).
 
         Args:
             new_spend: spend bundle to validate
-            conds: result of running the klvm transaction in a fake block
+            conds: result of running the klvm transaction
             spend_name: hash of the spend bundle data, passed in as an optimization
             first_added_height: The block height that `new_spend`  first entered this node's mempool.
                 Used to estimate how long a spend has taken to be included on the chain.
@@ -630,7 +632,7 @@ class MempoolManager:
                 return Err.INVALID_COIN_SOLUTION, None, []
 
             mark_as_fast_forward = eligibility_info.ff_puzzle_hash is not None and supports_fast_forward(coin_spend)
-            latest_singleton_coin = None
+            lineage_info = None
             if mark_as_fast_forward:
                 # Make sure the fast forward spend still has a version that is
                 # still unspent, because if the singleton has been melted, the
@@ -638,14 +640,13 @@ class MempoolManager:
                 assert eligibility_info.ff_puzzle_hash is not None
                 lineage_info = await get_unspent_lineage_info_for_puzzle_hash(eligibility_info.ff_puzzle_hash)
                 if lineage_info is None:
-                    return Err.DOUBLE_SPEND, None, []
-                latest_singleton_coin = lineage_info.coin_id
+                    mark_as_fast_forward = False
             bundle_coin_spends[coin_id] = BundleCoinSpend(
                 coin_spend=coin_spend,
                 eligible_for_dedup=supports_dedup,
                 eligible_for_fast_forward=mark_as_fast_forward,
                 additions=eligibility_info.spend_additions,
-                latest_singleton_coin=latest_singleton_coin,
+                latest_singleton_lineage=lineage_info,
             )
 
         if removal_names != removal_names_from_coin_spends:
@@ -739,7 +740,7 @@ class MempoolManager:
         # point-of-view of the next block to be farmed. Therefore we pass in the
         # current peak's height and timestamp
         assert self.peak.timestamp is not None
-        tl_error: Optional[Err] = mempool_check_time_locks(
+        tl_error: Optional[Err] = check_time_locks(
             removal_record_dict,
             conds,
             self.peak.height,
@@ -857,7 +858,7 @@ class MempoolManager:
             # rebasing a fast forward spend is more expensive than to just
             # evict the item. So, any FF spend we may need to rebase, defer
             # them until after we've gone through all spends
-            deferred_ff_items: set[tuple[bytes32, bytes32]] = set()
+            deferred_ff_items: set[tuple[bytes32, MempoolItem]] = set()
 
             for spend in spent_coins:
                 items = self.mempool.get_items_by_coin_id(spend)
@@ -872,7 +873,7 @@ class MempoolManager:
                         continue
 
                     bcs = item.bundle_coin_spends.get(spend)
-                    if bcs is not None and bcs.latest_singleton_coin is None:
+                    if bcs is not None and bcs.latest_singleton_lineage is None:
                         # this is a regular coin spend that's now made it into
                         # a block and we just evict its mempool item
                         included_items.append(MempoolItemInfo(item.cost, item.fee, item.height_added_to_mempool))
@@ -880,7 +881,7 @@ class MempoolManager:
                         spendbundle_ids_to_remove.add(item_name)
                         continue
 
-                    deferred_ff_items.add((spend, item_name))
+                    deferred_ff_items.add((spend, item))
 
             # fast forward spends are indexed under the latest singleton coin ID
             # if it's spent, we need to update the index in the mempool. This
@@ -888,14 +889,15 @@ class MempoolManager:
             # new_coin_id, current_coin_id, mempool item name
             spends_to_update: list[tuple[bytes32, bytes32, bytes32]] = []
 
-            for spend, item_name in deferred_ff_items:
+            for spend, item in deferred_ff_items:
+                item_name = item.spend_bundle_name
                 if item_name in spendbundle_ids_to_remove:
                     continue
                 # there may be multiple matching spends in the mempool
                 # item, for the same singleton
                 found_matches = 0
                 for bcs in item.bundle_coin_spends.values():
-                    if bcs.latest_singleton_coin != spend:
+                    if bcs.latest_singleton_lineage is None or bcs.latest_singleton_lineage.coin_id != spend:
                         continue
                     found_matches += 1
 
@@ -911,7 +913,7 @@ class MempoolManager:
                         break
 
                     spends_to_update.append((lineage_info.coin_id, spend, item_name))
-                    bcs.latest_singleton_coin = lineage_info.coin_id
+                    bcs.latest_singleton_lineage = lineage_info
 
                 if found_matches == 0:  # pragma: no cover
                     # We are not expected to get here. this is all

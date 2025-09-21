@@ -7,27 +7,25 @@ from collections.abc import Collection
 from typing import Any, Optional, Union
 
 import anyio
+from chik_rs import BlockRecord, FullBlock, SpendBundle
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64, uint128
 
+from chik.consensus.augmented_chain import AugmentedBlockchain
 from chik.consensus.block_body_validation import ForkInfo
-from chik.consensus.block_record import BlockRecord
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.consensus.blockchain import BlockchainMutexPriority
 from chik.consensus.multiprocess_validation import PreValidationResult, pre_validate_block
 from chik.full_node.full_node import FullNode
 from chik.full_node.full_node_api import FullNodeAPI
+from chik.protocols.outbound_message import NodeType
 from chik.rpc.rpc_server import default_get_connections
-from chik.server.outbound_message import NodeType
 from chik.simulator.add_blocks_in_batches import add_blocks_in_batches
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.simulator_protocol import FarmNewBlockProtocol, GetAllCoinsProtocol, ReorgProtocol
 from chik.types.blockchain_format.coin import Coin
 from chik.types.coin_record import CoinRecord
-from chik.types.full_block import FullBlock
-from chik.types.spend_bundle import SpendBundle
 from chik.types.validation_state import ValidationState
-from chik.util.augmented_chain import AugmentedBlockchain
 from chik.util.config import lock_and_load_config, save_config
 from chik.util.timing import adjusted_timeout, backoff_times
 from chik.wallet.conditions import CreateCoin
@@ -125,7 +123,33 @@ class FullNodeSimulator(FullNodeAPI):
             return self.auto_farm
 
     async def get_all_coins(self, request: GetAllCoinsProtocol) -> list[CoinRecord]:
-        return await self.full_node.coin_store.get_all_coins(request.include_spent_coins)
+        """
+        Simulates fetching all coins by querying coins added at each block height.
+
+        Args:
+            request: An object containing the `include_spent_coins` flag.
+
+        Returns:
+            A combined list of CoinRecords (including spent coins if requested).
+        """
+        coin_records: list[CoinRecord] = []
+        current_height = 0
+
+        # `.get_peak_height` can return `None`. We use -1 in that case to exit early
+        max_block_height = self.full_node.blockchain.get_peak_height() or -1
+
+        while current_height <= max_block_height:
+            # Fetch coins added at the current block height
+            records_at_height = await self.full_node.coin_store.get_coins_added_at_height(uint32(current_height))
+
+            if not request.include_spent_coins:
+                # Filter out spent coins if not requested
+                records_at_height = [record for record in records_at_height if not record.spent]
+
+            coin_records.extend(records_at_height)
+            current_height += 1
+
+        return coin_records
 
     async def revert_block_height(self, new_height: uint32) -> None:
         """
@@ -205,7 +229,7 @@ class FullNodeSimulator(FullNodeAPI):
                     await asyncio.sleep(1)
                 else:
                     current_time = False
-            mempool_bundle = await self.full_node.mempool_manager.create_bundle_from_mempool(curr.header_hash)
+            mempool_bundle = self.full_node.mempool_manager.create_bundle_from_mempool(curr.header_hash)
             if mempool_bundle is None:
                 spend_bundle = None
             else:
@@ -258,7 +282,7 @@ class FullNodeSimulator(FullNodeAPI):
                     await asyncio.sleep(1)
                 else:
                     current_time = False
-            mempool_bundle = await self.full_node.mempool_manager.create_bundle_from_mempool(curr.header_hash)
+            mempool_bundle = self.full_node.mempool_manager.create_bundle_from_mempool(curr.header_hash)
             if mempool_bundle is None:
                 spend_bundle = None
             else:
@@ -369,7 +393,8 @@ class FullNodeSimulator(FullNodeAPI):
             if count == 0:
                 return 0
 
-            target_puzzlehash = await wallet.get_new_puzzlehash()
+            async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
+                target_puzzlehash = await action_scope.get_puzzle_hash(wallet.wallet_state_manager)
             rewards = 0
 
             block_reward_coins = set()
@@ -687,7 +712,10 @@ class FullNodeSimulator(FullNodeAPI):
             for amount in amounts:
                 # We need unique puzzle hash amount combos so we'll only generate a new puzzle hash when we've already
                 # seen that amount sent to that puzzle hash
-                puzzle_hash = await wallet.get_puzzle_hash(new=amount in amounts_seen)
+                async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
+                    puzzle_hash = await action_scope.get_puzzle_hash(
+                        wallet.wallet_state_manager, override_reuse_puzhash_with=amount not in amounts_seen
+                    )
                 outputs.append(CreateCoin(puzzle_hash, amount))
                 amounts_seen.add(amount)
 

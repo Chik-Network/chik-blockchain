@@ -5,7 +5,8 @@ from hashlib import sha256
 from typing import Callable
 
 from chik_rs.sized_bytes import bytes32
-from klvm.casts import int_to_bytes
+
+from chik.util.casts import int_to_bytes
 
 CurryHashFunction = Callable[..., bytes32]
 

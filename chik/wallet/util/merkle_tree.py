@@ -5,8 +5,8 @@ from enum import Enum
 from typing import Optional
 
 from chik_rs.sized_bytes import bytes32
-from klvm.casts import int_to_bytes
 
+from chik.util.casts import int_to_bytes
 from chik.util.hash import std_hash
 
 ONE = int_to_bytes(1)

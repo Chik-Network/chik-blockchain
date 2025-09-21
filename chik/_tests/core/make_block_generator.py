@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from chik_rs import G1Element, G2Element, PrivateKey
+from chik_rs import G1Element, G2Element, PrivateKey, SpendBundle
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
 
@@ -11,7 +11,6 @@ from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.generator_types import BlockGenerator
-from chik.types.spend_bundle import SpendBundle
 from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import puzzle_for_pk, solution_for_conditions
 
 GROUP_ORDER = 0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001
@@ -25,7 +24,7 @@ def int_to_public_key(index: int) -> G1Element:
 
 def puzzle_hash_for_index(index: int, puzzle_hash_db: dict[bytes32, SerializedProgram]) -> bytes32:
     public_key: G1Element = int_to_public_key(index)
-    puzzle = SerializedProgram.from_program(puzzle_for_pk(public_key))
+    puzzle = puzzle_for_pk(public_key).to_serialized()
     puzzle_hash: bytes32 = puzzle.get_tree_hash()
     puzzle_hash_db[puzzle_hash] = puzzle
     return puzzle_hash
@@ -57,7 +56,7 @@ def make_spend_bundle(count: int) -> SpendBundle:
     for coin in coins:
         puzzle_reveal = puzzle_hash_db[coin.puzzle_hash]
         conditions = conditions_for_payment(coin)
-        solution = SerializedProgram.from_program(solution_for_conditions(conditions))
+        solution = solution_for_conditions(conditions).to_serialized()
         coin_spend = make_spend(coin, puzzle_reveal, solution)
         coin_spends.append(coin_spend)
 

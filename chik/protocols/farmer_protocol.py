@@ -3,13 +3,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from chik_rs import FoliageBlockData, FoliageTransactionBlock, G2Element, PoolTarget, RewardChainBlockUnfinished
+from chik_rs import (
+    ChallengeChainSubSlot,
+    FoliageBlockData,
+    FoliageTransactionBlock,
+    G2Element,
+    PoolTarget,
+    ProofOfSpace,
+    RewardChainBlockUnfinished,
+    RewardChainSubSlot,
+)
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik.types.blockchain_format.classgroup import ClassgroupElement
-from chik.types.blockchain_format.proof_of_space import ProofOfSpace
-from chik.types.blockchain_format.slots import ChallengeChainSubSlot, RewardChainSubSlot
 from chik.util.streamable import Streamable, streamable
 
 """
@@ -49,6 +56,7 @@ class NewSignagePoint(Streamable):
     sub_slot_iters: uint64
     signage_point_index: uint8
     peak_height: uint32
+    last_tx_height: uint32
     sp_source_data: Optional[SignagePointSourceData] = None
 
 

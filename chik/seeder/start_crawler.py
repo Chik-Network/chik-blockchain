@@ -11,13 +11,13 @@ from chik_rs import ConsensusConstants
 from chik.apis import ApiProtocolRegistry
 from chik.consensus.constants import replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
-from chik.rpc.crawler_rpc_api import CrawlerRpcApi
+from chik.protocols.outbound_message import NodeType
 from chik.seeder.crawler import Crawler
 from chik.seeder.crawler_api import CrawlerAPI
-from chik.server.outbound_message import NodeType
+from chik.seeder.crawler_rpc_api import CrawlerRpcApi
+from chik.server.aliases import CrawlerService
 from chik.server.signal_handlers import SignalHandlers
 from chik.server.start_service import RpcInfo, Service, async_run
-from chik.types.aliases import CrawlerService
 from chik.util.chik_logging import initialize_service_logging
 from chik.util.config import load_config, load_config_cli
 from chik.util.default_root import resolve_root_path

@@ -15,12 +15,13 @@ from chik_puzzles_py.programs import (
 from chik_puzzles_py.programs import (
     SINGLETON_LAUNCHER_HASH as SINGLETON_LAUNCHER_HASH_BYTES,
 )
+from chik_rs import CoinSpend
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.coin_spend import CoinSpend, make_spend
+from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.util.hash import std_hash
 from chik.wallet.lineage_proof import LineageProof

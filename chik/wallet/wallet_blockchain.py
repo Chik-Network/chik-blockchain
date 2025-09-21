@@ -3,16 +3,14 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, ClassVar, Optional, cast
 
-from chik_rs import ConsensusConstants
+from chik_rs import BlockRecord, ConsensusConstants, HeaderBlock
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
 from chik.consensus.block_header_validation import validate_finished_header_block
-from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain import AddBlockResult
 from chik.consensus.find_fork_point import find_fork_point_in_chain
 from chik.consensus.full_block_to_block_record import block_to_block_record
-from chik.types.header_block import HeaderBlock
 from chik.types.validation_state import ValidationState
 from chik.types.weight_proof import WeightProof
 from chik.util.errors import Err

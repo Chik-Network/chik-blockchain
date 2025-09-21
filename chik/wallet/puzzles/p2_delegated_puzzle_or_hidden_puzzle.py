@@ -65,9 +65,9 @@ from typing import Union
 from chik_puzzles_py.programs import P2_DELEGATED_PUZZLE_OR_HIDDEN_PUZZLE
 from chik_rs import G1Element, PrivateKey
 from chik_rs.sized_bytes import bytes32
-from klvm.casts import int_from_bytes
 
 from chik.types.blockchain_format.program import Program
+from chik.util.casts import int_from_bytes
 from chik.wallet.puzzles.p2_conditions import puzzle_for_conditions
 from chik.wallet.util.curry_and_treehash import calculate_hash_of_quoted_mod_hash, curry_and_treehash, shatree_atom
 

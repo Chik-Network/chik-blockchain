@@ -4,8 +4,8 @@ from chik.farmer.farmer_api import FarmerAPI
 from chik.full_node.full_node_api import FullNodeAPI
 from chik.harvester.harvester_api import HarvesterAPI
 from chik.introducer.introducer_api import IntroducerAPI
+from chik.protocols.outbound_message import NodeType
 from chik.server.api_protocol import ApiProtocol
-from chik.server.outbound_message import NodeType
 from chik.timelord.timelord_api import TimelordAPI
 from chik.wallet.wallet_node_api import WalletNodeAPI
 

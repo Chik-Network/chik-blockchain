@@ -9,8 +9,7 @@ from typing import Optional, cast
 import pytest
 from chik_rs.sized_bytes import bytes32
 
-from chik.full_node.tx_processing_queue import TransactionQueue, TransactionQueueFull
-from chik.types.transaction_queue_entry import TransactionQueueEntry
+from chik.full_node.tx_processing_queue import TransactionQueue, TransactionQueueEntry, TransactionQueueFull
 from chik.util.task_referencer import create_referenced_task
 
 log = logging.getLogger(__name__)

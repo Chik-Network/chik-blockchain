@@ -10,18 +10,18 @@ from typing import Optional
 import aiosqlite
 import click
 import zstd
+from chik_rs import FullBlock
 
 from chik._tests.util.full_sync import FakePeer, FakeServer, run_sync_test
 from chik.cmds.init_funcs import chik_init
+from chik.consensus.augmented_chain import AugmentedBlockchain
 from chik.consensus.block_body_validation import ForkInfo
 from chik.consensus.constants import replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.consensus.difficulty_adjustment import get_next_sub_slot_iters_and_difficulty
 from chik.full_node.full_node import FullNode
 from chik.server.ws_connection import WSChikConnection
-from chik.types.full_block import FullBlock
 from chik.types.validation_state import ValidationState
-from chik.util.augmented_chain import AugmentedBlockchain
 from chik.util.config import load_config
 
 
@@ -103,7 +103,9 @@ def analyze() -> None:
     for input_file in glob("slow-batch-*.profile"):
         output = input_file.replace(".profile", ".png")
         print(f"{input_file}")
-        check_call(f"gprof2dot -f pstats {quote(input_file)} | dot -T png >{quote(output)}", shell=True)
+        # TODO: would indeed be nice to not use shell=True, but this is
+        #       all local data and piping is verbose.  maybe still do it though.
+        check_call(f"gprof2dot -f pstats {quote(input_file)} | dot -T png >{quote(output)}", shell=True)  # noqa: S602
 
 
 @main.command("create-checkpoint", help="sync the full node up to specified height and save its state")

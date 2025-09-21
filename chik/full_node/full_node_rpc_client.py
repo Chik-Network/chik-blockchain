@@ -2,17 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Optional, cast
 
+from chik_rs import BlockRecord, CoinSpend, EndOfSubSlotBundle, FullBlock, SpendBundle
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
 
-from chik.consensus.block_record import BlockRecord
-from chik.full_node.signage_point import SignagePoint
+from chik.consensus.signage_point import SignagePoint
 from chik.rpc.rpc_client import RpcClient
 from chik.types.coin_record import CoinRecord
-from chik.types.coin_spend import CoinSpend, CoinSpendWithConditions
-from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
-from chik.types.full_block import FullBlock
-from chik.types.spend_bundle import SpendBundle
+from chik.types.coin_spend import CoinSpendWithConditions
 from chik.types.unfinished_header_block import UnfinishedHeaderBlock
 
 
@@ -259,6 +256,10 @@ class FullNodeRpcClient(RpcClient):
 
     async def get_mempool_items_by_coin_name(self, coin_name: bytes32) -> dict[str, Any]:
         response = await self.fetch("get_mempool_items_by_coin_name", {"coin_name": coin_name.hex()})
+        return response
+
+    async def create_block_generator(self) -> Optional[dict[str, Any]]:
+        response = await self.fetch("create_block_generator", {})
         return response
 
     async def get_recent_signage_point_or_eos(

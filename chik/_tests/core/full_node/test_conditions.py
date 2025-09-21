@@ -9,14 +9,14 @@ import logging
 from typing import Optional
 
 import pytest
-from chik_rs import AugSchemeMPL, G2Element
+from chik_rs import AugSchemeMPL, FullBlock, G2Element, SpendBundle
 from chik_rs.sized_ints import uint32, uint64
-from klvm.casts import int_to_bytes
 from klvm_tools.binutils import assemble
 
 from chik._tests.blockchain.blockchain_test_utils import _validate_and_add_block
 from chik._tests.conftest import ConsensusMode
 from chik._tests.core.full_node.ram_db import create_ram_blockchain
+from chik.consensus.condition_tools import agg_sig_additional_data
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.keyring import TempKeyring
 from chik.types.blockchain_format.program import Program
@@ -24,9 +24,7 @@ from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.coin_record import CoinRecord
 from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
-from chik.types.full_block import FullBlock
-from chik.types.spend_bundle import SpendBundle
-from chik.util.condition_tools import agg_sig_additional_data
+from chik.util.casts import int_to_bytes
 from chik.util.errors import Err
 from chik.wallet.conditions import AssertCoinAnnouncement, AssertPuzzleAnnouncement
 
@@ -106,7 +104,7 @@ async def check_conditions(
     blocks = await initial_blocks(bt)
     coin = blocks[spend_reward_index].get_included_reward_coins()[0]
 
-    coin_spend = make_spend(coin, EASY_PUZZLE, SerializedProgram.from_program(condition_solution))
+    coin_spend = make_spend(coin, EASY_PUZZLE, condition_solution)
     spend_bundle = SpendBundle([coin_spend], aggsig)
 
     # now let's try to create a block with the spend bundle and ensure that it doesn't validate
@@ -357,6 +355,9 @@ class TestConditions:
             ("", "(66 0x3f {msg} {coin})", "(67 0x3f {msg} {coin})", 512, None),
             ("", "(66 0x3f {msg} {coin})", "(67 0x3f {msg} {coin})", 513, Err.TOO_MANY_ANNOUNCEMENTS),
         ],
+    )
+    @pytest.mark.limit_consensus_modes(
+        allowed=[ConsensusMode.HARD_FORK_2_0], reason="announce conditions limit was removed in hard-fork 3.0"
     )
     async def test_announce_conditions_limit(
         self,

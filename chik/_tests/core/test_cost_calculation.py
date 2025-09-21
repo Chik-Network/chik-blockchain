@@ -19,7 +19,7 @@ from chik.full_node.bundle_tools import simple_solution_generator
 from chik.full_node.mempool_check_conditions import get_puzzle_and_solution_for_coin
 from chik.simulator.block_tools import BlockTools, test_constants
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.program import Program
+from chik.types.blockchain_format.program import Program, run_with_cost
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.generator_types import BlockGenerator
 from chik.wallet.puzzles import p2_delegated_puzzle_or_hidden_puzzle
@@ -171,7 +171,7 @@ async def test_mempool_mode(softfork_height: int, bt: BlockTools) -> None:
         uint64(300),
     )
     spend_info = get_puzzle_and_solution_for_coin(generator, coin, softfork_height, bt.constants)
-    assert spend_info.puzzle.to_program() == puzzle
+    assert spend_info.puzzle == puzzle.to_serialized()
 
 
 @pytest.mark.anyio
@@ -275,8 +275,8 @@ async def test_standard_tx(benchmark_runner: BenchmarkRunner) -> None:
 
     with benchmark_runner.assert_runtime(seconds=0.1):
         total_cost = 0
-        for i in range(0, 1000):
-            cost, _result = puzzle_program.run_with_cost(test_constants.MAX_BLOCK_COST_KLVM, solution_program)
+        for i in range(1000):
+            cost, _result = run_with_cost(puzzle_program, test_constants.MAX_BLOCK_COST_KLVM, solution_program)
             total_cost += cost
 
 
@@ -287,8 +287,8 @@ async def test_get_puzzle_and_solution_for_coin_performance(benchmark_runner: Be
 
     assert LARGE_BLOCK.transactions_generator is not None
     # first, list all spent coins in the block
-    _, result = LARGE_BLOCK.transactions_generator.run_with_cost(
-        DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM, [DESERIALIZE_MOD, []]
+    _, result = run_with_cost(
+        LARGE_BLOCK.transactions_generator, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM, [DESERIALIZE_MOD, []]
     )
 
     coin_spends = result.first()

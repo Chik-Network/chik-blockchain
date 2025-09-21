@@ -18,6 +18,7 @@ from packaging.version import Version
 from typing_extensions import Protocol, final
 
 from chik import __version__
+from chik.protocols.outbound_message import Message, NodeType, make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.protocols.protocol_state_machine import message_response_ok
 from chik.protocols.protocol_timing import (
@@ -29,7 +30,6 @@ from chik.protocols.protocol_timing import (
 from chik.protocols.shared_protocol import Capability, Error, Handshake, protocol_version
 from chik.server.api_protocol import ApiMetadata, ApiProtocol
 from chik.server.capabilities import known_active_capabilities
-from chik.server.outbound_message import Message, NodeType, make_msg
 from chik.server.rate_limits import RateLimiter
 from chik.types.peer_info import PeerInfo
 from chik.util.errors import ApiError, ConsensusError, Err, ProtocolError, TimestampError

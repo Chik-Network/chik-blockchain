@@ -24,8 +24,8 @@ from chik_rs.sized_ints import uint16
 from typing_extensions import Protocol, final
 
 from chik import __version__
+from chik.protocols.outbound_message import NodeType
 from chik.rpc.util import wrap_http_handler
-from chik.server.outbound_message import NodeType
 from chik.server.server import (
     ChikServer,
     ssl_context_for_client,
@@ -199,7 +199,7 @@ class RpcServer(Generic[_T_RpcApiProtocol]):
             hostname=self_hostname,
             port=rpc_port,
             max_request_body_size=max_request_body_size,
-            routes=[web.post(route, wrap_http_handler(func)) for (route, func) in self._get_routes().items()],
+            routes=[web.post(route, wrap_http_handler(func, route)) for (route, func) in self._get_routes().items()],
             ssl_context=self.ssl_context,
             prefer_ipv6=self.prefer_ipv6,
         )
@@ -303,7 +303,7 @@ class RpcServer(Generic[_T_RpcApiProtocol]):
     async def close_connection(self, request: dict[str, Any]) -> EndpointResult:
         node_id = hexstr_to_bytes(request["node_id"])
         if self.rpc_api.service.server is None:
-            raise web.HTTPInternalServerError()
+            raise web.HTTPInternalServerError
         connections_to_close = [c for c in self.rpc_api.service.server.get_connections() if c.peer_node_id == node_id]
         if len(connections_to_close) == 0:
             raise ValueError(f"Connection with node_id {node_id.hex()} does not exist")

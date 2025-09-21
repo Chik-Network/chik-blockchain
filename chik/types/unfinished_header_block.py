@@ -3,12 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from chik_rs import Foliage, FoliageTransactionBlock, RewardChainBlockUnfinished
+from chik_rs import EndOfSubSlotBundle, Foliage, FoliageTransactionBlock, RewardChainBlockUnfinished
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint128
 
 from chik.types.blockchain_format.vdf import VDFProof
-from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
 from chik.util.streamable import Streamable, streamable
 
 

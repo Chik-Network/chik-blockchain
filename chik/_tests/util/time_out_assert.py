@@ -11,11 +11,13 @@ from inspect import getframeinfo, stack
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Protocol, TypeVar, cast, final
 
+from typing_extensions import Self
+
 import chik
 import chik._tests
 from chik._tests import ether
+from chik.protocols.outbound_message import Message
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
-from chik.server.outbound_message import Message
 from chik.util.timing import adjusted_timeout
 
 log = logging.getLogger(__name__)
@@ -37,7 +39,7 @@ class DataTypeProtocol(Protocol):
     __match_args__: ClassVar[tuple[str, ...]] = ()
 
     @classmethod
-    def unmarshal(cls: type[T], marshalled: dict[str, Any]) -> T: ...
+    def unmarshal(cls, marshalled: dict[str, Any]) -> Self: ...
 
     def marshal(self) -> dict[str, Any]: ...
 

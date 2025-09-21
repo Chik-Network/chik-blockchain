@@ -2,21 +2,16 @@ from __future__ import annotations
 
 from typing import Optional, Union
 
-from chik_rs import ConsensusConstants
+from chik_rs import BlockRecord, ChallengeBlockInfo, ConsensusConstants, FullBlock, HeaderBlock, SubEpochSummary
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64
 
-from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
 from chik.consensus.deficit import calculate_deficit
 from chik.consensus.difficulty_adjustment import get_next_sub_slot_iters_and_difficulty
 from chik.consensus.make_sub_epoch_summary import make_sub_epoch_summary
 from chik.consensus.pot_iterations import is_overflow_block
 from chik.types.blockchain_format.classgroup import ClassgroupElement
-from chik.types.blockchain_format.slots import ChallengeBlockInfo
-from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
-from chik.types.full_block import FullBlock
-from chik.types.header_block import HeaderBlock
 from chik.util.errors import Err
 
 

@@ -25,7 +25,7 @@ from chik_rs.sized_bytes import bytes32
 from typing_extensions import dataclass_transform
 
 from chik.util.byte_types import hexstr_to_bytes
-from chik.util.default_root import DEFAULT_ROOT_PATH
+from chik.util.default_root import DEFAULT_KEYS_ROOT_PATH, DEFAULT_ROOT_PATH
 from chik.util.streamable import is_type_SpecificOptional
 
 SyncCmd = Callable[..., None]
@@ -45,11 +45,11 @@ ChikCommand = Union[SyncChikCommand, AsyncChikCommand]
 
 
 def option(*param_decls: str, **kwargs: Any) -> Any:
-    if sys.version_info < (3, 10):  # versions < 3.10 don't know about kw_only and they complain about lacks of defaults
+    if sys.version_info >= (3, 10):
+        default_default = MISSING
+    else:  # versions < 3.10 don't know about kw_only and they complain about lacks of defaults
         # Can't get coverage on this because we only test on one version
         default_default = None  # pragma: no cover
-    else:
-        default_default = MISSING
 
     return field(
         metadata=dict(
@@ -68,6 +68,7 @@ class ChikCliContext:
     context_dict_key: ClassVar[str] = "_chik_cli_context"
 
     root_path: pathlib.Path = DEFAULT_ROOT_PATH
+    keys_root_path: pathlib.Path = DEFAULT_KEYS_ROOT_PATH
     expected_prefix: Optional[str] = None
     rpc_port: Optional[int] = None
     keys_fingerprint: Optional[int] = None
@@ -269,15 +270,15 @@ def chik_command(
     def _chik_command(cls: type[ChikCommand]) -> type[ChikCommand]:
         # The type ignores here are largely due to the fact that the class information is not preserved after being
         # passed through the dataclass wrapper.  Not sure what to do about this right now.
-        if sys.version_info < (3, 10):  # pragma: no cover
-            # stuff below 3.10 doesn't know about kw_only
-            wrapped_cls: type[ChikCommand] = dataclass(
-                frozen=True,
-            )(cls)
-        else:
+        if sys.version_info >= (3, 10):
             wrapped_cls: type[ChikCommand] = dataclass(
                 frozen=True,
                 kw_only=True,
+            )(cls)
+        else:  # pragma: no cover
+            # stuff below 3.10 doesn't know about kw_only
+            wrapped_cls: type[ChikCommand] = dataclass(
+                frozen=True,
             )(cls)
 
         metadata = Metadata(
@@ -315,9 +316,9 @@ def get_chik_command_metadata(cls: type[ChikCommand]) -> Metadata:
 
 @dataclass_transform(frozen_default=True)
 def command_helper(cls: type[Any]) -> type[Any]:
-    if sys.version_info < (3, 10):  # stuff below 3.10 doesn't support kw_only
-        new_cls = dataclass(frozen=True)(cls)  # pragma: no cover
-    else:
+    if sys.version_info >= (3, 10):
         new_cls = dataclass(frozen=True, kw_only=True)(cls)
+    else:  # stuff below 3.10 doesn't support kw_only
+        new_cls = dataclass(frozen=True)(cls)  # pragma: no cover
     setattr(new_cls, COMMAND_HELPER_ATTRIBUTE_NAME, True)
     return new_cls

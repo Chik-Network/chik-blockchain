@@ -2,12 +2,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-import chik_rs
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 from typing_extensions import Protocol
-
-BlockRecord = chik_rs.BlockRecord
 
 
 class BlockRecordProtocol(Protocol):

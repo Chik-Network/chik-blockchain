@@ -3,14 +3,11 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, ClassVar, Optional, cast
 
-from chik_rs import SubEpochChallengeSegment, SubEpochSegments
+from chik_rs import BlockRecord, HeaderBlock, SubEpochChallengeSegment, SubEpochSegments, SubEpochSummary
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
 
-from chik.consensus.block_record import BlockRecord
-from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.blockchain_format.vdf import VDFInfo
-from chik.types.header_block import HeaderBlock
 
 
 # implements BlockchainInterface

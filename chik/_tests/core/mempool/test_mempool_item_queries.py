@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from chik_rs import AugSchemeMPL, Coin, Program
+from chik_rs import AugSchemeMPL, Coin, CoinSpend, Program, SpendBundle
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
@@ -13,10 +13,8 @@ from chik.full_node.fee_estimation import MempoolInfo
 from chik.full_node.mempool import Mempool
 from chik.types.blockchain_format.program import INFINITE_COST
 from chik.types.klvm_cost import KLVMCost
-from chik.types.coin_spend import CoinSpend
 from chik.types.fee_rate import FeeRate
 from chik.types.mempool_item import MempoolItem
-from chik.types.spend_bundle import SpendBundle
 
 MEMPOOL_INFO = MempoolInfo(
     max_size_in_cost=KLVMCost(uint64(INFINITE_COST * 10)),

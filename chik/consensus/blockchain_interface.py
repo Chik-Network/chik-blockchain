@@ -2,13 +2,9 @@ from __future__ import annotations
 
 from typing import Optional, Protocol
 
-from chik_rs import SubEpochChallengeSegment
+from chik_rs import BlockRecord, HeaderBlock, SubEpochChallengeSegment, SubEpochSummary
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
-
-from chik.consensus.block_record import BlockRecord
-from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
-from chik.types.header_block import HeaderBlock
 
 
 class BlockRecordsProtocol(Protocol):

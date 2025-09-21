@@ -4,19 +4,20 @@ import re
 from typing import Any
 
 import pytest
+from chik_rs import SpendBundle
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
 
-from chik.rpc.full_node_rpc_api import FullNodeRpcApi
-from chik.rpc.full_node_rpc_client import FullNodeRpcClient
+from chik.full_node.full_node_rpc_api import FullNodeRpcApi
+from chik.full_node.full_node_rpc_client import FullNodeRpcClient
+from chik.server.aliases import WalletService
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.simulator_protocol import FarmNewBlockProtocol
 from chik.simulator.start_simulator import SimulatorFullNodeService
 from chik.simulator.wallet_tools import WalletTool
-from chik.types.aliases import WalletService
 from chik.types.blockchain_format.coin import Coin
-from chik.types.spend_bundle import SpendBundle
+from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 
 
 @pytest.fixture(scope="function")
@@ -37,7 +38,8 @@ async def setup_node_and_rpc(
     )
     full_node_rpc_api = FullNodeRpcApi(full_node_api.full_node)
 
-    ph = await wallet.get_new_puzzlehash()
+    async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
+        ph = await action_scope.get_puzzle_hash(wallet.wallet_state_manager)
 
     for i in range(4):
         await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph))

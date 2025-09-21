@@ -17,13 +17,11 @@ from chik_rs.sized_ints import uint16, uint32, uint64
 from chik.cmds.param_types import AmountParamType, Bytes32ParamType, CliAmount, cli_amount_none
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.daemon.keychain_proxy import KeychainProxy, connect_to_keychain_and_validate
-from chik.rpc.data_layer_rpc_client import DataLayerRpcClient
-from chik.rpc.farmer_rpc_client import FarmerRpcClient
-from chik.rpc.full_node_rpc_client import FullNodeRpcClient
-from chik.rpc.harvester_rpc_client import HarvesterRpcClient
+from chik.data_layer.data_layer_rpc_client import DataLayerRpcClient
+from chik.farmer.farmer_rpc_client import FarmerRpcClient
+from chik.full_node.full_node_rpc_client import FullNodeRpcClient
+from chik.harvester.harvester_rpc_client import HarvesterRpcClient
 from chik.rpc.rpc_client import ResponseFailureError, RpcClient
-from chik.rpc.wallet_request_types import LogIn
-from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.simulator_full_node_rpc_client import SimulatorFullNodeRpcClient
 from chik.types.mempool_submission_status import MempoolSubmissionStatus
 from chik.util.config import load_config
@@ -33,6 +31,8 @@ from chik.util.streamable import Streamable, streamable
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.tx_config import CoinSelectionConfig, CoinSelectionConfigLoader, TXConfig, TXConfigLoader
+from chik.wallet.wallet_request_types import LogIn
+from chik.wallet.wallet_rpc_client import WalletRpcClient
 
 NODE_TYPES: dict[str, type[RpcClient]] = {
     "base": RpcClient,
@@ -141,9 +141,12 @@ async def get_any_service_client(
 
             if tb is not None:
                 print(f"Traceback:\n{tb}")
+        except (click.ClickException, click.Abort):
+            # this includes CliRpcConnectionError which is a subclass of click.ClickException
+            # raising here allows click to do it's normal click error handling
+            raise
         except Exception as e:  # this is only here to make the errors more user-friendly.
-            if not consume_errors or isinstance(e, (CliRpcConnectionError, click.Abort)):
-                # CliRpcConnectionError will be handled by click.
+            if not consume_errors:
                 raise
             print(f"Exception from '{node_type}' {e}:\n{traceback.format_exc()}")
 
@@ -264,7 +267,7 @@ def cli_confirm(input_message: str, abort_message: str = "Did not confirm. Abort
     response = input(input_message).lower()
     if response not in {"y", "yes"}:
         print(abort_message)
-        raise click.Abort()
+        raise click.Abort
 
 
 def coin_selection_args(func: Callable[..., None]) -> Callable[..., None]:

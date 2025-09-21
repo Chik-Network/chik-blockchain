@@ -3,14 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from chik_rs import CoinSpend
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
 
 from chik.consensus.condition_costs import ConditionCost
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.program import Program
-from chik.types.coin_spend import CoinSpend
+from chik.types.blockchain_format.program import Program, run_with_cost
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.util.errors import Err, ValidationError
 
@@ -26,7 +26,7 @@ def compute_spend_hints_and_additions(
     *,
     max_cost: int = DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM,
 ) -> tuple[dict[bytes32, HintedCoin], int]:
-    cost, result_program = cs.puzzle_reveal.run_with_cost(max_cost, cs.solution)
+    cost, result_program = run_with_cost(cs.puzzle_reveal, max_cost, cs.solution)
 
     hinted_coins: dict[bytes32, HintedCoin] = {}
     for condition in result_program.as_iter():

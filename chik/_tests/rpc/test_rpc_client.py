@@ -9,9 +9,9 @@ import pytest
 from chik_rs.sized_ints import uint16
 
 from chik._tests.util.misc import Marks, RecordingWebServer, datacases
+from chik.protocols.outbound_message import NodeType
 from chik.rpc.rpc_client import ResponseFailureError, RpcClient
 from chik.rpc.rpc_server import RpcServer
-from chik.server.outbound_message import NodeType
 
 non_fetch_client_methods = {
     RpcClient.create,

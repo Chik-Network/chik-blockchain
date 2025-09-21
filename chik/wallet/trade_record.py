@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional, TypeVar
+from typing import Any, Optional
 
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64
+from typing_extensions import Self
 
 from chik.types.blockchain_format.coin import Coin
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.trading.offer import Offer
 from chik.wallet.trading.trade_status import TradeStatus
-
-_T_TradeRecord = TypeVar("_T_TradeRecord", bound="TradeRecordOld")
 
 
 @streamable
@@ -51,9 +50,7 @@ class TradeRecordOld(Streamable):
         return formatted
 
     @classmethod
-    def from_json_dict_convenience(
-        cls: type[_T_TradeRecord], record: dict[str, Any], offer: str = ""
-    ) -> _T_TradeRecord:
+    def from_json_dict_convenience(cls, record: dict[str, Any], offer: str = "") -> Self:
         new_record = record.copy()
         new_record["status"] = TradeStatus[record["status"]].value
         del new_record["summary"]

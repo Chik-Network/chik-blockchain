@@ -16,8 +16,8 @@ from chik._tests.environments.wallet import STANDARD_TX_ENDPOINT_ARGS, WalletSta
 from chik.cmds.cmd_helpers import NeedsCoinSelectionConfig, NeedsWalletRPC, WalletClientInfo
 from chik.cmds.coins import CombineCMD, ListCMD, SplitCMD
 from chik.cmds.param_types import CliAmount, cli_amount_none
-from chik.rpc.wallet_request_types import GetSyncStatusResponse
 from chik.wallet.cat_wallet.cat_wallet import CATWallet
+from chik.wallet.wallet_request_types import GetSyncStatusResponse
 
 ONE_TRILLION = 1_000_000_000_000
 

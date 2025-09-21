@@ -4,10 +4,10 @@ import random
 from dataclasses import dataclass
 
 import pytest
+from chik_rs import BlockRecord
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
 
-from chik.consensus.block_record import BlockRecord
 from chik.util.block_cache import BlockCache
 
 

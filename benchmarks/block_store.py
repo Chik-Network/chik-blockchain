@@ -7,7 +7,18 @@ import sys
 from pathlib import Path
 from time import monotonic
 
-from chik_rs import Foliage, FoliageBlockData, FoliageTransactionBlock, PoolTarget, RewardChainBlock, TransactionsInfo
+from chik_rs import (
+    BlockRecord,
+    Foliage,
+    FoliageBlockData,
+    FoliageTransactionBlock,
+    FullBlock,
+    PoolTarget,
+    ProofOfSpace,
+    RewardChainBlock,
+    SubEpochSummary,
+    TransactionsInfo,
+)
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64, uint128
 
@@ -23,12 +34,8 @@ from chik._tests.util.benchmarks import (
     rand_vdf_proof,
     rewards,
 )
-from chik.consensus.block_record import BlockRecord
 from chik.full_node.block_store import BlockStore
-from chik.types.blockchain_format.proof_of_space import ProofOfSpace
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
-from chik.types.full_block import FullBlock
 
 # to run this benchmark:
 # python -m benchmarks.coin_store

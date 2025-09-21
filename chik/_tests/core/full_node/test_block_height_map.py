@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
+from chik_rs import SubEpochSummary
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32
 
 from chik._tests.util.db_connection import DBConnection
 from chik.full_node.block_height_map import BlockHeightMap, SesCache
-from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.util.db_wrapper import DBWrapper2
 from chik.util.files import write_file_async
 
@@ -511,7 +511,7 @@ class TestBlockHeightMap:
                 assert len(new_heights) == 4000 * 32
                 # pytest doesn't behave very well comparing large buffers
                 # (when the test fails). Compare small portions at a time instead
-                for idx in range(0, 2000):
+                for idx in range(2000):
                     assert new_heights[idx * 32 : idx * 32 + 32] == gen_block_hash(idx)
 
 

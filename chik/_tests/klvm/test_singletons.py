@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 import pytest
-from chik_rs import AugSchemeMPL, G1Element, G2Element, PrivateKey
+from chik_rs import AugSchemeMPL, CoinSpend, G1Element, G2Element, PrivateKey, SpendBundle
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
 
@@ -13,9 +13,8 @@ from chik._tests.util.spend_sim import CostLogger, SimClient, SpendSim, sim_and_
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.coin_spend import CoinSpend, make_spend
+from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
-from chik.types.spend_bundle import SpendBundle
 from chik.util.errors import Err
 from chik.wallet.lineage_proof import LineageProof
 from chik.wallet.puzzles import p2_conditions, p2_delegated_puzzle_or_hidden_puzzle

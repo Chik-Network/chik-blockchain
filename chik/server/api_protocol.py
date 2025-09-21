@@ -9,8 +9,8 @@ from typing import Callable, ClassVar, Optional, TypeVar, Union, final, get_type
 
 from typing_extensions import Concatenate, ParamSpec, Protocol
 
+from chik.protocols.outbound_message import Message
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
-from chik.server.outbound_message import Message
 from chik.util.streamable import Streamable
 
 

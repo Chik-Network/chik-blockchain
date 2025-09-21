@@ -17,15 +17,15 @@ from typing_extensions import Protocol
 from chik._tests.core.data_layer.util import ChikRoot
 from chik._tests.util.misc import closing_chik_root_popen
 from chik.daemon.client import DaemonProxy, connect_to_daemon_and_validate
-from chik.rpc.data_layer_rpc_client import DataLayerRpcClient
-from chik.rpc.farmer_rpc_client import FarmerRpcClient
-from chik.rpc.full_node_rpc_client import FullNodeRpcClient
-from chik.rpc.harvester_rpc_client import HarvesterRpcClient
+from chik.data_layer.data_layer_rpc_client import DataLayerRpcClient
+from chik.farmer.farmer_rpc_client import FarmerRpcClient
+from chik.full_node.full_node_rpc_client import FullNodeRpcClient
+from chik.harvester.harvester_rpc_client import HarvesterRpcClient
 from chik.rpc.rpc_client import RpcClient
-from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.simulator.socket import find_available_listen_port
 from chik.util.config import lock_and_load_config, save_config
 from chik.util.timing import adjusted_timeout
+from chik.wallet.wallet_rpc_client import WalletRpcClient
 
 if sys.platform == "win32" or sys.platform == "cygwin":
     termination_signals = [signal.SIGBREAK, signal.SIGINT, signal.SIGTERM]

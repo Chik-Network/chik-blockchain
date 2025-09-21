@@ -3,17 +3,19 @@ from __future__ import annotations
 import json
 import logging
 from sqlite3 import Row
-from typing import Optional, TypeVar, Union
+from typing import Optional, Union
 
+from chik_rs import CoinSpend
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
-from klvm.casts import int_from_bytes
+from typing_extensions import Self
 
+from chik.consensus.condition_tools import conditions_dict_for_solution
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.coin import Coin
-from chik.types.coin_spend import CoinSpend
+from chik.types.blockchain_format.program import Program
 from chik.types.condition_opcodes import ConditionOpcode
-from chik.util.condition_tools import conditions_dict_for_solution
+from chik.util.casts import int_from_bytes
 from chik.util.db_wrapper import DBWrapper2, execute_fetchone
 from chik.wallet import singleton
 from chik.wallet.lineage_proof import LineageProof
@@ -21,14 +23,13 @@ from chik.wallet.singleton import get_inner_puzzle_from_singleton, get_singleton
 from chik.wallet.singleton_record import SingletonRecord
 
 log = logging.getLogger(__name__)
-_T_WalletSingletonStore = TypeVar("_T_WalletSingletonStore", bound="WalletSingletonStore")
 
 
 class WalletSingletonStore:
     db_wrapper: DBWrapper2
 
     @classmethod
-    async def create(cls: type[_T_WalletSingletonStore], wrapper: DBWrapper2) -> _T_WalletSingletonStore:
+    async def create(cls, wrapper: DBWrapper2) -> Self:
         self = cls()
         self.db_wrapper = wrapper
 
@@ -111,7 +112,7 @@ class WalletSingletonStore:
         if inner_puz is None:  # pragma: no cover
             raise RuntimeError("Could not get inner puzzle from puzzle reveal in coin spend %s", coin_state)
 
-        lineage_bytes = [x.as_atom() for x in coin_state.solution.to_program().first().as_iter()]
+        lineage_bytes = [x.as_atom() for x in Program.from_serialized(coin_state.solution).first().as_iter()]
         if len(lineage_bytes) == 2:
             lineage_proof = LineageProof(bytes32(lineage_bytes[0]), None, uint64(int_from_bytes(lineage_bytes[1])))
         else:

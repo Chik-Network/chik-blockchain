@@ -49,11 +49,18 @@ from chik._tests.util.setup_nodes import (
 )
 from chik._tests.util.spend_sim import CostLogger
 from chik._tests.util.time_out_assert import time_out_assert
+from chik.farmer.farmer_rpc_client import FarmerRpcClient
 from chik.full_node.full_node_api import FullNodeAPI
-from chik.rpc.farmer_rpc_client import FarmerRpcClient
-from chik.rpc.harvester_rpc_client import HarvesterRpcClient
-from chik.rpc.wallet_rpc_client import WalletRpcClient
+from chik.harvester.harvester_rpc_client import HarvesterRpcClient
 from chik.seeder.dns_server import DNSServer
+from chik.server.aliases import (
+    CrawlerService,
+    FarmerService,
+    FullNodeService,
+    HarvesterService,
+    TimelordService,
+    WalletService,
+)
 from chik.server.server import ChikServer
 from chik.server.start_service import Service
 from chik.simulator.full_node_simulator import FullNodeSimulator
@@ -67,16 +74,6 @@ from chik.simulator.setup_services import (
 )
 from chik.simulator.start_simulator import SimulatorFullNodeService
 from chik.simulator.wallet_tools import WalletTool
-
-# Set spawn after stdlib imports, but before other imports
-from chik.types.aliases import (
-    CrawlerService,
-    FarmerService,
-    FullNodeService,
-    HarvesterService,
-    TimelordService,
-    WalletService,
-)
 from chik.types.peer_info import PeerInfo
 from chik.util.config import create_default_chik_config, lock_and_load_config
 from chik.util.db_wrapper import generate_in_memory_db_uri
@@ -84,7 +81,10 @@ from chik.util.keychain import Keychain
 from chik.util.task_timing import main as task_instrumentation_main
 from chik.util.task_timing import start_task_instrumentation, stop_task_instrumentation
 from chik.wallet.wallet_node import WalletNode
+from chik.wallet.wallet_rpc_client import WalletRpcClient
 
+# TODO: review how this is now after other imports and before some stdlib imports...  :[
+# Set spawn after stdlib imports, but before other imports
 multiprocessing.set_start_method("spawn")
 
 from dataclasses import replace
@@ -94,7 +94,7 @@ from chik_rs.sized_ints import uint128
 
 from chik._tests.environments.wallet import WalletEnvironment, WalletState, WalletTestFramework
 from chik._tests.util.setup_nodes import setup_farmer_multi_harvester
-from chik.rpc.full_node_rpc_client import FullNodeRpcClient
+from chik.full_node.full_node_rpc_client import FullNodeRpcClient
 from chik.simulator.block_tools import BlockTools, create_block_tools_async, test_constants
 from chik.simulator.keyring import TempKeyring
 from chik.util.keyring_wrapper import KeyringWrapper
@@ -196,12 +196,12 @@ def get_keychain():
 class ConsensusMode(ComparableEnum):
     PLAIN = 0
     HARD_FORK_2_0 = 1
-    SOFT_FORK_6 = 2
+    HARD_FORK_3_0 = 2
 
 
 @pytest.fixture(
     scope="session",
-    params=[ConsensusMode.PLAIN, ConsensusMode.HARD_FORK_2_0, ConsensusMode.SOFT_FORK_6],
+    params=[ConsensusMode.PLAIN, ConsensusMode.HARD_FORK_2_0, ConsensusMode.HARD_FORK_3_0],
 )
 def consensus_mode(request):
     return request.param
@@ -217,10 +217,16 @@ def blockchain_constants(consensus_mode: ConsensusMode) -> ConsensusConstants:
             PLOT_FILTER_64_HEIGHT=uint32(15),
             PLOT_FILTER_32_HEIGHT=uint32(20),
         )
-    if consensus_mode >= ConsensusMode.SOFT_FORK_6:
+
+    if consensus_mode >= ConsensusMode.HARD_FORK_3_0:
         ret = ret.replace(
-            SOFT_FORK6_HEIGHT=uint32(2),
+            HARD_FORK_HEIGHT=uint32(2),
+            PLOT_FILTER_128_HEIGHT=uint32(10),
+            PLOT_FILTER_64_HEIGHT=uint32(15),
+            PLOT_FILTER_32_HEIGHT=uint32(20),
+            HARD_FORK2_HEIGHT=uint32(2),
         )
+
     return ret
 
 
@@ -466,6 +472,11 @@ def default_10000_blocks_compact(bt, consensus_mode):
         normalized_to_identity_cc_sp=True,
         seed=b"1000_compact",
     )
+
+
+# If you add another test chain, don't forget to also add a "build_test_chains"
+# generator to chik/_tests/blockchain/test_build_chains.py as well as a test in
+# the same file.
 
 
 @pytest.fixture(scope="function")
@@ -1236,8 +1247,8 @@ async def farmer_harvester_2_simulators_zero_bits_plot_filter(
     ]
 ]:
     zero_bit_plot_filter_consts = test_constants_modified.replace(
-        NUMBER_ZERO_BITS_PLOT_FILTER=uint8(0),
-        NUM_SPS_SUB_SLOT=uint32(8),
+        NUMBER_ZERO_BITS_PLOT_FILTER_V1=uint8(0),
+        NUM_SPS_SUB_SLOT=uint8(8),
     )
 
     async with AsyncExitStack() as async_exit_stack:

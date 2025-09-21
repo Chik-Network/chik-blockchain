@@ -32,8 +32,8 @@ from chik.protocols.harvester_protocol import (
     PlotSyncResponse,
     PlotSyncStart,
 )
+from chik.protocols.outbound_message import make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
-from chik.server.outbound_message import make_msg
 from chik.server.ws_connection import WSChikConnection
 
 log = logging.getLogger(__name__)

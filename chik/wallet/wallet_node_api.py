@@ -3,9 +3,11 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, ClassVar, cast
 
+from chik_rs import RespondToPhUpdates
+
 from chik.protocols import full_node_protocol, introducer_protocol, wallet_protocol
+from chik.protocols.outbound_message import NodeType
 from chik.server.api_protocol import ApiMetadata
-from chik.server.outbound_message import NodeType
 from chik.server.ws_connection import WSChikConnection
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.util.errors import Err
@@ -37,14 +39,12 @@ class WalletNodeAPI:
         """
         The full node has rejected our request for removals.
         """
-        pass
 
     @metadata.request()
     async def reject_additions_request(self, response: wallet_protocol.RejectAdditionsRequest):
         """
         The full node has rejected our request for additions.
         """
-        pass
 
     @metadata.request(peer_required=True, execute_task=True)
     async def new_peak_wallet(self, peak: wallet_protocol.NewPeakWallet, peer: WSChikConnection):
@@ -81,7 +81,6 @@ class WalletNodeAPI:
         """
         The full node has rejected our request for a header.
         """
-        pass
 
     @metadata.request()
     async def respond_block_header(self, response: wallet_protocol.RespondBlockHeader):
@@ -187,7 +186,7 @@ class WalletNodeAPI:
     #       subclass, as you might expect it wouldn't be.  Maybe we can get the
     #       protocol working right back at the api.request definition.
     @metadata.request()  # type: ignore[type-var]
-    async def respond_to_ph_updates(self, request: wallet_protocol.RespondToPhUpdates):
+    async def respond_to_ph_updates(self, request: RespondToPhUpdates):
         pass
 
     @metadata.request()

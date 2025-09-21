@@ -12,7 +12,7 @@ from chik_rs.sized_ints import uint16
 
 from chik.apis import ApiProtocolRegistry
 from chik.full_node.full_node import FullNode
-from chik.server.outbound_message import NodeType
+from chik.protocols.outbound_message import NodeType
 from chik.server.signal_handlers import SignalHandlers
 from chik.server.start_service import Service, async_run
 from chik.simulator.block_tools import BlockTools, test_constants

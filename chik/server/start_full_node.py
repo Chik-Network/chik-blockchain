@@ -14,13 +14,14 @@ from chik.consensus.constants import replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS, update_testnet_overrides
 from chik.full_node.full_node import FullNode
 from chik.full_node.full_node_api import FullNodeAPI
-from chik.rpc.full_node_rpc_api import FullNodeRpcApi
-from chik.server.outbound_message import NodeType
+from chik.full_node.full_node_rpc_api import FullNodeRpcApi
+from chik.protocols.outbound_message import NodeType
+from chik.server.aliases import FullNodeService
+from chik.server.resolve_peer_info import get_unresolved_peer_infos
 from chik.server.signal_handlers import SignalHandlers
 from chik.server.start_service import RpcInfo, Service, async_run
-from chik.types.aliases import FullNodeService
 from chik.util.chik_logging import initialize_service_logging
-from chik.util.config import get_unresolved_peer_infos, load_config, load_config_cli
+from chik.util.config import load_config, load_config_cli
 from chik.util.default_root import resolve_root_path
 from chik.util.task_timing import maybe_manage_task_instrumentation
 

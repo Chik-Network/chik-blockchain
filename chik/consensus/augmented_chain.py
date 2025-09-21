@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar, Optional, cast
 
+from chik_rs import BlockRecord, FullBlock
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
 
-from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlocksProtocol
-from chik.types.full_block import FullBlock
 from chik.util.errors import Err
 
 

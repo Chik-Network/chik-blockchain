@@ -8,11 +8,11 @@ from chik_puzzles_py.programs import CAT_PUZZLE, CAT_PUZZLE_HASH
 from chik_rs import G2Element
 from chik_rs.sized_bytes import bytes32
 
+from chik.consensus.condition_tools import conditions_dict_for_solution
 from chik.types.blockchain_format.coin import Coin, coin_as_list
 from chik.types.blockchain_format.program import INFINITE_COST, Program
 from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
-from chik.util.condition_tools import conditions_dict_for_solution
 from chik.wallet.lineage_proof import LineageProof
 from chik.wallet.uncurried_puzzle import UncurriedPuzzle
 from chik.wallet.util.curry_and_treehash import calculate_hash_of_quoted_mod_hash

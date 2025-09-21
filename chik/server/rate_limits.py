@@ -6,9 +6,9 @@ import time
 from collections import Counter
 from typing import Optional
 
+from chik.protocols.outbound_message import Message
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.protocols.shared_protocol import Capability
-from chik.server.outbound_message import Message
 from chik.server.rate_limit_numbers import RLSettings, Unlimited, get_rate_limits_to_use
 
 log = logging.getLogger(__name__)

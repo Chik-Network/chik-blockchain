@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from typing import Optional
 
-from chik_rs import ConsensusConstants
+from chik_rs import BlockRecord, ConsensusConstants
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64, uint128
 
-from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
 from chik.util.significant_bits import count_significant_bits, truncate_to_significant_bits
 

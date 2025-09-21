@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import zstd
-
-from chik.types.full_block import FullBlock
+from chik_rs import FullBlock
 
 LARGE_BLOCK: FullBlock = FullBlock.from_bytes_unchecked(
     zstd.decompress(

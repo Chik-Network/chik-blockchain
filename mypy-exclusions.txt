@@ -53,7 +53,6 @@ chik._tests.core.consensus.test_pot_iterations
 chik._tests.core.custom_types.test_coin
 chik._tests.core.custom_types.test_spend_bundle
 chik._tests.core.daemon.test_daemon
-chik._tests.core.full_node.full_sync.test_full_sync
 chik._tests.core.full_node.stores.test_sync_store
 chik._tests.core.full_node.test_address_manager
 chik._tests.core.full_node.test_node_load
@@ -65,7 +64,6 @@ chik._tests.core.test_crawler_rpc
 chik._tests.core.test_daemon_rpc
 chik._tests.core.test_db_conversion
 chik._tests.core.test_filter
-chik._tests.core.test_full_node_rpc
 chik._tests.core.util.test_config
 chik._tests.core.util.test_file_keyring_synchronization
 chik._tests.core.util.test_files
@@ -83,4 +81,3 @@ chik._tests.util.benchmark_cost
 chik._tests.util.test_full_block_utils
 chik._tests.util.test_misc
 chik._tests.wallet.did_wallet.test_did
-chik._tests.wallet.rpc.test_wallet_rpc

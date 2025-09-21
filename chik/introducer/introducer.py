@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING, Any, ClassVar, Optional, cast
 import dns.asyncresolver
 from chik_rs.sized_ints import uint16, uint64
 
+from chik.protocols.outbound_message import NodeType
 from chik.rpc.rpc_server import StateChangedProtocol, default_get_connections
 from chik.server.introducer_peers import VettedPeer
-from chik.server.outbound_message import NodeType
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 from chik.types.peer_info import TimestampedPeerInfo

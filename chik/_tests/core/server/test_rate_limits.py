@@ -8,9 +8,9 @@ from chik_rs.sized_ints import uint32
 from chik._tests.conftest import node_with_params
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.protocols.full_node_protocol import RejectBlock, RejectBlocks, RespondBlock, RespondBlocks
+from chik.protocols.outbound_message import make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.protocols.shared_protocol import Capability
-from chik.server.outbound_message import make_msg
 from chik.server.rate_limit_numbers import compose_rate_limits, get_rate_limits_to_use
 from chik.server.rate_limit_numbers import rate_limits as rl_numbers
 from chik.server.rate_limits import RateLimiter

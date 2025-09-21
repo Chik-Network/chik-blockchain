@@ -5,11 +5,10 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from chik_rs import G1Element, G2Element
+from chik_rs import G1Element, G2Element, ProofOfSpace
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint16, uint32, uint64
 
-from chik.types.blockchain_format.proof_of_space import ProofOfSpace
 from chik.util.streamable import Streamable, streamable
 
 POOL_PROTOCOL_VERSION = uint8(1)

@@ -6,7 +6,7 @@ from chik_rs.sized_ints import uint64
 
 from chik.plot_sync.util import ErrorCodes, State
 from chik.protocols.harvester_protocol import PlotSyncIdentifier
-from chik.server.outbound_message import NodeType
+from chik.protocols.outbound_message import NodeType
 
 
 class PlotSyncException(Exception):

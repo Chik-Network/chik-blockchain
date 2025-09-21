@@ -3,14 +3,13 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from chik_rs import G2Element
+from chik_rs import CoinSpend, CoinState, G2Element
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
-from chik.protocols.wallet_protocol import CoinState
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.coin_spend import CoinSpend, make_spend
+from chik.types.coin_spend import make_spend
 from chik.util.db_wrapper import DBWrapper2
 from chik.wallet.conditions import AssertCoinAnnouncement, Condition
 from chik.wallet.notification_store import Notification, NotificationStore

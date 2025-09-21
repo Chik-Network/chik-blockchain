@@ -7,15 +7,13 @@ from typing import Optional
 
 import typing_extensions
 import zstd
-from chik_rs import SubEpochChallengeSegment, SubEpochSegments
+from chik_rs import BlockRecord, FullBlock, SubEpochChallengeSegment, SubEpochSegments
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
 
-from chik.consensus.block_record import BlockRecord
-from chik.types.full_block import FullBlock
+from chik.full_node.full_block_utils import GeneratorBlockInfo, block_info_from_block, generator_from_block
 from chik.util.db_wrapper import DBWrapper2, execute_fetchone
 from chik.util.errors import Err
-from chik.util.full_block_utils import GeneratorBlockInfo, block_info_from_block, generator_from_block
 from chik.util.lru_cache import LRUCache
 
 log = logging.getLogger(__name__)
@@ -252,7 +250,7 @@ class BlockStore:
             row = await execute_fetchone(conn, formatted_str, (header_hash,))
             if row is None:
                 return None
-            block_bytes = zstd.decompress(row[0])
+            block_bytes = memoryview(zstd.decompress(row[0]))
 
             try:
                 return block_info_from_block(block_bytes)
@@ -276,7 +274,7 @@ class BlockStore:
             row = await execute_fetchone(conn, formatted_str, (header_hash,))
             if row is None:
                 return None
-            block_bytes = zstd.decompress(row[0])
+            block_bytes = memoryview(zstd.decompress(row[0]))
 
             try:
                 return generator_from_block(block_bytes)
@@ -299,7 +297,7 @@ class BlockStore:
         async with self.db_wrapper.reader_no_transaction() as conn:
             async with conn.execute(formatted_str, list(heights)) as cursor:
                 async for row in cursor:
-                    block_bytes = zstd.decompress(row[0])
+                    block_bytes = memoryview(zstd.decompress(row[0]))
 
                     try:
                         gen = generator_from_block(block_bytes)

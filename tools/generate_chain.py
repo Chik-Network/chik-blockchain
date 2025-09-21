@@ -12,13 +12,13 @@ from typing import Optional
 
 import click
 import zstd
+from chik_rs import SpendBundle
 from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.util.constants import test_constants
 from chik.simulator.block_tools import create_block_tools
 from chik.simulator.keyring import TempKeyring
 from chik.types.blockchain_format.coin import Coin
-from chik.types.spend_bundle import SpendBundle
 from chik.util.chik_logging import initialize_logging
 
 

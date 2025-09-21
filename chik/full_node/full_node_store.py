@@ -6,24 +6,20 @@ import logging
 import time
 from typing import Optional
 
-from chik_rs import ConsensusConstants
+from chik_rs import BlockRecord, ConsensusConstants, EndOfSubSlotBundle, FullBlock, UnfinishedBlock
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64, uint128
 
-from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
 from chik.consensus.difficulty_adjustment import can_finish_sub_and_full_epoch
 from chik.consensus.make_sub_epoch_summary import make_sub_epoch_summary
 from chik.consensus.multiprocess_validation import PreValidationResult
 from chik.consensus.pot_iterations import calculate_sp_interval_iters
-from chik.full_node.signage_point import SignagePoint
+from chik.consensus.signage_point import SignagePoint
 from chik.protocols import timelord_protocol
-from chik.server.outbound_message import Message
+from chik.protocols.outbound_message import Message
 from chik.types.blockchain_format.classgroup import ClassgroupElement
 from chik.types.blockchain_format.vdf import VDFInfo, validate_vdf
-from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
-from chik.types.full_block import FullBlock
-from chik.types.unfinished_block import UnfinishedBlock
 from chik.util.lru_cache import LRUCache
 from chik.util.streamable import Streamable, streamable
 
@@ -833,6 +829,25 @@ class FullNodeStore:
                         return sp
         return None
 
+    def get_signage_point_by_index_and_cc_output(
+        self, cc_signage_point: bytes32, challenge: bytes32, index: uint8
+    ) -> Optional[SignagePoint]:
+        assert len(self.finished_sub_slots) >= 1
+        if cc_signage_point == self.constants.GENESIS_CHALLENGE:
+            return SignagePoint(None, None, None, None)
+        for sub_slot, sps, _ in self.finished_sub_slots:
+            if sub_slot is not None and sub_slot.challenge_chain.get_hash() == challenge:
+                if index == 0:
+                    # first SP in the sub slot
+                    return SignagePoint(None, None, None, None)
+                sp: Optional[SignagePoint] = sps[index]
+                if sp is None:
+                    return None
+                assert sp.cc_vdf is not None
+                if sp.cc_vdf.output.get_hash() == cc_signage_point:
+                    return sp
+        return None
+
     def get_signage_point_by_index(
         self, challenge_hash: bytes32, index: uint8, last_rc_infusion: bytes32
     ) -> Optional[SignagePoint]:
@@ -867,7 +882,7 @@ class FullNodeStore:
 
             if cc_hash == challenge_hash:
                 found_rc_hash = False
-                for i in range(0, index):
+                for i in range(index):
                     sp: Optional[SignagePoint] = sps[i]
                     if sp is not None and sp.rc_vdf is not None and sp.rc_vdf.challenge == last_rc_infusion:
                         found_rc_hash = True

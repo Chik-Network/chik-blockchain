@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from chik.rpc.crawler_rpc_api import CrawlerRpcApi
 from chik.seeder.crawler import Crawler
+from chik.seeder.crawler_rpc_api import CrawlerRpcApi
 
 
 @pytest.mark.anyio

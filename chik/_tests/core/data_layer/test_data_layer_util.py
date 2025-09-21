@@ -10,6 +10,7 @@ from _pytest.fixtures import SubRequest
 from chik_rs.sized_bytes import bytes32
 
 from chik._tests.util.misc import Marks, datacases, measure_runtime
+from chik.data_layer.data_layer_rpc_util import MarshallableProtocol
 from chik.data_layer.data_layer_util import (
     ClearPendingRootsRequest,
     ClearPendingRootsResponse,
@@ -22,7 +23,6 @@ from chik.data_layer.data_layer_util import (
     key_hash,
     leaf_hash,
 )
-from chik.rpc.data_layer_rpc_util import MarshallableProtocol
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 

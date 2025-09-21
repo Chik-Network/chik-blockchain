@@ -1,0 +1,277 @@
+interfaces = []
+exclude = ["**/*__pycache__", "**/*egg-info", "**/docs", "**/tests", "**/venv"]
+source_roots = ["."]
+
+[[modules]]
+path = "chik.protocols"
+depends_on = ["chik.types", "chik.util"]
+
+[[modules]]
+path = "chik.pools"
+depends_on = [
+    "chik.types",
+    "chik.util",
+    { path = "chik.wallet", deprecated = false },
+    { path = "chik.server", deprecated = false },
+    { path = "chik.protocols", deprecated = false },
+    { path = "chik.consensus", deprecated = false },
+]
+
+[[modules]]
+path = "chik.consensus"
+depends_on = [
+    "chik.types",
+    "chik.util",
+    { path = "chik.full_node", deprecated = false },
+]
+
+[[modules]]
+path = "chik.server"
+depends_on = [
+    "chik.protocols",
+    "chik.types",
+    "chik.util",
+    { path = "chik.ssl", deprecated = false },
+    # these ones can be removed by getting rid of `chik.server.aliases`
+    # and/or the `start_*.py` scripts, which can go in their respective modules
+    { path = "chik.rpc", deprecated = false },
+    { path = "chik.full_node", deprecated = false },
+    { path = "chik.data_layer", deprecated = false },
+    { path = "chik.farmer", deprecated = false },
+    { path = "chik.simulator", deprecated = false },
+    { path = "chik.daemon", deprecated = false },
+    { path = "chik.harvester", deprecated = false },
+    { path = "chik.timelord", deprecated = false },
+    { path = "chik.introducer", deprecated = false },
+    { path = "chik.consensus", deprecated = false },
+    { path = "chik.wallet", deprecated = false },
+    { path = "chik.apis", deprecated = false },
+    { path = "chik.seeder", deprecated = false },
+]
+
+[[modules]]
+path = "chik.simulator"
+depends_on = [
+    "chik.types",
+    "chik.util",
+    { path = "chik.server", deprecated = false },
+    { path = "chik.plotting", deprecated = false },
+    { path = "chik.full_node", deprecated = false },
+    { path = "chik.wallet", deprecated = false },
+    { path = "chik.seeder", deprecated = false },
+    { path = "chik.consensus", deprecated = false },
+    { path = "chik.apis", deprecated = false },
+    { path = "chik.cmds", deprecated = false },
+    { path = "chik.protocols", deprecated = false },
+    { path = "chik.timelord", deprecated = false },
+    { path = "chik.daemon", deprecated = false },
+    { path = "chik.ssl", deprecated = false },
+    { path = "chik.rpc", deprecated = false },
+]
+
+[[modules]]
+path = "chik.full_node"
+depends_on = [
+    "chik.types",
+    "chik.util",
+    "chik.consensus",
+    "chik.protocols",
+    "chik.server",
+    { path = "chik.rpc", deprecated = false },
+]
+
+[[modules]]
+path = "chik.data_layer"
+depends_on = [
+    "chik.types",
+    "chik.util",
+    "chik.protocols",
+    { path = "chik.rpc", deprecated = false },
+    { path = "chik.wallet", deprecated = false },
+    { path = "chik.server", deprecated = false },
+    { path = "chik.protocols", deprecated = false },
+]
+
+[[modules]]
+path = "chik.apis"
+depends_on = [
+    { path = "chik.harvester", deprecated = false },
+    { path = "chik.farmer", deprecated = false },
+    { path = "chik.introducer", deprecated = false },
+    { path = "chik.wallet", deprecated = false },
+    { path = "chik.full_node", deprecated = false },
+    { path = "chik.timelord", deprecated = false },
+    { path = "chik.protocols", deprecated = false },
+    { path = "chik.server", deprecated = false },
+]
+
+[[modules]]
+path = "chik.introducer"
+depends_on = [
+    "chik.types",
+    "chik.util",
+    { path = "chik.rpc", deprecated = false },
+    { path = "chik.protocols", deprecated = false },
+    { path = "chik.server", deprecated = false },
+]
+
+[[modules]]
+path = "chik.plot_sync"
+depends_on = [
+    "chik.util",
+    { path = "chik.protocols", deprecated = false },
+    { path = "chik.server", deprecated = false },
+    { path = "chik.plotting", deprecated = false },
+    { path = "chik.consensus", deprecated = false },
+]
+
+[[modules]]
+path = "chik.farmer"
+depends_on = [
+    "chik.types",
+    "chik.util",
+    { path = "chik.protocols", deprecated = false },
+    { path = "chik.pools", deprecated = false },
+    { path = "chik.plot_sync", deprecated = false },
+    { path = "chik.daemon", deprecated = false },
+    { path = "chik.consensus", deprecated = false },
+    { path = "chik.rpc", deprecated = false },
+    { path = "chik.wallet", deprecated = false },
+    { path = "chik.server", deprecated = false },
+    { path = "chik.ssl", deprecated = false },
+    { path = "chik.harvester", deprecated = false },
+]
+
+[[modules]]
+path = "chik.plotters"
+depends_on = [
+    { path = "chik.util", deprecated = false },
+    { path = "chik.plotting", deprecated = false },
+]
+
+[[modules]]
+path = "chik.ssl"
+depends_on = ["chik.util"]
+
+[[modules]]
+path = "chik.timelord"
+depends_on = [
+    "chik.types",
+    "chik.util",
+    { path = "chik.server", deprecated = false },
+    { path = "chik.protocols", deprecated = false },
+    { path = "chik.consensus", deprecated = false },
+    { path = "chik.rpc", deprecated = false },
+]
+
+[[modules]]
+path = "chik.legacy"
+depends_on = ["chik.util"]
+
+[[modules]]
+path = "chik.rpc"
+# this module should probably be disbanded and contents moved to the modules
+# for their respective services
+depends_on = [
+    "chik.types",
+    "chik.util",
+    { path = "chik.server", deprecated = false },
+    { path = "chik.protocols", deprecated = false },
+    { path = "chik.wallet", deprecated = false },
+]
+
+[[modules]]
+path = "chik.harvester"
+depends_on = [
+    "chik.types",
+    "chik.util",
+    { path = "chik.protocols", deprecated = false },
+    { path = "chik.consensus", deprecated = false },
+    { path = "chik.plotting", deprecated = false },
+    { path = "chik.wallet", deprecated = false },
+    { path = "chik.rpc", deprecated = false },
+    { path = "chik.server", deprecated = false },
+    { path = "chik.plot_sync", deprecated = false },
+]
+
+[[modules]]
+path = "chik.cmds"
+depends_on = [
+    "chik.types",
+    "chik.util",
+    { path = "chik.plotters", deprecated = false },
+    { path = "chik.consensus", deprecated = false },
+    { path = "chik.plotting", deprecated = false },
+    { path = "chik.pools", deprecated = false },
+    { path = "chik.daemon", deprecated = false },
+    { path = "chik.ssl", deprecated = false },
+    { path = "chik.farmer", deprecated = false },
+    { path = "chik.full_node", deprecated = false },
+    { path = "chik.harvester", deprecated = false },
+    { path = "chik.wallet", deprecated = false },
+    { path = "chik.rpc", deprecated = false },
+    { path = "chik.server", deprecated = false },
+    { path = "chik.simulator", deprecated = false },
+    { path = "chik.protocols", deprecated = false },
+    { path = "chik.data_layer", deprecated = false },
+]
+
+[[modules]]
+path = "chik.daemon"
+depends_on = [
+    "chik.util",
+    { path = "chik.plotting", deprecated = false },
+    { path = "chik.server", deprecated = false },
+    { path = "chik.cmds", deprecated = false },
+    { path = "chik.wallet", deprecated = false },
+    { path = "chik.plotters", deprecated = false },
+]
+
+[[modules]]
+path = "chik.wallet"
+depends_on = [
+    "chik.types",
+    "chik.util",
+    { path = "chik.server", deprecated = false },
+    { path = "chik.daemon", deprecated = false },
+    { path = "chik.rpc", deprecated = false },
+    { path = "chik.data_layer", deprecated = false },
+    { path = "chik.protocols", deprecated = false },
+    { path = "chik.pools", deprecated = false },
+    { path = "chik.full_node", deprecated = false },
+    { path = "chik.consensus", deprecated = false },
+]
+
+[[modules]]
+path = "chik.types"
+depends_on = ["chik.util"]
+
+[[modules]]
+path = "chik.util"
+
+[[modules]]
+path = "chik.klvm"
+depends_on = []
+
+[[modules]]
+path = "chik.plotting"
+depends_on = [
+    "chik.types",
+    "chik.util",
+    "chik.consensus",
+    { path = "chik.wallet", deprecated = false },
+    { path = "chik.daemon", deprecated = false },
+]
+
+[[modules]]
+path = "chik.seeder"
+depends_on = [
+    "chik.types",
+    "chik.util",
+    { path = "chik.protocols", deprecated = false },
+    { path = "chik.rpc", deprecated = false },
+    { path = "chik.full_node", deprecated = false },
+    { path = "chik.server", deprecated = false },
+    { path = "chik.apis", deprecated = false },
+    { path = "chik.consensus", deprecated = false },
+]

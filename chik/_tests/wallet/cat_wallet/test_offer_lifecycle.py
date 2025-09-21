@@ -10,7 +10,6 @@ from chik_rs.sized_ints import uint64
 from chik._tests.util.spend_sim import CostLogger, SimClient, SpendSim, sim_and_client
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.coin_spend import make_spend
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.wallet.cat_wallet.cat_utils import (
@@ -265,11 +264,9 @@ async def test_complex_offer(cost_logger: CostLogger) -> None:
         valid_spend = tail_offer.to_valid_spend(random_hash)
         real_blue_spend = next(spend for spend in valid_spend.coin_spends if b"hey there" in bytes(spend))
         real_blue_spend_replaced = real_blue_spend.replace(
-            solution=SerializedProgram.from_program(
-                real_blue_spend.solution.to_program().replace(
-                    ffrfrf=Program.to(-113), ffrfrr=Program.to([str_to_tail("blue"), []])
-                )
-            ),
+            solution=Program.from_serialized(real_blue_spend.solution)
+            .replace(ffrfrf=Program.to(-113), ffrfrr=Program.to([str_to_tail("blue"), []]))
+            .to_serialized(),
         )
         valid_spend = WalletSpendBundle(
             [real_blue_spend_replaced, *[spend for spend in valid_spend.coin_spends if spend != real_blue_spend]],

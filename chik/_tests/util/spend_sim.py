@@ -7,18 +7,21 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Optional
 
 import anyio
 from chik_rs import (
     DONT_VALIDATE_SIGNATURE,
+    CoinSpend,
     ConsensusConstants,
     G2Element,
+    SpendBundle,
     get_flags_for_height_and_constants,
     run_block_generator2,
 )
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
+from typing_extensions import Self
 
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.consensus.coinbase import create_farmer_coin, create_pool_coin
@@ -32,16 +35,15 @@ from chik.full_node.mempool_manager import MempoolManager
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import INFINITE_COST
 from chik.types.coin_record import CoinRecord
-from chik.types.coin_spend import CoinSpend
 from chik.types.generator_types import BlockGenerator
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.types.mempool_item import MempoolItem
-from chik.types.spend_bundle import SpendBundle, T_SpendBundle
 from chik.util.db_wrapper import DBWrapper2
 from chik.util.errors import Err, ValidationError
 from chik.util.hash import std_hash
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.util.compute_hints import HintedCoin, compute_spend_hints_and_additions
+from chik.wallet.wallet_spend_bundle import T_SpendBundle
 
 """
 The purpose of this file is to provide a lightweight simulator for the testing of Chiklisp smart contracts.
@@ -105,9 +107,6 @@ class SimFullBlock(Streamable):
     height: uint32  # Note that height is not on a regular FullBlock
 
 
-_T_SimBlockRecord = TypeVar("_T_SimBlockRecord", bound="SimBlockRecord")
-
-
 @streamable
 @dataclass(frozen=True)
 class SimBlockRecord(Streamable):
@@ -120,7 +119,7 @@ class SimBlockRecord(Streamable):
     prev_transaction_block_hash: bytes32
 
     @classmethod
-    def create(cls: type[_T_SimBlockRecord], rci: list[Coin], height: uint32, timestamp: uint64) -> _T_SimBlockRecord:
+    def create(cls, rci: list[Coin], height: uint32, timestamp: uint64) -> Self:
         prev_transaction_block_height = uint32(height - 1 if height > 0 else 0)
         return cls(
             rci,
@@ -142,9 +141,6 @@ class SimStore(Streamable):
     blocks: list[SimFullBlock]
 
 
-_T_SpendSim = TypeVar("_T_SpendSim", bound="SpendSim")
-
-
 class SpendSim:
     db_wrapper: DBWrapper2
     coin_store: CoinStore
@@ -159,8 +155,8 @@ class SpendSim:
     @classmethod
     @contextlib.asynccontextmanager
     async def managed(
-        cls: type[_T_SpendSim], db_path: Optional[Path] = None, defaults: ConsensusConstants = DEFAULT_CONSTANTS
-    ) -> AsyncIterator[_T_SpendSim]:
+        cls, db_path: Optional[Path] = None, defaults: ConsensusConstants = DEFAULT_CONSTANTS
+    ) -> AsyncIterator[Self]:
         self = cls()
         if db_path is None:
             uri = f"file:db_{random.randint(0, 99999999)}?mode=memory&cache=shared"
@@ -223,7 +219,7 @@ class SpendSim:
         coins = set()
         async with self.db_wrapper.reader_no_transaction() as conn:
             cursor = await conn.execute(
-                "SELECT puzzle_hash,coin_parent,amount from coin_record WHERE coinbase=0 AND spent_index==0 ",
+                "SELECT puzzle_hash,coin_parent,amount from coin_record WHERE coinbase=0 AND spent_index <= 0 ",
             )
             rows = await cursor.fetchall()
 
@@ -238,11 +234,7 @@ class SpendSim:
             return None
         return simple_solution_generator(bundle)
 
-    async def farm_block(
-        self,
-        puzzle_hash: bytes32 = bytes32(b"0" * 32),
-        item_inclusion_filter: Optional[Callable[[bytes32], bool]] = None,
-    ) -> tuple[list[Coin], list[Coin]]:
+    async def farm_block(self, puzzle_hash: bytes32 = bytes32(b"0" * 32)) -> tuple[list[Coin], list[Coin]]:
         # Fees get calculated
         fees = uint64(0)
         for item in self.mempool_manager.mempool.all_items():
@@ -250,38 +242,34 @@ class SpendSim:
 
         # Rewards get created
         next_block_height: uint32 = uint32(self.block_height + 1) if len(self.block_records) > 0 else self.block_height
-        pool_coin: Coin = create_pool_coin(
-            next_block_height,
-            puzzle_hash,
-            calculate_pool_reward(next_block_height),
-            self.defaults.GENESIS_CHALLENGE,
-        )
-        farmer_coin: Coin = create_farmer_coin(
-            next_block_height,
-            puzzle_hash,
-            uint64(calculate_base_farmer_reward(next_block_height) + fees),
-            self.defaults.GENESIS_CHALLENGE,
-        )
-        await self.coin_store._add_coin_records(
-            [self.new_coin_record(pool_coin, True), self.new_coin_record(farmer_coin, True)]
-        )
-
+        included_reward_coins = [
+            create_pool_coin(
+                next_block_height,
+                puzzle_hash,
+                calculate_pool_reward(next_block_height),
+                self.defaults.GENESIS_CHALLENGE,
+            ),
+            create_farmer_coin(
+                next_block_height,
+                puzzle_hash,
+                uint64(calculate_base_farmer_reward(next_block_height) + fees),
+                self.defaults.GENESIS_CHALLENGE,
+            ),
+        ]
         # Coin store gets updated
         generator_bundle: Optional[SpendBundle] = None
-        return_additions: list[Coin] = []
-        return_removals: list[Coin] = []
+        tx_additions = []
+        tx_removals = []
         spent_coins_ids = None
         if (len(self.block_records) > 0) and (self.mempool_manager.mempool.size() > 0):
             peak = self.mempool_manager.peak
             if peak is not None:
-                result = await self.mempool_manager.create_bundle_from_mempool(
-                    last_tb_header_hash=peak.header_hash,
-                    item_inclusion_filter=item_inclusion_filter,
-                )
-
+                result = self.mempool_manager.create_bundle_from_mempool(last_tb_header_hash=peak.header_hash)
                 if result is not None:
                     bundle, additions = result
                     generator_bundle = bundle
+                    spent_coins: dict[bytes32, Coin] = {}
+                    spent_coins_ids = []
                     for spend in generator_bundle.coin_spends:
                         hint_dict, _ = compute_spend_hints_and_additions(spend)
                         hints: list[tuple[bytes32, bytes]] = []
@@ -290,21 +278,25 @@ class SpendSim:
                             if hint_obj.hint is not None:
                                 hints.append((coin_name, bytes(hint_obj.hint)))
                         await self.hint_store.add_hints(hints)
-                    return_additions = additions
-                    return_removals = bundle.removals()
-                    spent_coins_ids = [r.name() for r in return_removals]
-                    await self.coin_store._add_coin_records([self.new_coin_record(addition) for addition in additions])
-                    await self.coin_store._set_spent(spent_coins_ids, uint32(self.block_height + 1))
-
+                        spend_id = spend.coin.name()
+                        spent_coins[spend_id] = spend.coin
+                        spent_coins_ids.append(spend_id)
+                        tx_removals.append(spend.coin)
+                    for child in additions:
+                        parent = spent_coins.get(child.parent_coin_info)
+                        assert parent is not None
+                        same_as_parent = child.puzzle_hash == parent.puzzle_hash and child.amount == parent.amount
+                        tx_additions.append((child.name(), child, same_as_parent))
+        await self.coin_store.new_block(
+            height=uint32(self.block_height + 1),
+            timestamp=self.timestamp,
+            included_reward_coins=included_reward_coins,
+            tx_additions=tx_additions,
+            tx_removals=spent_coins_ids if spent_coins_ids is not None else [],
+        )
         # SimBlockRecord is created
         generator: Optional[BlockGenerator] = await self.generate_transaction_generator(generator_bundle)
-        self.block_records.append(
-            SimBlockRecord.create(
-                [pool_coin, farmer_coin],
-                next_block_height,
-                self.timestamp,
-            )
-        )
+        self.block_records.append(SimBlockRecord.create(included_reward_coins, next_block_height, self.timestamp))
         self.blocks.append(SimFullBlock(generator, next_block_height))
 
         # block_height is incremented
@@ -314,7 +306,7 @@ class SpendSim:
         await self.new_peak(spent_coins_ids)
 
         # return some debugging data
-        return return_additions, return_removals
+        return [a for _, a, _ in tx_additions], tx_removals
 
     def get_height(self) -> uint32:
         return self.block_height

@@ -14,11 +14,11 @@ from typing import Any, Callable, Generic, Optional, TypeVar, cast
 from chik_rs.sized_ints import uint16
 
 from chik.daemon.server import service_launch_lock_path
+from chik.protocols.outbound_message import NodeType
 from chik.protocols.shared_protocol import default_capabilities
 from chik.rpc.rpc_server import RpcApiProtocol, RpcServer, RpcServiceProtocol, start_rpc_server
 from chik.server.api_protocol import ApiProtocol
 from chik.server.chik_policy import set_chik_policy
-from chik.server.outbound_message import NodeType
 from chik.server.server import ChikServer
 from chik.server.signal_handlers import SignalHandlers
 from chik.server.ssl_context import chik_ssl_ca_paths, private_ssl_ca_paths

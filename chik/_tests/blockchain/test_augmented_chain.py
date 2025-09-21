@@ -4,15 +4,14 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar, Optional, cast
 
 import pytest
+from chik_rs import BlockRecord, FullBlock
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
 
 from chik._tests.blockchain.blockchain_test_utils import _validate_and_add_block
 from chik._tests.util.blockchain import create_blockchain
-from chik.consensus.block_record import BlockRecord
+from chik.consensus.augmented_chain import AugmentedBlockchain
 from chik.simulator.block_tools import BlockTools
-from chik.types.full_block import FullBlock
-from chik.util.augmented_chain import AugmentedBlockchain
 from chik.util.errors import Err
 
 

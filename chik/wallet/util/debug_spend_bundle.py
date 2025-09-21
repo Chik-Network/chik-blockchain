@@ -4,11 +4,11 @@ from chik_rs import AugSchemeMPL
 from klvm.operators import KEYWORD_FROM_ATOM
 from klvm_tools.binutils import disassemble as bu_disassemble
 
+from chik.consensus.condition_tools import conditions_dict_for_solution, pkm_pairs_for_conditions_dict
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import INFINITE_COST, Program
 from chik.types.condition_opcodes import ConditionOpcode
-from chik.util.condition_tools import conditions_dict_for_solution, pkm_pairs_for_conditions_dict
 from chik.util.hash import std_hash
 from chik.wallet.uncurried_puzzle import UncurriedPuzzle
 

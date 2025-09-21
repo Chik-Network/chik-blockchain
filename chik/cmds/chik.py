@@ -12,7 +12,7 @@ from chik.cmds.completion import completion
 from chik.cmds.configure import configure_cmd
 from chik.cmds.data import data_cmd
 from chik.cmds.db import db_cmd
-from chik.cmds.dev import dev_cmd
+from chik.cmds.dev.main import dev_cmd
 from chik.cmds.farm import farm_cmd
 from chik.cmds.init import init_cmd
 from chik.cmds.keys import keys_cmd
@@ -27,10 +27,10 @@ from chik.cmds.show import show_cmd
 from chik.cmds.start import start_cmd
 from chik.cmds.stop import stop_cmd
 from chik.cmds.wallet import wallet_cmd
+from chik.ssl.ssl_check import check_ssl
 from chik.util.default_root import DEFAULT_KEYS_ROOT_PATH, resolve_root_path
 from chik.util.errors import KeychainCurrentPassphraseIsInvalid
 from chik.util.keychain import Keychain, set_keys_root_path
-from chik.util.ssl_check import check_ssl
 
 CONTEXT_SETTINGS = {
     "help_option_names": ["-h", "--help"],
@@ -53,24 +53,24 @@ CONTEXT_SETTINGS = {
 @click.option(
     "--keys-root-path", default=DEFAULT_KEYS_ROOT_PATH, help="Keyring file root", type=click.Path(), show_default=True
 )
-@click.option("--passphrase-file", type=click.File("r"), help="File or descriptor to read the keyring passphrase from")
+@click.option("--passphrase-file", type=click.File("r"), help="File to read the keyring passphrase from")
 @click.pass_context
 def cli(
     ctx: click.Context,
     root_path: str,
-    keys_root_path: Optional[str] = None,
+    keys_root_path: str,
     passphrase_file: Optional[TextIOWrapper] = None,
 ) -> None:
     from pathlib import Path
 
     context = ChikCliContext.set_default(ctx=ctx)
     context.root_path = Path(root_path)
+    context.keys_root_path = Path(keys_root_path)
 
-    # keys_root_path and passphrase_file will be None if the passphrase options have been
+    set_keys_root_path(Path(keys_root_path))
+
+    # passphrase_file will be None if the passphrase options have been
     # scrubbed from the CLI options
-    if keys_root_path is not None:
-        set_keys_root_path(Path(keys_root_path))
-
     if passphrase_file is not None:
         import sys
 
@@ -81,7 +81,7 @@ def cli(
             if Keychain.master_passphrase_is_valid(passphrase):
                 cache_passphrase(passphrase)
             else:
-                raise KeychainCurrentPassphraseIsInvalid()
+                raise KeychainCurrentPassphraseIsInvalid
         except KeychainCurrentPassphraseIsInvalid:
             if Path(passphrase_file.name).is_file():
                 print(f'Invalid passphrase found in "{passphrase_file.name}"')

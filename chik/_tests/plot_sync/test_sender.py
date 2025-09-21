@@ -12,8 +12,8 @@ from chik.plot_sync.sender import ExpectedResponse, Sender
 from chik.plot_sync.util import Constants
 from chik.plotting.util import HarvestingMode
 from chik.protocols.harvester_protocol import PlotSyncIdentifier, PlotSyncResponse
+from chik.protocols.outbound_message import NodeType
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
-from chik.server.outbound_message import NodeType
 from chik.simulator.block_tools import BlockTools
 
 

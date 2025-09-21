@@ -3,17 +3,16 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Callable, Union
 
-from chik_rs import G1Element
+from chik_rs import G1Element, SpendBundleConditions, SpendConditions
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
-from klvm.casts import int_from_bytes, int_to_bytes
 
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.program import Program
+from chik.types.blockchain_format.program import Program, run_with_cost
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
-from chik.types.spend_bundle_conditions import SpendBundleConditions, SpendConditions
+from chik.util.casts import int_from_bytes, int_to_bytes
 from chik.util.errors import ConsensusError, Err
 from chik.util.hash import std_hash
 
@@ -195,7 +194,7 @@ def conditions_for_solution(
 ) -> list[ConditionWithArgs]:
     # get the standard script for a puzzle hash and feed in the solution
     try:
-        _cost, r = puzzle_reveal.run_with_cost(max_cost, solution)
+        _cost, r = run_with_cost(puzzle_reveal, max_cost, solution)
         return parse_sexp_to_conditions(r)
     except Program.EvalError as e:
         raise ConsensusError(Err.SEXP_ERROR, [str(e)]) from e

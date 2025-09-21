@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from chik_rs import BlockRecord
 
 from chik._tests.environments.wallet import (
     BalanceCheckingError,
@@ -8,7 +9,6 @@ from chik._tests.environments.wallet import (
     WalletStateTransition,
     WalletTestFramework,
 )
-from chik.consensus.block_record import BlockRecord
 from chik.wallet.cat_wallet.cat_wallet import CATWallet
 
 

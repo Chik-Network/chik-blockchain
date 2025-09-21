@@ -11,19 +11,19 @@ from chik_rs.sized_ints import uint16
 from chik.apis import ApiProtocolRegistry
 from chik.data_layer.data_layer import DataLayer
 from chik.data_layer.data_layer_api import DataLayerAPI
+from chik.data_layer.data_layer_rpc_api import DataLayerRpcApi
 from chik.data_layer.data_layer_util import PluginRemote
 from chik.data_layer.util.plugin import load_plugin_configurations
-from chik.rpc.data_layer_rpc_api import DataLayerRpcApi
-from chik.rpc.wallet_rpc_client import WalletRpcClient
-from chik.server.outbound_message import NodeType
+from chik.protocols.outbound_message import NodeType
+from chik.server.aliases import DataLayerService, WalletService
 from chik.server.signal_handlers import SignalHandlers
 from chik.server.start_service import RpcInfo, Service, async_run
 from chik.ssl.create_ssl import create_all_ssl
-from chik.types.aliases import DataLayerService, WalletService
 from chik.util.chik_logging import initialize_logging
 from chik.util.config import load_config, load_config_cli
 from chik.util.default_root import resolve_root_path
 from chik.util.task_timing import maybe_manage_task_instrumentation
+from chik.wallet.wallet_rpc_client import WalletRpcClient
 
 # See: https://bugs.python.org/issue29288
 "".encode("idna")

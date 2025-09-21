@@ -3,15 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from chik_rs import EndOfSubSlotBundle, FullBlock, SpendBundle, UnfinishedBlock
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64, uint128
 
 from chik.types.blockchain_format.vdf import VDFInfo, VDFProof
-from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
-from chik.types.full_block import FullBlock
 from chik.types.peer_info import TimestampedPeerInfo
-from chik.types.spend_bundle import SpendBundle
-from chik.types.unfinished_block import UnfinishedBlock
 from chik.types.weight_proof import WeightProof
 from chik.util.streamable import Streamable, streamable
 

@@ -4,14 +4,14 @@ import itertools
 from typing import Optional
 
 import pytest
-from chik_rs import G2Element
+from chik_rs import CoinSpend, G2Element
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.util.spend_sim import CostLogger, sim_and_client
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.program import Program
-from chik.types.coin_spend import CoinSpend, make_spend
+from chik.types.blockchain_format.program import Program, run
+from chik.types.coin_spend import make_spend
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.util.errors import Err
 from chik.util.hash import std_hash
@@ -301,10 +301,10 @@ async def test_did_tp(cost_logger: CostLogger) -> None:
 
         remark_condition: Program = next(
             condition
-            for condition in successful_spend.coin_spends[0]
-            .puzzle_reveal.to_program()
-            .run(successful_spend.coin_spends[0].solution.to_program())
-            .as_iter()
+            for condition in run(
+                successful_spend.coin_spends[0].puzzle_reveal,
+                Program.from_serialized(successful_spend.coin_spends[0].solution),
+            ).as_iter()
             if condition.first() == Program.to(1)
         )
         assert remark_condition == Program.to([1, (MOCK_LAUNCHER_ID, new_metadata), new_tp_hash])
@@ -399,7 +399,7 @@ async def test_revocation_layer(cost_logger: CostLogger) -> None:
 @pytest.mark.parametrize("num_proofs", range(1, 6))
 async def test_proofs_checker(cost_logger: CostLogger, num_proofs: int) -> None:
     async with sim_and_client() as (sim, client):
-        flags: list[str] = [str(i) for i in range(0, num_proofs)]
+        flags: list[str] = [str(i) for i in range(num_proofs)]
         proofs_checker: ProofsChecker = ProofsChecker(flags)
 
         # (mod (PROOFS_CHECKER proofs) (if (a PROOFS_CHECKER (list proofs)) () (x)))

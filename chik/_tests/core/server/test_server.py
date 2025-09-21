@@ -15,11 +15,11 @@ from chik._tests.util.setup_nodes import SimulatorsAndWalletsServices
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.full_node.full_node_api import FullNodeAPI
 from chik.protocols.full_node_protocol import RejectBlock, RequestBlock, RequestTransaction
+from chik.protocols.outbound_message import NodeType, make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.protocols.shared_protocol import Error, protocol_version
 from chik.protocols.wallet_protocol import RejectHeaderRequest
 from chik.server.api_protocol import ApiMetadata
-from chik.server.outbound_message import NodeType, make_msg
 from chik.server.server import ChikServer
 from chik.server.start_full_node import create_full_node_service
 from chik.server.start_wallet import create_wallet_service

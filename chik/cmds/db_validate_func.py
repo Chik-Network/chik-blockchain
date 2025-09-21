@@ -3,12 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
+from chik_rs import BlockRecord, FullBlock
 from chik_rs.sized_bytes import bytes32
 
-from chik.consensus.block_record import BlockRecord
 from chik.consensus.constants import replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
-from chik.types.full_block import FullBlock
 from chik.util.config import load_config
 from chik.util.path import path_from_root
 

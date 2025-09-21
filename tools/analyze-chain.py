@@ -13,9 +13,9 @@ import click
 import zstd
 from chik_rs import (
     DONT_VALIDATE_SIGNATURE,
-    ENABLE_KECCAK,
     MEMPOOL_MODE,
     AugSchemeMPL,
+    FullBlock,
     G1Element,
     G2Element,
     SpendBundleConditions,
@@ -23,12 +23,11 @@ from chik_rs import (
 )
 from chik_rs.sized_bytes import bytes32
 
+from chik.consensus.condition_tools import pkm_pairs
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
+from chik.full_node.full_block_utils import block_info_from_block, generator_from_block
 from chik.types.block_protocol import BlockInfo
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.full_block import FullBlock
-from chik.util.condition_tools import pkm_pairs
-from chik.util.full_block_utils import block_info_from_block, generator_from_block
 
 
 # returns an optional error code and an optional SpendBundleConditions (from chik_rs)
@@ -102,7 +101,7 @@ def main(
         if verify_signatures:
             block = FullBlock.from_bytes_unchecked(zstd.decompress(r[2]))
         else:
-            block = block_info_from_block(zstd.decompress(r[2]))
+            block = block_info_from_block(memoryview(zstd.decompress(r[2])))
 
         if block.transactions_generator is None:
             sys.stderr.write(f" no-generator. block {height}\r")
@@ -112,14 +111,15 @@ def main(
         generator_blobs = []
         for h in block.transactions_generator_ref_list:
             ref = c.execute("SELECT block FROM full_blocks WHERE height=? and in_main_chain=1", (h,))
-            generator = generator_from_block(zstd.decompress(ref.fetchone()[0]))
+            generator = generator_from_block(memoryview(zstd.decompress(ref.fetchone()[0])))
             assert generator is not None
             generator_blobs.append(generator)
             ref.close()
 
         ref_lookup_time = time() - start_time
 
-        flags = ENABLE_KECCAK
+        flags = 0
+
         if mempool_mode:
             flags |= MEMPOOL_MODE
 

@@ -6,38 +6,36 @@ from typing import Optional
 
 import pytest
 from chik_rs import (
+    ChallengeChainSubSlot,
+    EndOfSubSlotBundle,
     Foliage,
     FoliageBlockData,
     FoliageTransactionBlock,
+    FullBlock,
     G1Element,
     G2Element,
+    HeaderBlock,
+    InfusedChallengeChainSubSlot,
     PoolTarget,
+    ProofOfSpace,
     RewardChainBlock,
+    RewardChainSubSlot,
+    SubSlotProofs,
     TransactionsInfo,
 )
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64, uint128
 
 from chik._tests.util.benchmarks import rand_bytes, rand_g1, rand_g2, rand_hash, rand_vdf, rand_vdf_proof, rewards
-from chik.types.blockchain_format.proof_of_space import ProofOfSpace
-from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.slots import (
-    ChallengeChainSubSlot,
-    InfusedChallengeChainSubSlot,
-    RewardChainSubSlot,
-    SubSlotProofs,
-)
-from chik.types.blockchain_format.vdf import VDFInfo, VDFProof
-from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
-from chik.types.full_block import FullBlock
-from chik.types.header_block import HeaderBlock
-from chik.util.full_block_utils import (
+from chik.consensus.generator_tools import get_block_header
+from chik.full_node.full_block_utils import (
     block_info_from_block,
     generator_from_block,
     get_height_and_tx_status_from_block,
     header_block_from_block,
 )
-from chik.util.generator_tools import get_block_header
+from chik.types.blockchain_format.serialized_program import SerializedProgram
+from chik.types.blockchain_format.vdf import VDFInfo, VDFProof
 
 test_g2s: list[G2Element] = [rand_g2() for _ in range(10)]
 test_g1s: list[G1Element] = [rand_g1() for _ in range(10)]

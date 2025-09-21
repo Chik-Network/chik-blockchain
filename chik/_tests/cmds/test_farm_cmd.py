@@ -9,9 +9,9 @@ from chik._tests.util.time_out_assert import time_out_assert
 from chik.cmds.farm_funcs import summary
 from chik.farmer.farmer import Farmer
 from chik.harvester.harvester import Harvester
+from chik.server.aliases import FarmerService, HarvesterService, WalletService
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.start_simulator import SimulatorFullNodeService
-from chik.types.aliases import FarmerService, HarvesterService, WalletService
 
 
 @pytest.mark.anyio

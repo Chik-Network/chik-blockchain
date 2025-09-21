@@ -11,8 +11,11 @@ from dataclasses import dataclass
 from typing import Optional
 
 from chik_rs import (
+    BlockRecord,
     ConsensusConstants,
+    FullBlock,
     SpendBundleConditions,
+    SubEpochSummary,
     get_flags_for_height_and_constants,
     run_block_generator,
     run_block_generator2,
@@ -20,22 +23,21 @@ from chik_rs import (
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint16, uint32, uint64
 
+from chik.consensus.augmented_chain import AugmentedBlockchain
 from chik.consensus.block_header_validation import validate_finished_header_block
-from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
 from chik.consensus.full_block_to_block_record import block_to_block_record
-from chik.consensus.get_block_challenge import get_block_challenge
+from chik.consensus.generator_tools import get_block_header, tx_removals_and_additions
+from chik.consensus.get_block_challenge import get_block_challenge, prev_tx_block
 from chik.consensus.get_block_generator import get_block_generator
-from chik.consensus.pot_iterations import calculate_iterations_quality, is_overflow_block
+from chik.consensus.pot_iterations import (
+    is_overflow_block,
+    validate_pospace_and_get_required_iters,
+)
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.proof_of_space import verify_and_get_quality_string
-from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
-from chik.types.full_block import FullBlock
 from chik.types.generator_types import BlockGenerator
 from chik.types.validation_state import ValidationState
-from chik.util.augmented_chain import AugmentedBlockchain
 from chik.util.errors import Err
-from chik.util.generator_tools import get_block_header, tx_removals_and_additions
 from chik.util.streamable import Streamable, streamable
 
 log = logging.getLogger(__name__)
@@ -128,11 +130,10 @@ def _pre_validate_block(
             removals_and_additions = ([], [])
 
         assert conds is None or conds.validated_signature is True
-        header_block = get_block_header(block, removals_and_additions)
         required_iters, error = validate_finished_header_block(
             constants,
             blockchain,
-            header_block,
+            get_block_header(block, removals_and_additions),
             True,  # check_filter
             expected_vs,
         )
@@ -211,19 +212,19 @@ async def pre_validate_block(
         cc_sp_hash: bytes32 = challenge
     else:
         cc_sp_hash = block.reward_chain_block.challenge_chain_sp_vdf.output.get_hash()
-    q_str: Optional[bytes32] = verify_and_get_quality_string(
-        block.reward_chain_block.proof_of_space, constants, challenge, cc_sp_hash, height=block.height
-    )
-    if q_str is None:
-        return return_error(Err.INVALID_POSPACE)
 
-    required_iters: uint64 = calculate_iterations_quality(
-        constants.DIFFICULTY_CONSTANT_FACTOR,
-        q_str,
-        block.reward_chain_block.proof_of_space.size,
-        vs.difficulty,
+    required_iters = validate_pospace_and_get_required_iters(
+        constants,
+        block.reward_chain_block.proof_of_space,
+        challenge,
         cc_sp_hash,
+        block.height,
+        vs.difficulty,
+        vs.ssi,
+        prev_tx_block(blockchain, prev_b),
     )
+    if required_iters is None:
+        return return_error(Err.INVALID_POSPACE)
 
     try:
         block_rec = block_to_block_record(

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import TypeVar
 
-from chik_rs import AugSchemeMPL, G2Element
+from chik_rs import AugSchemeMPL, CoinSpend, G2Element, SpendBundle
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
-from chik.types.coin_spend import CoinSpend
-from chik.types.spend_bundle import SpendBundle, T_SpendBundle
 from chik.wallet.util.debug_spend_bundle import debug_spend_bundle
+
+T_SpendBundle = TypeVar("T_SpendBundle", bound="SpendBundle")
 
 
 class WalletSpendBundle(SpendBundle):

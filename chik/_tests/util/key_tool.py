@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from chik_rs import AugSchemeMPL, G1Element, G2Element, PrivateKey
+from chik_rs import AugSchemeMPL, CoinSpend, G1Element, G2Element, PrivateKey
 
 from chik._tests.core.make_block_generator import GROUP_ORDER, int_to_public_key
+from chik.consensus.condition_tools import conditions_dict_for_solution, pkm_pairs_for_conditions_dict
 from chik.simulator.block_tools import test_constants
-from chik.types.coin_spend import CoinSpend
-from chik.util.condition_tools import conditions_dict_for_solution, pkm_pairs_for_conditions_dict
 
 
 @dataclass

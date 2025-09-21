@@ -7,7 +7,7 @@ from chik_rs import G2Element
 from chik_rs.sized_bytes import bytes32
 
 from chik._tests.util.spend_sim import CostLogger, sim_and_client
-from chik.types.blockchain_format.program import Program
+from chik.types.blockchain_format.program import Program, run
 from chik.types.coin_spend import make_spend
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.util.errors import Err
@@ -180,7 +180,7 @@ async def test_ownership_layer(cost_logger: CostLogger) -> None:
         result = await sim_client.push_tx(skip_tp_bundle)
         assert result == (MempoolInclusionStatus.FAILED, Err.GENERATOR_RUNTIME_ERROR)
         with pytest.raises(ValueError, match="klvm raise"):
-            skip_tp_spend.puzzle_reveal.to_program().run(skip_tp_spend.solution.to_program())
+            run(skip_tp_spend.puzzle_reveal, Program.from_serialized(skip_tp_spend.solution))
 
         make_bad_announcement_spend = make_spend(
             ownership_coin,
@@ -200,8 +200,8 @@ async def test_ownership_layer(cost_logger: CostLogger) -> None:
         result = await sim_client.push_tx(make_bad_announcement_bundle)
         assert result == (MempoolInclusionStatus.FAILED, Err.GENERATOR_RUNTIME_ERROR)
         with pytest.raises(ValueError, match="klvm raise"):
-            make_bad_announcement_spend.puzzle_reveal.to_program().run(
-                make_bad_announcement_spend.solution.to_program()
+            run(
+                make_bad_announcement_spend.puzzle_reveal, Program.from_serialized(make_bad_announcement_spend.solution)
             )
 
         expected_announcement = AssertPuzzleAnnouncement(

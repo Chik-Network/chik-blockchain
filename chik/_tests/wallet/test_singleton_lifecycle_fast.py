@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Optional, TypeVar, cast, get_args, get_origin
 
-from chik_rs import G1Element, G2Element
+from chik_rs import CoinSpend, G1Element, G2Element
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 from klvm_tools import binutils
@@ -14,8 +14,7 @@ from chik.pools.pool_puzzles import POOL_MEMBER_MOD
 from chik.pools.pool_puzzles import POOL_WAITING_ROOM_MOD as POOL_WAITINGROOM_MOD
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.coin_spend import CoinSpend, compute_additions, make_spend
+from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.wallet.conditions import AssertCoinAnnouncement
 from chik.wallet.puzzles.singleton_top_layer import (
@@ -24,6 +23,7 @@ from chik.wallet.puzzles.singleton_top_layer import (
 from chik.wallet.puzzles.singleton_top_layer import P2_SINGLETON_OR_DELAYED_MOD_HASH as P2_SINGLETON_MOD_HASH
 from chik.wallet.puzzles.singleton_top_layer import SINGLETON_LAUNCHER, SINGLETON_MOD, SINGLETON_MOD_HASH
 from chik.wallet.puzzles.singleton_top_layer import SINGLETON_LAUNCHER_HASH as LAUNCHER_PUZZLE_HASH
+from chik.wallet.util.compute_additions import compute_additions
 from chik.wallet.util.debug_spend_bundle import debug_spend_bundle
 from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 
@@ -328,7 +328,7 @@ def launcher_conditions_and_spend_bundle(
         launcher_amount=launcher_amount,
         metadata=metadata,
     )
-    coin_spend = make_spend(launcher_coin, SerializedProgram.from_program(launcher_puzzle), solution)
+    coin_spend = make_spend(launcher_coin, launcher_puzzle, solution)
     spend_bundle = WalletSpendBundle([coin_spend], G2Element())
     return launcher_id, expected_conditions, spend_bundle
 
@@ -387,9 +387,7 @@ def claim_p2_singleton(
         singleton_inner_puzzle_hash=inner_puzzle_hash,
         p2_singleton_coin_name=bytes32(p2_singleton_coin_name),
     )
-    p2_singleton_coin_spend = make_spend(
-        p2_singleton_coin, SerializedProgram.from_program(p2_singleton_puzzle), p2_singleton_solution
-    )
+    p2_singleton_coin_spend = make_spend(p2_singleton_coin, p2_singleton_puzzle, p2_singleton_solution)
     expected_p2_singleton_announcement = AssertCoinAnnouncement(
         asserted_id=p2_singleton_coin_name, asserted_msg=b"$"
     ).msg_calc

@@ -6,11 +6,11 @@ from typing import Any, Optional, Union
 import pytest
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
-from klvm.casts import int_from_bytes
 from klvm.EvalError import EvalError
 
 from chik.types.blockchain_format.program import Program
 from chik.types.condition_opcodes import ConditionOpcode
+from chik.util.casts import int_from_bytes
 from chik.wallet.conditions import (
     CONDITION_DRIVERS,
     CONDITION_DRIVERS_W_ABSTRACTIONS,

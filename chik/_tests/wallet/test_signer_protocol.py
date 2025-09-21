@@ -5,7 +5,7 @@ from typing import Optional
 
 import click
 import pytest
-from chik_rs import AugSchemeMPL, G1Element, G2Element, PrivateKey
+from chik_rs import AugSchemeMPL, CoinSpend, G1Element, G2Element, PrivateKey
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
 from click.testing import CliRunner
@@ -26,17 +26,9 @@ from chik.cmds.signer import (
     SPOut,
 )
 from chik.rpc.util import ALL_TRANSLATION_LAYERS
-from chik.rpc.wallet_request_types import (
-    ApplySignatures,
-    ExecuteSigningInstructions,
-    GatherSigningInfo,
-    GatherSigningInfoResponse,
-    SubmitTransactions,
-)
-from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.types.blockchain_format.coin import Coin as ConsensusCoin
 from chik.types.blockchain_format.program import Program
-from chik.types.coin_spend import CoinSpend, make_spend
+from chik.types.coin_spend import make_spend
 from chik.util.hash import std_hash
 from chik.util.streamable import Streamable
 from chik.wallet.conditions import AggSigMe
@@ -76,8 +68,15 @@ from chik.wallet.util.klvm_streamable import (
     json_deserialize_with_klvm_streamable,
     json_serialize_with_klvm_streamable,
 )
-from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 from chik.wallet.wallet import Wallet
+from chik.wallet.wallet_request_types import (
+    ApplySignatures,
+    ExecuteSigningInstructions,
+    GatherSigningInfo,
+    GatherSigningInfoResponse,
+    SubmitTransactions,
+)
+from chik.wallet.wallet_rpc_client import WalletRpcClient
 from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 from chik.wallet.wallet_state_manager import WalletStateManager
 
@@ -614,7 +613,9 @@ async def test_signer_commands(wallet_environments: WalletTestFramework) -> None
     )
 
     AMOUNT = uint64(1)
-    async with wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, sign=False, push=False) as action_scope:
+    async with wallet_state_manager.new_action_scope(
+        wallet_environments.tx_config, sign=False, push=False
+    ) as action_scope:
         await wallet.generate_signed_transaction([AMOUNT], [bytes32.zeros], action_scope)
     [tx] = action_scope.side_effects.transactions
 

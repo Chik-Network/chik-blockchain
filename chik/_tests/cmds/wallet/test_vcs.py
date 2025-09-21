@@ -8,7 +8,14 @@ from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.cmds.cmd_test_utils import TestRpcClients, TestWalletRpcClient, logType, run_cli_command_and_assert
 from chik._tests.cmds.wallet.test_consts import FINGERPRINT_ARG, STD_TX, STD_UTX, get_bytes32
-from chik.rpc.wallet_request_types import (
+from chik.util.bech32m import encode_puzzle_hash
+from chik.wallet.conditions import ConditionValidTimes
+from chik.wallet.lineage_proof import LineageProof
+from chik.wallet.transaction_record import TransactionRecord
+from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG, TXConfig
+from chik.wallet.vc_wallet.vc_drivers import VCLineageProof, VerifiedCredential
+from chik.wallet.vc_wallet.vc_store import VCRecord
+from chik.wallet.wallet_request_types import (
     VCAddProofs,
     VCGet,
     VCGetList,
@@ -26,13 +33,6 @@ from chik.rpc.wallet_request_types import (
     VCSpend,
     VCSpendResponse,
 )
-from chik.util.bech32m import encode_puzzle_hash
-from chik.wallet.conditions import ConditionValidTimes
-from chik.wallet.lineage_proof import LineageProof
-from chik.wallet.transaction_record import TransactionRecord
-from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG, TXConfig
-from chik.wallet.vc_wallet.vc_drivers import VCLineageProof, VerifiedCredential
-from chik.wallet.vc_wallet.vc_store import VCRecord
 
 test_condition_valid_times: ConditionValidTimes = ConditionValidTimes(min_time=uint64(100), max_time=uint64(150))
 # VC Commands

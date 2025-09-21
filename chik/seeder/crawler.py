@@ -19,10 +19,10 @@ from chik_rs.sized_ints import uint32, uint64
 from chik.full_node.full_node_api import FullNodeAPI
 from chik.protocols import full_node_protocol
 from chik.protocols.full_node_protocol import RespondPeers
+from chik.protocols.outbound_message import NodeType
 from chik.rpc.rpc_server import StateChangedProtocol, default_get_connections
 from chik.seeder.crawl_store import CrawlStore
 from chik.seeder.peer_record import PeerRecord, PeerReliability
-from chik.server.outbound_message import NodeType
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 from chik.types.peer_info import PeerInfo

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from chik.ssl.create_ssl import create_all_ssl
-from chik.util.ssl_check import check_ssl
+from chik.ssl.ssl_check import check_ssl
 
 
 def test_check_ssl_stream_with_bad_permissions(

@@ -14,8 +14,8 @@ from chik._tests.util.time_out_assert import time_out_assert
 from chik.harvester.harvester import Harvester
 from chik.plot_sync.sender import Sender
 from chik.protocols.harvester_protocol import PlotSyncIdentifier
-from chik.server.outbound_message import Message, NodeType
-from chik.types.aliases import FarmerService, HarvesterService
+from chik.protocols.outbound_message import Message, NodeType
+from chik.server.aliases import FarmerService, HarvesterService
 from chik.types.peer_info import PeerInfo, UnresolvedPeerInfo
 
 

@@ -4,9 +4,9 @@ import logging
 from typing import TYPE_CHECKING, ClassVar, Optional, cast
 
 from chik.protocols import full_node_protocol, wallet_protocol
+from chik.protocols.outbound_message import Message
 from chik.seeder.crawler import Crawler
 from chik.server.api_protocol import ApiMetadata
-from chik.server.outbound_message import Message
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 

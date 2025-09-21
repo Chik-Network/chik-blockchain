@@ -15,13 +15,13 @@ from chik._tests.util.split_managers import split_async_manager
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.cmds.cmds_util import get_any_service_client
 from chik.farmer.farmer import Farmer
+from chik.harvester.harvester_rpc_client import HarvesterRpcClient
 from chik.plotting.util import PlotsRefreshParameter
 from chik.protocols import farmer_protocol, harvester_protocol
+from chik.protocols.outbound_message import NodeType, make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
-from chik.rpc.harvester_rpc_client import HarvesterRpcClient
-from chik.server.outbound_message import NodeType, make_msg
+from chik.server.aliases import FarmerService, HarvesterService
 from chik.simulator.block_tools import BlockTools
-from chik.types.aliases import FarmerService, HarvesterService
 from chik.types.peer_info import UnresolvedPeerInfo
 from chik.util.config import load_config
 from chik.util.hash import std_hash
@@ -221,7 +221,14 @@ async def test_missing_signage_point(
     def create_sp(index: int, challenge_hash: bytes32) -> tuple[uint64, farmer_protocol.NewSignagePoint]:
         time = uint64(index + 1)
         sp = farmer_protocol.NewSignagePoint(
-            challenge_hash, std_hash(b"2"), std_hash(b"3"), uint64(1), uint64(1000000), uint8(index), uint32(1)
+            challenge_hash,
+            std_hash(b"2"),
+            std_hash(b"3"),
+            uint64(1),
+            uint64(1000000),
+            uint8(index),
+            uint32(1),
+            uint32(0),
         )
         return time, sp
 

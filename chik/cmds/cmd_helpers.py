@@ -13,10 +13,10 @@ from chik_rs.sized_ints import uint64
 from chik.cmds.cmd_classes import ChikCliContext, command_helper, option
 from chik.cmds.cmds_util import CMDCoinSelectionConfigLoader, CMDTXConfigLoader, TransactionBundle, get_wallet_client
 from chik.cmds.param_types import AmountParamType, Bytes32ParamType, CliAmount, TransactionFeeParamType, cli_amount_none
-from chik.rpc.wallet_rpc_client import WalletRpcClient
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.tx_config import CoinSelectionConfig, TXConfig
+from chik.wallet.wallet_rpc_client import WalletRpcClient
 
 
 @dataclass(frozen=True)

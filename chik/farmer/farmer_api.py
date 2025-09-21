@@ -25,6 +25,7 @@ from chik.protocols.harvester_protocol import (
     SignatureRequestSourceData,
     SigningDataKind,
 )
+from chik.protocols.outbound_message import Message, NodeType, make_msg
 from chik.protocols.pool_protocol import (
     PoolErrorCode,
     PostPartialPayload,
@@ -33,12 +34,10 @@ from chik.protocols.pool_protocol import (
 )
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.server.api_protocol import ApiMetadata
-from chik.server.outbound_message import Message, NodeType, make_msg
 from chik.server.server import ssl_context_for_root
 from chik.server.ws_connection import WSChikConnection
 from chik.ssl.create_ssl import get_mozilla_ca_crt
 from chik.types.blockchain_format.proof_of_space import (
-    calculate_prefix_bits,
     generate_plot_public_key,
     generate_taproot_sk,
     get_plot_id,
@@ -110,11 +109,13 @@ class FarmerAPI:
             self.farmer.number_of_responses[new_proof_of_space.sp_hash] += 1
 
             required_iters: uint64 = calculate_iterations_quality(
-                self.farmer.constants.DIFFICULTY_CONSTANT_FACTOR,
+                self.farmer.constants,
                 computed_quality_string,
-                new_proof_of_space.proof.size,
+                new_proof_of_space.proof.size(),
                 sp.difficulty,
                 new_proof_of_space.sp_hash,
+                sp.sub_slot_iters,
+                sp.last_tx_height,
             )
 
             # If the iters are good enough to make a block, proceed with the block making flow
@@ -217,11 +218,13 @@ class FarmerAPI:
                     return
 
                 required_iters = calculate_iterations_quality(
-                    self.farmer.constants.DIFFICULTY_CONSTANT_FACTOR,
+                    self.farmer.constants,
                     computed_quality_string,
-                    new_proof_of_space.proof.size,
+                    new_proof_of_space.proof.size(),
                     pool_state_dict["current_difficulty"],
                     new_proof_of_space.sp_hash,
+                    sp.sub_slot_iters,
+                    sp.last_tx_height,
                 )
                 if required_iters >= calculate_sp_interval_iters(
                     self.farmer.constants, self.farmer.constants.POOL_SUB_SLOT_ITERS
@@ -532,7 +535,8 @@ class FarmerAPI:
                 new_signage_point.signage_point_index,
                 new_signage_point.challenge_chain_sp,
                 pool_difficulties,
-                uint8(calculate_prefix_bits(self.farmer.constants, new_signage_point.peak_height)),
+                new_signage_point.peak_height,
+                new_signage_point.last_tx_height,
             )
 
             msg = make_msg(ProtocolMessageTypes.new_signage_point_harvester, message)

@@ -2,16 +2,15 @@ from __future__ import annotations
 
 from typing import Optional
 
-from chik_rs import SpendBundleConditions
+from chik_rs import FullBlock, SpendBundleConditions
 from chik_rs.sized_ints import uint32, uint64
 
+from chik.consensus.augmented_chain import AugmentedBlockchain
 from chik.consensus.block_body_validation import ForkInfo
 from chik.consensus.blockchain import AddBlockResult, Blockchain
 from chik.consensus.difficulty_adjustment import get_next_sub_slot_iters_and_difficulty
 from chik.consensus.multiprocess_validation import PreValidationResult, pre_validate_block
-from chik.types.full_block import FullBlock
 from chik.types.validation_state import ValidationState
-from chik.util.augmented_chain import AugmentedBlockchain
 from chik.util.errors import Err
 
 

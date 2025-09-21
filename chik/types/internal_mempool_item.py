@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from chik_rs import SpendBundle, SpendBundleConditions
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
 
 from chik.types.mempool_item import BundleCoinSpend
-from chik.types.spend_bundle import SpendBundle
-from chik.types.spend_bundle_conditions import SpendBundleConditions
 
 
 @dataclass(frozen=True)

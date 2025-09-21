@@ -12,13 +12,13 @@ from chik.cmds.cmd_helpers import WalletClientInfo
 from chik.cmds.cmds_util import CMDCoinSelectionConfigLoader, CMDTXConfigLoader, cli_confirm
 from chik.cmds.param_types import CliAmount
 from chik.cmds.wallet_funcs import get_mojo_per_unit, get_wallet_type, print_balance
-from chik.rpc.wallet_request_types import CombineCoins, SplitCoins
 from chik.types.blockchain_format.coin import Coin
 from chik.util.bech32m import encode_puzzle_hash
 from chik.util.config import selected_network_address_prefix
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.wallet_types import WalletType
+from chik.wallet.wallet_request_types import CombineCoins, SplitCoins
 
 
 async def async_list(
@@ -92,7 +92,7 @@ def print_coins(
         return
     num_per_screen = 5 if paginate else len(coins)
     for i in range(0, len(coins), num_per_screen):
-        for j in range(0, num_per_screen):
+        for j in range(num_per_screen):
             if i + j >= len(coins):
                 break
             coin, conf_height = coins[i + j]

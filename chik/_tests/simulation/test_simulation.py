@@ -10,6 +10,7 @@ import dns.rdatatype
 import dns.rdtypes.IN.A
 import dns.rdtypes.IN.AAAA
 import pytest
+from chik_rs import BlockRecord
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint16, uint32, uint64
 
@@ -17,12 +18,11 @@ from chik._tests.core.node_height import node_height_at_least
 from chik._tests.util.setup_nodes import FullSystem, OldSimulatorsAndWallets
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.cmds.units import units
-from chik.consensus.block_record import BlockRecord
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.daemon.server import WebSocketServer
 from chik.full_node.full_node import FullNode
 from chik.full_node.full_node_api import FullNodeAPI
-from chik.server.outbound_message import NodeType
+from chik.protocols.outbound_message import NodeType
 from chik.server.server import ChikServer
 from chik.simulator.block_tools import BlockTools, create_block_tools_async, test_constants
 from chik.simulator.full_node_simulator import FullNodeSimulator
@@ -43,10 +43,11 @@ test_constants_modified = test_constants.replace(
     WEIGHT_PROOF_THRESHOLD=uint8(2),
     WEIGHT_PROOF_RECENT_BLOCKS=uint32(350),
     MAX_SUB_SLOT_BLOCKS=uint32(50),
-    NUM_SPS_SUB_SLOT=uint32(32),  # Must be a power of 2
+    NUM_SPS_SUB_SLOT=uint8(32),  # Must be a power of 2
     EPOCH_BLOCKS=uint32(280),
     SUB_SLOT_ITERS_STARTING=uint64(2**20),
-    NUMBER_ZERO_BITS_PLOT_FILTER=uint8(5),
+    NUMBER_ZERO_BITS_PLOT_FILTER_V1=uint8(5),
+    NUMBER_ZERO_BITS_PLOT_FILTER_V2=uint8(5),
 )
 
 
@@ -211,7 +212,9 @@ class TestSimulation:
         wallet_node, server_2 = wallets[0]
         wallet_node_2, _server_3 = wallets[1]
         wallet = wallet_node.wallet_state_manager.main_wallet
-        ph = await wallet.get_new_puzzlehash()
+        wallet_2 = wallet_node_2.wallet_state_manager.main_wallet
+        async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
+            ph = await action_scope.get_puzzle_hash(wallet.wallet_state_manager)
         wallet_node.config["trusted_peers"] = {}
         wallet_node_2.config["trusted_peers"] = {}
 
@@ -227,10 +230,12 @@ class TestSimulation:
 
         await time_out_assert(10, wallet.get_confirmed_balance, funds)
         await time_out_assert(5, wallet.get_unconfirmed_balance, funds)
+        async with wallet_2.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
+            ph_2 = await action_scope.get_puzzle_hash(wallet_2.wallet_state_manager)
         async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
             await wallet.generate_signed_transaction(
                 [uint64(10)],
-                [await wallet_node_2.wallet_state_manager.main_wallet.get_new_puzzlehash()],
+                [ph_2],
                 action_scope,
                 uint64(0),
             )
@@ -406,7 +411,7 @@ class TestSimulation:
             async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
                 await wallet.generate_signed_transaction(
                     amounts=[uint64(tx_amount)],
-                    puzzle_hashes=[await wallet_node.wallet_state_manager.main_wallet.get_new_puzzlehash()],
+                    puzzle_hashes=[await action_scope.get_puzzle_hash(wallet.wallet_state_manager)],
                     action_scope=action_scope,
                     coins={coin},
                 )
@@ -455,7 +460,7 @@ class TestSimulation:
                 for coin in coins:
                     await wallet.generate_signed_transaction(
                         amounts=[uint64(tx_amount)],
-                        puzzle_hashes=[await wallet_node.wallet_state_manager.main_wallet.get_new_puzzlehash()],
+                        puzzle_hashes=[await action_scope.get_puzzle_hash(wallet.wallet_state_manager)],
                         action_scope=action_scope,
                         coins={coin},
                     )

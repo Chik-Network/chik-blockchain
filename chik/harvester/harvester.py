@@ -36,8 +36,8 @@ from chik.plotting.util import (
     remove_plot_directory,
     update_harvester_config,
 )
+from chik.protocols.outbound_message import NodeType
 from chik.rpc.rpc_server import StateChangedProtocol, default_get_connections
-from chik.server.outbound_message import NodeType
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 from chik.util.cpu import available_logical_cores

@@ -4,7 +4,7 @@ import copy
 from unittest import TestCase
 
 import pytest
-from chik_rs import AugSchemeMPL, G1Element, G2Element, PrivateKey
+from chik_rs import AugSchemeMPL, CoinSpend, G1Element, G2Element, PrivateKey, SpendBundle
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
@@ -30,8 +30,7 @@ from chik.pools.pool_puzzles import (
 from chik.pools.pool_wallet_info import PoolState
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.coin_spend import CoinSpend, make_spend
-from chik.types.spend_bundle import SpendBundle
+from chik.types.coin_spend import make_spend
 from chik.wallet.puzzles import singleton_top_layer
 from chik.wallet.puzzles.p2_conditions import puzzle_for_conditions
 from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import (

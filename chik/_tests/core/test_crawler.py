@@ -13,11 +13,11 @@ from chik._tests.util.setup_nodes import SimulatorsAndWalletsServices
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.full_node.full_node_api import FullNodeAPI
 from chik.protocols.full_node_protocol import NewPeak
+from chik.protocols.outbound_message import make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.protocols.wallet_protocol import RequestChildren
 from chik.seeder.peer_record import PeerRecord, PeerReliability
-from chik.server.outbound_message import make_msg
-from chik.types.aliases import CrawlerService
+from chik.server.aliases import CrawlerService
 from chik.types.peer_info import PeerInfo
 
 

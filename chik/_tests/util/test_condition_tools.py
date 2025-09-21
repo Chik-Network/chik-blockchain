@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import pytest
-from chik_rs import G1Element
+from chik_rs import G1Element, SpendBundleConditions, SpendConditions
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
-from klvm.casts import int_to_bytes
 
+from chik.consensus.condition_tools import parse_sexp_to_conditions, pkm_pairs, pkm_pairs_for_conditions_dict
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
-from chik.types.spend_bundle_conditions import SpendBundleConditions, SpendConditions
-from chik.util.condition_tools import parse_sexp_to_conditions, pkm_pairs, pkm_pairs_for_conditions_dict
+from chik.util.casts import int_to_bytes
 from chik.util.errors import ConsensusError
 from chik.util.hash import std_hash
 
@@ -50,6 +49,8 @@ def mk_agg_sig_conditions(
         agg_sig_puzzle=agg_sig_data if opcode == ConditionOpcode.AGG_SIG_PUZZLE else [],
         agg_sig_puzzle_amount=agg_sig_data if opcode == ConditionOpcode.AGG_SIG_PUZZLE_AMOUNT else [],
         flags=0,
+        execution_cost=0,
+        condition_cost=0,
     )
     return SpendBundleConditions([spend], 0, 0, 0, None, None, agg_sig_unsafe_data, 0, 0, 0, False, 0, 0)
 

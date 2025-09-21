@@ -3,14 +3,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from chik_rs import CoinState
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint16, uint64
 
-from chik.protocols.wallet_protocol import CoinState
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.program import Program
+from chik.types.blockchain_format.program import NIL, Program
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.lineage_proof import LineageProof
+from chik.wallet.util.curry_and_treehash import NIL_TREEHASH
+
+
+def did_recovery_is_nil(recovery_program: Program) -> bool:
+    # cannot use set as not hashable
+    if recovery_program in (NIL, NIL_TREEHASH):  # noqa: PLR6201
+        return True
+    else:
+        return False
 
 
 @streamable
@@ -32,7 +41,7 @@ class DIDInfo(Streamable):
 @dataclass(frozen=True)
 class DIDCoinData(Streamable):
     p2_puzzle: Program
-    recovery_list_hash: bytes32
+    recovery_list_hash: Optional[bytes32]
     num_verification: uint16
     singleton_struct: Program
     metadata: Program

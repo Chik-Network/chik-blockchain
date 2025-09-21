@@ -5,7 +5,6 @@ import logging
 import pytest
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
-from klvm.casts import int_to_bytes
 
 from chik._tests.util.db_connection import DBConnection
 from chik.full_node.hint_store import HintStore
@@ -16,6 +15,7 @@ from chik.simulator.wallet_tools import WalletTool
 from chik.types.blockchain_format.coin import Coin
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
+from chik.util.casts import int_to_bytes
 
 log = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ async def test_duplicates(db_version: int) -> None:
         hint_0 = 32 * b"\0"
         coin_id_0 = bytes32(32 * b"\4")
 
-        for i in range(0, 2):
+        for i in range(2):
             hints = [(coin_id_0, hint_0), (coin_id_0, hint_0)]
             await hint_store.add_hints(hints)
         coins_for_hint_0 = await hint_store.get_coin_ids(hint_0)

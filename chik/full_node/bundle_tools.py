@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from chik_rs import solution_generator, solution_generator_backrefs
+from chik_rs import SpendBundle, solution_generator, solution_generator_backrefs
 
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.generator_types import BlockGenerator
-from chik.types.spend_bundle import SpendBundle
 
 
 def simple_solution_generator(bundle: SpendBundle) -> BlockGenerator:

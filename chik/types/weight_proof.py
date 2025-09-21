@@ -2,10 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from chik_rs import RewardChainBlock, SubEpochChallengeSegment, SubEpochData
+from chik_rs import EndOfSubSlotBundle, HeaderBlock, RewardChainBlock, SubEpochChallengeSegment, SubEpochData
 
-from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
-from chik.types.header_block import HeaderBlock
 from chik.util.streamable import Streamable, streamable
 
 # number of challenge blocks

@@ -3,11 +3,10 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Optional
 
+from chik_rs import CoinState, HeaderBlock
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
-from chik.protocols.wallet_protocol import CoinState
-from chik.types.header_block import HeaderBlock
 from chik.util.hash import std_hash
 from chik.util.lru_cache import LRUCache
 

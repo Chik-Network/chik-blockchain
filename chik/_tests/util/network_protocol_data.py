@@ -1,18 +1,32 @@
 from __future__ import annotations
 
 from chik_rs import (
+    ChallengeChainSubSlot,
+    CoinSpend,
+    CoinState,
+    EndOfSubSlotBundle,
     Foliage,
     FoliageBlockData,
     FoliageTransactionBlock,
+    FullBlock,
     G1Element,
     G2Element,
+    HeaderBlock,
+    InfusedChallengeChainSubSlot,
     PoolTarget,
+    ProofOfSpace,
+    RespondToPhUpdates,
     RewardChainBlock,
     RewardChainBlockUnfinished,
+    RewardChainSubSlot,
+    SpendBundle,
     SubEpochChallengeSegment,
     SubEpochData,
+    SubEpochSummary,
     SubSlotData,
+    SubSlotProofs,
     TransactionsInfo,
+    UnfinishedBlock,
 )
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import int16, uint8, uint16, uint32, uint64, uint128
@@ -29,23 +43,9 @@ from chik.protocols import (
 from chik.protocols.shared_protocol import Error
 from chik.types.blockchain_format.classgroup import ClassgroupElement
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.proof_of_space import ProofOfSpace
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.blockchain_format.slots import (
-    ChallengeChainSubSlot,
-    InfusedChallengeChainSubSlot,
-    RewardChainSubSlot,
-    SubSlotProofs,
-)
-from chik.types.blockchain_format.sub_epoch_summary import SubEpochSummary
 from chik.types.blockchain_format.vdf import VDFInfo, VDFProof
-from chik.types.coin_spend import CoinSpend
-from chik.types.end_of_slot_bundle import EndOfSubSlotBundle
-from chik.types.full_block import FullBlock
-from chik.types.header_block import HeaderBlock
 from chik.types.peer_info import TimestampedPeerInfo
-from chik.types.spend_bundle import SpendBundle
-from chik.types.unfinished_block import UnfinishedBlock
 from chik.types.weight_proof import RecentChainData, WeightProof
 from chik.util.errors import Err
 
@@ -63,6 +63,7 @@ new_signage_point = farmer_protocol.NewSignagePoint(
     uint64(8265724497259558930),
     uint8(194),
     uint32(1),
+    uint32(0),
 )
 
 proof_of_space = ProofOfSpace(
@@ -641,7 +642,7 @@ respond_header_blocks = wallet_protocol.RespondHeaderBlocks(
     [header_block],
 )
 
-coin_state = wallet_protocol.CoinState(
+coin_state = CoinState(
     coin_1,
     uint32(2287030048),
     uint32(3361305811),
@@ -652,7 +653,7 @@ register_for_ph_updates = wallet_protocol.RegisterForPhUpdates(
     uint32(874269130),
 )
 
-respond_to_ph_updates = wallet_protocol.RespondToPhUpdates(
+respond_to_ph_updates = RespondToPhUpdates(
     [bytes32(bytes.fromhex("1be3bdc54b84901554e4e843966cfa3be3380054c968bebc41cc6be4aa65322f"))],
     uint32(3664709982),
     [coin_state],
@@ -794,7 +795,8 @@ new_signage_point_harvester = harvester_protocol.NewSignagePointHarvester(
     uint8(148),
     bytes32(bytes.fromhex("b78c9fca155e9742df835cbe84bb7e518bee70d78b6be6e39996c0a02e0cfe4c")),
     [pool_difficulty],
-    uint8(9),
+    uint32(0),
+    uint32(0),
 )
 
 new_proof_of_space = harvester_protocol.NewProofOfSpace(

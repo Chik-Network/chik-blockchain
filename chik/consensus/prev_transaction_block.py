@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from chik_rs import BlockRecord
 from chik_rs.sized_ints import uint128
 
-from chik.consensus.block_record import BlockRecord
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
 
 

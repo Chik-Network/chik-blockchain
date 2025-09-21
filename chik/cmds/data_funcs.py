@@ -10,7 +10,7 @@ from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
 
 from chik.cmds.cmds_util import get_any_service_client
-from chik.rpc.data_layer_rpc_client import DataLayerRpcClient
+from chik.data_layer.data_layer_rpc_client import DataLayerRpcClient
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.default_root import resolve_root_path
 

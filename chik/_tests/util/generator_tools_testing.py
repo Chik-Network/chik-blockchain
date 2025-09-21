@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from chik_rs import ConsensusConstants
+from chik_rs import ConsensusConstants, FullBlock
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
 
 from chik._tests.util.get_name_puzzle_conditions import get_name_puzzle_conditions
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
+from chik.consensus.generator_tools import tx_removals_and_additions
 from chik.types.blockchain_format.coin import Coin
-from chik.types.full_block import FullBlock
 from chik.types.generator_types import BlockGenerator
-from chik.util.generator_tools import tx_removals_and_additions
 
 
 def run_and_get_removals_and_additions(

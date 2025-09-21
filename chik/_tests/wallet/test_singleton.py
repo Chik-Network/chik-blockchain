@@ -4,8 +4,8 @@ import pytest
 from chik_rs.sized_bytes import bytes32
 from klvm_tools import binutils
 
+from chik.consensus.condition_tools import parse_sexp_to_conditions
 from chik.types.blockchain_format.program import INFINITE_COST, Program
-from chik.util.condition_tools import parse_sexp_to_conditions
 from chik.wallet.conditions import AssertPuzzleAnnouncement
 from chik.wallet.puzzles.singleton_top_layer import P2_SINGLETON_MOD, SINGLETON_MOD, SINGLETON_MOD_HASH
 from chik.wallet.puzzles.singleton_top_layer import SINGLETON_LAUNCHER_HASH as LAUNCHER_PUZZLE_HASH

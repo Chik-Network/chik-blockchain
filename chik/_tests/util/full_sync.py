@@ -12,24 +12,24 @@ from typing import Callable, Optional, cast
 
 import aiosqlite
 import zstd
+from chik_rs import FullBlock
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint16
 
 from chik._tests.util.constants import test_constants as TEST_CONSTANTS
 from chik.cmds.init_funcs import chik_init
+from chik.consensus.augmented_chain import AugmentedBlockchain
 from chik.consensus.block_body_validation import ForkInfo
 from chik.consensus.constants import replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.consensus.difficulty_adjustment import get_next_sub_slot_iters_and_difficulty
 from chik.full_node.full_node import FullNode
-from chik.server.outbound_message import Message, NodeType
+from chik.protocols.outbound_message import Message, NodeType
 from chik.server.server import ChikServer
 from chik.server.ws_connection import ConnectionCallback, WSChikConnection
 from chik.simulator.block_tools import make_unfinished_block
-from chik.types.full_block import FullBlock
 from chik.types.peer_info import PeerInfo
 from chik.types.validation_state import ValidationState
-from chik.util.augmented_chain import AugmentedBlockchain
 from chik.util.config import load_config
 
 

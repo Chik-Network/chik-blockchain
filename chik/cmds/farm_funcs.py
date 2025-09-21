@@ -5,14 +5,15 @@ import traceback
 from pathlib import Path
 from typing import Any, Optional
 
+from chik_rs import BlockRecord
+
 from chik.cmds.cmds_util import format_bytes, format_minutes, get_any_service_client
 from chik.cmds.units import units
-from chik.consensus.block_record import BlockRecord
-from chik.rpc.farmer_rpc_client import FarmerRpcClient
-from chik.rpc.full_node_rpc_client import FullNodeRpcClient
-from chik.rpc.wallet_rpc_client import WalletRpcClient
+from chik.farmer.farmer_rpc_client import FarmerRpcClient
+from chik.full_node.full_node_rpc_client import FullNodeRpcClient
 from chik.util.errors import CliRpcConnectionError
 from chik.util.network import is_localhost
+from chik.wallet.wallet_rpc_client import WalletRpcClient
 
 SECONDS_PER_BLOCK = (24 * 3600) / 4608
 

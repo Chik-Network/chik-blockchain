@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 
+from chik_rs import CoinSpend
 from chik_rs.sized_ints import uint32
 
-from chik.types.coin_spend import CoinSpend
 from chik.util.db_wrapper import DBWrapper2
 
 log = logging.getLogger(__name__)

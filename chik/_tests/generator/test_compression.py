@@ -12,14 +12,13 @@ from chik_puzzles_py.programs import (
     DECOMPRESS_PUZZLE,
     ROM_BOOTSTRAP_GENERATOR,
 )
-from chik_rs import serialized_length
+from chik_rs import SpendBundle, serialized_length
 from chik_rs.sized_ints import uint32
 from klvm.serialize import sexp_from_stream
 from klvm.SExp import SExp
 from klvm_tools import binutils
 
 from chik.types.blockchain_format.program import INFINITE_COST, Program
-from chik.types.spend_bundle import SpendBundle
 from chik.util.byte_types import hexstr_to_bytes
 from chik.wallet.puzzles.load_klvm import load_klvm
 

@@ -10,8 +10,8 @@ import pytest
 from chik_rs.sized_bytes import bytes32
 
 from chik.apis import ApiProtocolRegistry
+from chik.protocols.outbound_message import NodeType
 from chik.protocols.shared_protocol import default_capabilities
-from chik.server.outbound_message import NodeType
 from chik.server.server import ChikServer, ssl_context_for_client
 from chik.server.ssl_context import chik_ssl_ca_paths, private_ssl_ca_paths
 from chik.server.ws_connection import WSChikConnection

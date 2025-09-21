@@ -4,15 +4,14 @@ import random
 import unittest
 
 import pytest
-from chik_rs import G2Element
+from chik_rs import CoinSpend, G2Element, SpendBundle
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
 
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
-from chik.types.coin_spend import CoinSpend, make_spend
+from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
-from chik.types.spend_bundle import SpendBundle
 
 BLANK_SPEND_BUNDLE = SpendBundle(coin_spends=[], aggregated_signature=G2Element())
 NULL_SIGNATURE = "0xc" + "0" * 191

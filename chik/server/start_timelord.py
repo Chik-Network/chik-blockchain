@@ -9,16 +9,17 @@ from chik_rs import ConsensusConstants
 
 from chik.apis import ApiProtocolRegistry
 from chik.consensus.constants import replace_str_to_bytes
-from chik.consensus.default_constants import DEFAULT_CONSTANTS
-from chik.rpc.timelord_rpc_api import TimelordRpcApi
-from chik.server.outbound_message import NodeType
+from chik.consensus.default_constants import DEFAULT_CONSTANTS, update_testnet_overrides
+from chik.protocols.outbound_message import NodeType
+from chik.server.aliases import TimelordService
+from chik.server.resolve_peer_info import get_unresolved_peer_infos
 from chik.server.signal_handlers import SignalHandlers
 from chik.server.start_service import RpcInfo, Service, async_run
 from chik.timelord.timelord import Timelord
 from chik.timelord.timelord_api import TimelordAPI
-from chik.types.aliases import TimelordService
+from chik.timelord.timelord_rpc_api import TimelordRpcApi
 from chik.util.chik_logging import initialize_service_logging
-from chik.util.config import get_unresolved_peer_infos, load_config, load_config_cli
+from chik.util.config import load_config, load_config_cli
 from chik.util.default_root import resolve_root_path
 from chik.util.task_timing import maybe_manage_task_instrumentation
 
@@ -38,6 +39,7 @@ def create_timelord_service(
 
     network_id = service_config["selected_network"]
     overrides = service_config["network_overrides"]["constants"][network_id]
+    update_testnet_overrides(network_id, overrides)
     updated_constants = replace_str_to_bytes(consensus_constants, **overrides)
 
     node = Timelord(root_path, service_config, updated_constants)

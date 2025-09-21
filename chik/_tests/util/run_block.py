@@ -10,7 +10,7 @@ from chik_rs import Coin, ConsensusConstants
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
-from chik.types.blockchain_format.program import Program
+from chik.types.blockchain_format.program import Program, run_with_cost
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
@@ -60,7 +60,7 @@ def npc_to_dict(npc: NPC) -> dict[str, Any]:
 
 def run_generator(block_generator: BlockGenerator, constants: ConsensusConstants, max_cost: int) -> list[CAT]:
     block_args = block_generator.generator_refs
-    _cost, block_result = block_generator.program.run_with_cost(max_cost, [DESERIALIZE_MOD, block_args])
+    _cost, block_result = run_with_cost(block_generator.program, max_cost, [DESERIALIZE_MOD, block_args])
 
     coin_spends = block_result.first()
 

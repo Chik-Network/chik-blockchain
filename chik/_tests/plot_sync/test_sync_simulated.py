@@ -27,11 +27,11 @@ from chik.plot_sync.util import Constants
 from chik.plotting.manager import PlotManager
 from chik.plotting.util import PlotInfo
 from chik.protocols.harvester_protocol import PlotSyncError, PlotSyncResponse
+from chik.protocols.outbound_message import make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
-from chik.server.outbound_message import make_msg
+from chik.server.aliases import FarmerService, HarvesterService
 from chik.server.ws_connection import WSChikConnection
 from chik.simulator.block_tools import BlockTools
-from chik.types.aliases import FarmerService, HarvesterService
 from chik.util.batches import to_batches
 
 log = logging.getLogger(__name__)
@@ -291,7 +291,7 @@ def create_example_plots(count: int, seeded_random: random.Random) -> list[PlotI
             file_size=uint64(0),
             time_modified=time.time(),
         )
-        for x in range(0, count)
+        for x in range(count)
     ]
 
 

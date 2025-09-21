@@ -3,17 +3,16 @@ from __future__ import annotations
 import logging
 import time
 import traceback
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Optional
 
-from chik_rs import G1Element, G2Element
+from chik_rs import CoinSpend, G1Element, G2Element
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64, uint128
-from typing_extensions import Unpack
+from typing_extensions import Self, Unpack
 
 from chik.server.ws_connection import WSChikConnection
 from chik.types.blockchain_format.coin import Coin, coin_as_list
 from chik.types.blockchain_format.program import Program
-from chik.types.coin_spend import CoinSpend
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.hash import std_hash
 from chik.util.streamable import VersionedBlob
@@ -69,6 +68,8 @@ class CRCATWallet(CATWallet):
     wallet_info: WalletInfo
     info: CRCATInfo
     standard_wallet: Wallet
+    wallet_type: ClassVar[WalletType] = WalletType.CRCAT
+    wallet_info_type: ClassVar[type[CRCATInfo]] = CRCATInfo
 
     @staticmethod
     def default_wallet_name_for_unknown_cat(limitations_program_hash_hex: str) -> str:
@@ -91,18 +92,19 @@ class CRCATWallet(CATWallet):
     ) -> CATWallet:  # pragma: no cover
         raise NotImplementedError("create_new_cat_wallet is a legacy method and is not available on CR-CAT wallets")
 
-    @staticmethod
+    @classmethod
     async def get_or_create_wallet_for_cat(
+        cls,
         wallet_state_manager: WalletStateManager,
         wallet: Wallet,
         limitations_program_hash_hex: str,
         name: Optional[str] = None,
         authorized_providers: Optional[list[bytes32]] = None,
         proofs_checker: Optional[ProofsChecker] = None,
-    ) -> CRCATWallet:
+    ) -> Self:
         if authorized_providers is None or proofs_checker is None:  # pragma: no cover
             raise ValueError("get_or_create_wallet_for_cat was call on CRCATWallet without proper arguments")
-        self = CRCATWallet()
+        self = cls()
         self.standard_wallet = wallet
         if name is None:
             name = self.default_wallet_name_for_unknown_cat(limitations_program_hash_hex)
@@ -111,15 +113,15 @@ class CRCATWallet(CATWallet):
         tail_hash = bytes32.from_hexstr(limitations_program_hash_hex)
 
         for id, w in wallet_state_manager.wallets.items():
-            if w.type() == CRCATWallet.type():
-                assert isinstance(w, CRCATWallet)
+            if w.type() == cls.type():
+                assert isinstance(w, cls)
                 if w.get_asset_id() == limitations_program_hash_hex:
                     self.log.warning("Not creating wallet for already existing CR-CAT wallet")
                     return w
 
         self.wallet_state_manager = wallet_state_manager
 
-        self.info = CRCATInfo(tail_hash, None, authorized_providers, proofs_checker)
+        self.info = cls.wallet_info_type(tail_hash, None, authorized_providers, proofs_checker)
         info_as_string = bytes(self.info).hex()
         self.wallet_info = await wallet_state_manager.user_store.create_wallet(name, WalletType.CRCAT, info_as_string)
 
@@ -160,7 +162,7 @@ class CRCATWallet(CATWallet):
         self.wallet_state_manager = wallet_state_manager
         self.wallet_info = wallet_info
         self.standard_wallet = wallet
-        self.info = CRCATInfo.from_bytes(hexstr_to_bytes(self.wallet_info.data))
+        self.info = self.wallet_info_type.from_bytes(hexstr_to_bytes(self.wallet_info.data))
         return self
 
     @classmethod
@@ -175,7 +177,7 @@ class CRCATWallet(CATWallet):
         replace_self.log = logging.getLogger(cat_wallet.get_name())
         replace_self.log.info(f"Converting CAT wallet {cat_wallet.id()} to CR-CAT wallet")
         replace_self.wallet_state_manager = cat_wallet.wallet_state_manager
-        replace_self.info = CRCATInfo(
+        replace_self.info = cls.wallet_info_type(
             cat_wallet.cat_info.limitations_program_hash, None, authorized_providers, proofs_checker
         )
         await cat_wallet.wallet_state_manager.user_store.update_wallet(
@@ -197,7 +199,7 @@ class CRCATWallet(CATWallet):
         return self.wallet_info.id
 
     def get_asset_id(self) -> str:
-        return self.info.limitations_program_hash.hex()
+        return bytes(self.info.limitations_program_hash).hex()
 
     async def set_tail_program(self, tail_program: str) -> None:  # pragma: no cover
         raise NotImplementedError("set_tail_program is a legacy method and is not available on CR-CAT wallets")
@@ -449,19 +451,18 @@ class CRCATWallet(CATWallet):
             if origin_crcat_record is None:
                 raise RuntimeError("A CR-CAT coin was selected that we don't have a record for")  # pragma: no cover
             origin_crcat = self.coin_record_to_crcat(origin_crcat_record)
-            if action_scope.config.tx_config.override(
-                reuse_puzhash=(
-                    True if not add_authorizations_to_cr_cats else action_scope.config.tx_config.reuse_puzhash
-                )
-            ).reuse_puzhash:
-                change_puzhash = origin_crcat.inner_puzzle_hash
-                for payment in payments:
-                    if change_puzhash == payment.puzzle_hash and change == payment.amount:
-                        # We cannot create two coins has same id, create a new puzhash for the change
-                        change_puzhash = await self.standard_wallet.get_puzzle_hash(new=True)
-                        break
+
+            if add_authorizations_to_cr_cats:
+                change_puzhash = await action_scope.get_puzzle_hash(self.wallet_state_manager)
             else:
-                change_puzhash = await self.standard_wallet.get_puzzle_hash(new=True)
+                change_puzhash = origin_crcat.inner_puzzle_hash
+            for payment in payments:
+                if change_puzhash == payment.puzzle_hash and change == payment.amount:
+                    # We cannot create two coins has same id, create a new puzhash for the change
+                    change_puzhash = await action_scope.get_puzzle_hash(
+                        self.wallet_state_manager, override_reuse_puzhash_with=False
+                    )
+                    break
             primaries.append(CreateCoin(change_puzhash, uint64(change), [change_puzhash]))
 
         # Find the VC Wallet
@@ -586,7 +587,7 @@ class CRCATWallet(CATWallet):
         if add_authorizations_to_cr_cats:
             await vc_wallet.generate_signed_transaction(
                 [uint64(1)],
-                [await self.standard_wallet.get_puzzle_hash(new=not action_scope.config.tx_config.reuse_puzhash)],
+                [await action_scope.get_puzzle_hash(self.wallet_state_manager)],
                 action_scope,
                 vc_id=vc.launcher_id,
                 extra_conditions=(
@@ -769,7 +770,7 @@ class CRCATWallet(CATWallet):
         # Make the VC TX
         await vc_wallet.generate_signed_transaction(
             [uint64(1)],
-            [await self.standard_wallet.get_puzzle_hash(new=not action_scope.config.tx_config.reuse_puzhash)],
+            [await action_scope.get_puzzle_hash(self.wallet_state_manager)],
             action_scope,
             vc_id=vc.launcher_id,
             extra_conditions=(
@@ -780,6 +781,7 @@ class CRCATWallet(CATWallet):
             ),
         )
 
+        to_puzzle_hash = await action_scope.get_puzzle_hash(self.wallet_state_manager, override_reuse_puzhash_with=True)
         async with action_scope.use() as interface:
             other_additions: set[Coin] = {rem for tx in interface.side_effects.transactions for rem in tx.additions}
             other_removals: set[Coin] = {rem for tx in interface.side_effects.transactions for rem in tx.removals}
@@ -787,7 +789,7 @@ class CRCATWallet(CATWallet):
                 TransactionRecord(
                     confirmed_at_height=uint32(0),
                     created_at_time=uint64(int(time.time())),
-                    to_puzzle_hash=await self.wallet_state_manager.main_wallet.get_puzzle_hash(False),
+                    to_puzzle_hash=to_puzzle_hash,
                     amount=uint64(sum(c.amount for c in coins)),
                     fee_amount=fee,
                     confirmed=False,

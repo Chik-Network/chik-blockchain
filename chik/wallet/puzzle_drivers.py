@@ -3,12 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from klvm.casts import int_from_bytes
 from klvm.SExp import SExp
 from klvm_tools.binutils import assemble, type_for_atom
 from ir.Type import Type
 
 from chik.types.blockchain_format.program import Program
+from chik.util.casts import int_from_bytes
 
 """
 The following two classes act as wrapper classes around dictionaries of strings.

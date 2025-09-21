@@ -9,7 +9,7 @@ from chik_rs.sized_bytes import bytes32
 from chik._tests.util.misc import RecordingWebServer
 from chik.data_layer.data_layer import DataLayer
 from chik.data_layer.data_layer_util import PluginRemote
-from chik.rpc.wallet_rpc_client import WalletRpcClient
+from chik.wallet.wallet_rpc_client import WalletRpcClient
 
 
 async def create_sufficient_wallet_rpc_client() -> WalletRpcClient:

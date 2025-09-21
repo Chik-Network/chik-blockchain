@@ -6,9 +6,9 @@ from typing import Any, Optional
 from chik_rs.sized_ints import uint16
 
 from chik._tests.util.misc import DataCase, Marks, datacases
-from chik.server.outbound_message import NodeType
+from chik.protocols.outbound_message import NodeType
+from chik.server.resolve_peer_info import get_unresolved_peer_infos, set_peer_info
 from chik.types.peer_info import UnresolvedPeerInfo
-from chik.util.config import get_unresolved_peer_infos, set_peer_info
 
 
 @dataclass

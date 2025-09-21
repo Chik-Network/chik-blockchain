@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import pytest
+from chik_rs import FullBlock, HeaderBlock
 
 from chik._tests.util.db_connection import DBConnection
 from chik.simulator.block_tools import BlockTools
-from chik.types.full_block import FullBlock
-from chik.types.header_block import HeaderBlock
 from chik.wallet.key_val_store import KeyValStore
 
 

@@ -2,22 +2,20 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Optional, TypeVar
+from typing import Optional
 
+from chik_rs import CoinSpend, CoinState
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint16
+from typing_extensions import Self
 
-from chik.protocols.wallet_protocol import CoinState
 from chik.types.blockchain_format.program import Program
-from chik.types.coin_spend import CoinSpend
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.nft_wallet.nft_puzzles import NFT_OWNERSHIP_LAYER
 from chik.wallet.nft_wallet.nft_puzzles import NFT_STATE_LAYER_MOD as NFT_MOD
 from chik.wallet.singleton import SINGLETON_TOP_LAYER_MOD
 
 log = logging.getLogger(__name__)
-
-_T_UncurriedNFT = TypeVar("_T_UncurriedNFT", bound="UncurriedNFT")
 
 
 @streamable
@@ -89,7 +87,7 @@ class UncurriedNFT(Streamable):
     trade_price_percentage: Optional[uint16]
 
     @classmethod
-    def uncurry(cls: type[_T_UncurriedNFT], mod: Program, curried_args: Program) -> Optional[_T_UncurriedNFT]:
+    def uncurry(cls, mod: Program, curried_args: Program) -> Optional[Self]:
         """
         Try to uncurry a NFT puzzle
         :param cls UncurriedNFT class

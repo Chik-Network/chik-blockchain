@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from chik_rs import FullBlock
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
@@ -16,10 +17,10 @@ from chik.consensus.block_body_validation import ForkInfo
 from chik.consensus.blockchain import Blockchain
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.consensus.multiprocess_validation import PreValidationResult
+from chik.full_node.block_height_map import BlockHeightMap
 from chik.full_node.block_store import BlockStore
 from chik.full_node.coin_store import CoinStore
 from chik.simulator.block_tools import test_constants
-from chik.types.full_block import FullBlock
 from chik.util.db_wrapper import DBWrapper2
 
 
@@ -116,7 +117,7 @@ def test_db_validate_in_main_chain(invalid_in_chain: bool, default_config: dict[
             make_block_table(conn)
 
             prev = bytes32(DEFAULT_CONSTANTS.AGG_SIG_ME_ADDITIONAL_DATA)
-            for height in range(0, 100):
+            for height in range(100):
                 header_hash = rand_hash()
                 add_block(conn, header_hash, prev, height, True)
                 if height % 4 == 0:
@@ -143,8 +144,9 @@ async def make_db(db_file: Path, blocks: list[FullBlock]) -> None:
 
         block_store = await BlockStore.create(db_wrapper)
         coin_store = await CoinStore.create(db_wrapper)
+        height_map = await BlockHeightMap.create(Path("."), db_wrapper)
 
-        bc = await Blockchain.create(coin_store, block_store, test_constants, Path("."), reserved_cores=0)
+        bc = await Blockchain.create(coin_store, block_store, height_map, test_constants, reserved_cores=0)
         sub_slot_iters = test_constants.SUB_SLOT_ITERS_STARTING
         for block in blocks:
             if block.height != 0 and len(block.finished_sub_slots) > 0:

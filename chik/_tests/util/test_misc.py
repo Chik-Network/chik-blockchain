@@ -13,8 +13,8 @@ from chik._tests.util.misc import RecordingWebServer
 from chik._tests.util.split_managers import SplitAsyncManager, SplitManager, split_async_manager, split_manager
 from chik._tests.wallet.test_singleton_lifecycle_fast import satisfies_hint
 from chik.cmds.cmds_util import format_bytes, format_minutes, validate_directory_writable
+from chik.full_node.tx_processing_queue import ValuedEvent
 from chik.types.blockchain_format.program import Program
-from chik.types.transaction_queue_entry import ValuedEvent
 from chik.util.batches import to_batches
 from chik.util.errors import InvalidPathError
 from chik.util.timing import adjusted_timeout, backoff_times
@@ -98,7 +98,7 @@ def test_empty_lists() -> None:
 @pytest.mark.parametrize("collection_type", [list, set])
 def test_valid(collection_type: type) -> None:
     for k in range(1, 10):
-        test_collection = collection_type([x for x in range(0, k)])
+        test_collection = collection_type([x for x in range(k)])
         for i in range(1, len(test_collection) + 1):  # Test batch_size 1 to 11 (length + 1)
             checked = 0
             for batch in to_batches(test_collection, i):

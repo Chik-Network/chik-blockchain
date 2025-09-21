@@ -7,10 +7,10 @@ from chik_rs.sized_ints import uint64
 
 from chik.introducer.introducer import Introducer
 from chik.protocols.introducer_protocol import RequestPeersIntroducer, RespondPeersIntroducer
+from chik.protocols.outbound_message import Message, make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.rpc.rpc_server import StateChangedProtocol
 from chik.server.api_protocol import ApiMetadata
-from chik.server.outbound_message import Message, make_msg
 from chik.server.ws_connection import WSChikConnection
 from chik.types.peer_info import TimestampedPeerInfo
 

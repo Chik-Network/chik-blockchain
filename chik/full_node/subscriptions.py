@@ -3,11 +3,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
-from chik_rs import Coin
+from chik_rs import Coin, SpendBundleConditions
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
-
-from chik.types.spend_bundle_conditions import SpendBundleConditions
 
 log = logging.getLogger(__name__)
 

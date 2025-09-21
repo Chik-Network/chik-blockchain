@@ -5,17 +5,16 @@ from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from typing import Optional
 
-from chik_rs import ConsensusConstants
+from chik_rs import ConsensusConstants, SpendBundle
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.util.get_name_puzzle_conditions import get_name_puzzle_conditions
+from chik.consensus.check_time_locks import check_time_locks
 from chik.consensus.cost_calculator import NPCResult
 from chik.full_node.bundle_tools import simple_solution_generator
-from chik.full_node.mempool_check_conditions import mempool_check_time_locks
 from chik.types.blockchain_format.coin import Coin
 from chik.types.coin_record import CoinRecord
-from chik.types.spend_bundle import SpendBundle
 from chik.util.errors import Err
 
 MAX_COST = 11000000000
@@ -84,7 +83,7 @@ class CoinStore:
                     uint64(now.seconds),
                 )
 
-        err = mempool_check_time_locks(
+        err = check_time_locks(
             ephemeral_db,
             result.conds,
             # TODO: this is technically not right, it's supposed to be the

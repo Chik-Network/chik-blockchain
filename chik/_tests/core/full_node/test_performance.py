@@ -4,20 +4,19 @@ import logging
 import random
 
 import pytest
+from chik_rs import BlockRecord, UnfinishedBlock
 from chik_rs.sized_ints import uint64
-from klvm.casts import int_to_bytes
 
 from chik._tests.connection_utils import add_dummy_connection
 from chik._tests.core.full_node.stores.test_coin_store import get_future_reward_coins
 from chik._tests.core.node_height import node_height_at_least
 from chik._tests.util.misc import BenchmarkRunner
 from chik._tests.util.time_out_assert import time_out_assert
-from chik.consensus.block_record import BlockRecord
 from chik.consensus.pot_iterations import is_overflow_block
 from chik.protocols import full_node_protocol as fnp
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
-from chik.types.unfinished_block import UnfinishedBlock
+from chik.util.casts import int_to_bytes
 
 log = logging.getLogger(__name__)
 
@@ -123,7 +122,7 @@ class TestPerformance:
         curr: BlockRecord = peak
         while not curr.is_transaction_block:
             curr = full_node_1.full_node.blockchain.block_record(curr.prev_hash)
-        mempool_bundle = await full_node_1.full_node.mempool_manager.create_bundle_from_mempool(curr.header_hash)
+        mempool_bundle = full_node_1.full_node.mempool_manager.create_bundle_from_mempool(curr.header_hash)
         if mempool_bundle is None:
             spend_bundle = None
         else:
