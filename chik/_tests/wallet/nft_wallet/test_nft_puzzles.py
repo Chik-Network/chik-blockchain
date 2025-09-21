@@ -45,7 +45,8 @@ def test_nft_transfer_puzzle_hashes(seeded_random: random.Random) -> None:
     maker_did = Program.to("maker did").get_tree_hash()
     # maker_did_inner_hash = Program.to("maker did inner hash").get_tree_hash()
     metadata = [("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]),
-                ("h", 0xD4584AD463139FA8C0D9F68F4B59F185)]
+                ("h", 0xD4584AD463139FA8C0D9F68F4B59F185),
+    ]
     metadata_updater_hash = NFT_METADATA_UPDATER_HASH
     # royalty_addr = maker_p2_ph
     royalty_pc = 2000  # basis pts
@@ -149,7 +150,8 @@ def get_updated_nft_puzzle(puzzle: Program, solution: Program) -> bytes32:
 
 def test_transfer_puzzle_builder() -> None:
     metadata = [("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]),
-                ("h", 0xD4584AD463139FA8C0D9F68F4B59F185)]
+                ("h", 0xD4584AD463139FA8C0D9F68F4B59F185),
+    ]
     sp2_puzzle, solution = make_a_new_solution()
     p2_puzzle, ownership_puzzle = make_a_new_ownership_layer_puzzle()
     klvm_nft_puzzle = create_nft_layer_puzzle_with_curry_params(
