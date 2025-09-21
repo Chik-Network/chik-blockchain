@@ -15,12 +15,7 @@ from chik.wallet.nft_wallet.nft_wallet import NFTWallet
 from chik.wallet.nft_wallet.uncurry_nft import UncurriedNFT
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.address_type import AddressType
-from chik.wallet.wallet_request_types import (
-    NFTGetNFTs,
-    NFTMintBulk,
-    NFTMintMetadata,
-    PushTransactions,
-)
+from chik.wallet.wallet_request_types import NFTGetNFTs, NFTMintBulk, NFTMintMetadata, PushTransactions
 
 
 async def nft_count(wallet: NFTWallet) -> int:
@@ -28,16 +23,10 @@ async def nft_count(wallet: NFTWallet) -> int:
 
 
 @pytest.mark.limit_consensus_modes
-@pytest.mark.parametrize(
-    "wallet_environments",
-    [{"num_environments": 2, "blocks_needed": [1, 1]}],
-    indirect=True,
-)
+@pytest.mark.parametrize("wallet_environments", [{"num_environments": 2, "blocks_needed": [1, 1]}], indirect=True)
 @pytest.mark.parametrize("with_did", [True, False])
 @pytest.mark.anyio
-async def test_nft_mint(
-    wallet_environments: WalletTestFramework, with_did: bool
-) -> None:
+async def test_nft_mint(wallet_environments: WalletTestFramework, with_did: bool) -> None:
     env_0 = wallet_environments.environments[0]
     env_1 = wallet_environments.environments[1]
     wallet_0 = env_0.xck_wallet
@@ -52,9 +41,7 @@ async def test_nft_mint(
         "nft": 2,
     }
 
-    async with wallet_0.wallet_state_manager.new_action_scope(
-        wallet_environments.tx_config, push=True
-    ) as action_scope:
+    async with wallet_0.wallet_state_manager.new_action_scope(wallet_environments.tx_config, push=True) as action_scope:
         ph_0 = await action_scope.get_puzzle_hash(env_0.wallet_state_manager)
         did_wallet: DIDWallet = await DIDWallet.create_new_did_wallet(
             env_0.wallet_state_manager, wallet_0, uint64(1), action_scope
@@ -67,9 +54,7 @@ async def test_nft_mint(
         env_0.wallet_state_manager, wallet_0, name="NFT WALLET 1", did_id=did_id
     )
 
-    nft_wallet_1 = await NFTWallet.create_new_nft_wallet(
-        env_1.wallet_state_manager, wallet_1, name="NFT WALLET 2"
-    )
+    nft_wallet_1 = await NFTWallet.create_new_nft_wallet(env_1.wallet_state_manager, wallet_1, name="NFT WALLET 2")
 
     await wallet_environments.process_pending_states(
         [
@@ -114,10 +99,7 @@ async def test_nft_mint(
     metadata_list = [
         {
             "program": Program.to(
-                [
-                    ("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]),
-                    ("h", bytes32.zeros.hex()),
-                ]
+                [("u", ["https://www.chiknetwork.com/img/branding/chik-logo.svg"]), ("h", bytes32.zeros.hex())]
             ),
             "royalty_pc": royalty_pc,
             "royalty_ph": royalty_addr,
@@ -125,13 +107,8 @@ async def test_nft_mint(
         for x in range(mint_total)
     ]
 
-    async with wallet_1.wallet_state_manager.new_action_scope(
-        wallet_environments.tx_config, push=True
-    ) as action_scope:
-        target_list = [
-            await action_scope.get_puzzle_hash(wallet_1.wallet_state_manager)
-            for x in range(mint_total)
-        ]
+    async with wallet_1.wallet_state_manager.new_action_scope(wallet_environments.tx_config, push=True) as action_scope:
+        target_list = [await action_scope.get_puzzle_hash(wallet_1.wallet_state_manager) for x in range(mint_total)]
 
     async with nft_wallet_0.wallet_state_manager.new_action_scope(
         wallet_environments.tx_config, push=True
@@ -166,16 +143,14 @@ async def test_nft_mint(
                         ">=#pending_change": 1,
                         "pending_coin_removal_count": 1,
                     },
-                    "did": (
-                        {
-                            "spendable_balance": -1,
-                            "max_send_amount": -1,
-                            "pending_change": 1,
-                            "pending_coin_removal_count": 1,
-                        }
-                        if with_did
-                        else {}
-                    ),
+                    "did": {
+                        "spendable_balance": -1,
+                        "max_send_amount": -1,
+                        "pending_change": 1,
+                        "pending_coin_removal_count": 1,
+                    }
+                    if with_did
+                    else {},
                     "nft": {
                         "pending_coin_removal_count": mint_total,
                     },
@@ -188,16 +163,14 @@ async def test_nft_mint(
                         "<=#pending_change": -1,
                         "pending_coin_removal_count": -1,
                     },
-                    "did": (
-                        {
-                            "spendable_balance": 1,
-                            "max_send_amount": 1,
-                            "pending_change": -1,
-                            "pending_coin_removal_count": -1,
-                        }
-                        if with_did
-                        else {}
-                    ),
+                    "did": {
+                        "spendable_balance": 1,
+                        "max_send_amount": 1,
+                        "pending_change": -1,
+                        "pending_coin_removal_count": -1,
+                    }
+                    if with_did
+                    else {},
                     "nft": {
                         "pending_coin_removal_count": -mint_total,
                     },
@@ -236,17 +209,11 @@ async def test_nft_mint(
 
 
 @pytest.mark.limit_consensus_modes
-@pytest.mark.parametrize(
-    "wallet_environments",
-    [{"num_environments": 2, "blocks_needed": [1, 1]}],
-    indirect=True,
-)
+@pytest.mark.parametrize("wallet_environments", [{"num_environments": 2, "blocks_needed": [1, 1]}], indirect=True)
 @pytest.mark.parametrize("zero_royalties", [True, False])
 @pytest.mark.parametrize("with_did", [True, False])
 @pytest.mark.anyio
-async def test_nft_mint_rpc(
-    wallet_environments: WalletTestFramework, zero_royalties: bool, with_did: bool
-) -> None:
+async def test_nft_mint_rpc(wallet_environments: WalletTestFramework, zero_royalties: bool, with_did: bool) -> None:
     env_0 = wallet_environments.environments[0]
     env_1 = wallet_environments.environments[1]
     wallet_0 = env_0.xck_wallet
@@ -260,14 +227,10 @@ async def test_nft_mint_rpc(
         "nft": 2,
     }
 
-    async with env_1.wallet_state_manager.new_action_scope(
-        wallet_environments.tx_config, push=True
-    ) as action_scope:
+    async with env_1.wallet_state_manager.new_action_scope(wallet_environments.tx_config, push=True) as action_scope:
         ph_1 = await action_scope.get_puzzle_hash(env_1.wallet_state_manager)
 
-    async with env_0.wallet_state_manager.new_action_scope(
-        wallet_environments.tx_config, push=True
-    ) as action_scope:
+    async with env_0.wallet_state_manager.new_action_scope(wallet_environments.tx_config, push=True) as action_scope:
         did_wallet_maker: DIDWallet = await DIDWallet.create_new_did_wallet(
             env_0.wallet_state_manager, wallet_0, uint64(1), action_scope
         )
@@ -298,13 +261,9 @@ async def test_nft_mint_rpc(
     )
 
     hex_did_id = did_wallet_maker.get_my_DID()
-    hmr_did_id = encode_puzzle_hash(
-        bytes32.from_hexstr(hex_did_id), AddressType.DID.hrp(env_0.node.config)
-    )
+    hmr_did_id = encode_puzzle_hash(bytes32.from_hexstr(hex_did_id), AddressType.DID.hrp(env_0.node.config))
 
-    nft_wallet_maker = await env_0.rpc_client.create_new_nft_wallet(
-        name="NFT WALLET 1", did_id=hmr_did_id
-    )
+    nft_wallet_maker = await env_0.rpc_client.create_new_nft_wallet(name="NFT WALLET 1", did_id=hmr_did_id)
 
     await env_1.rpc_client.create_new_nft_wallet(name="NFT WALLET 2", did_id=None)
 
@@ -327,9 +286,7 @@ async def test_nft_mint_rpc(
         for i in range(n)
     ]
     target_list = [encode_puzzle_hash(ph_1, "xck") for x in range(n)]
-    royalty_address = (
-        None if zero_royalties else encode_puzzle_hash(bytes32.zeros, "xck")
-    )
+    royalty_address = None if zero_royalties else encode_puzzle_hash(bytes32.zeros, "xck")
     royalty_percentage = None if zero_royalties else 300
     fee = 100
     num_chunks = int(n / chunk) + (1 if n % chunk > 0 else 0)
@@ -357,10 +314,7 @@ async def test_nft_mint_rpc(
         resp = await env_0.rpc_client.nft_mint_bulk(
             NFTMintBulk(
                 wallet_id=nft_wallet_maker["wallet_id"],
-                metadata_list=[
-                    NFTMintMetadata.from_json_dict(metadata)
-                    for metadata in metadata_list[i : i + chunk]
-                ],
+                metadata_list=[NFTMintMetadata.from_json_dict(metadata) for metadata in metadata_list[i : i + chunk]],
                 target_list=target_list[i : i + chunk],
                 royalty_percentage=uint16.construct_optional(royalty_percentage),
                 royalty_address=royalty_address,
@@ -403,9 +357,7 @@ async def test_nft_mint_rpc(
         for nft_id in resp.nft_id_list:
             nft_ids.add(decode_puzzle_hash(nft_id))
 
-    await env_0.rpc_client.push_transactions(
-        PushTransactions(transactions=txs), wallet_environments.tx_config
-    )
+    await env_0.rpc_client.push_transactions(PushTransactions(transactions=txs), wallet_environments.tx_config)
 
     await wallet_environments.process_pending_states(
         [
@@ -418,17 +370,15 @@ async def test_nft_mint_rpc(
                         ">=#pending_change": 1,
                         "pending_coin_removal_count": num_chunks,
                     },
-                    "did": (
-                        {
-                            "spendable_balance": -1,
-                            "max_send_amount": -1,
-                            # 2 here feels a bit weird but I'm not sure it's necessarily incorrect
-                            "pending_change": 2,
-                            "pending_coin_removal_count": 2,
-                        }
-                        if with_did
-                        else {}
-                    ),
+                    "did": {
+                        "spendable_balance": -1,
+                        "max_send_amount": -1,
+                        # 2 here feels a bit weird but I'm not sure it's necessarily incorrect
+                        "pending_change": 2,
+                        "pending_coin_removal_count": 2,
+                    }
+                    if with_did
+                    else {},
                     "nft": {
                         "pending_coin_removal_count": n,
                     },
@@ -441,16 +391,14 @@ async def test_nft_mint_rpc(
                         "<=#pending_change": -1,
                         "pending_coin_removal_count": -num_chunks,
                     },
-                    "did": (
-                        {
-                            "spendable_balance": 1,
-                            "max_send_amount": 1,
-                            "pending_change": -2,
-                            "pending_coin_removal_count": -2,
-                        }
-                        if with_did
-                        else {}
-                    ),
+                    "did": {
+                        "spendable_balance": 1,
+                        "max_send_amount": 1,
+                        "pending_change": -2,
+                        "pending_coin_removal_count": -2,
+                    }
+                    if with_did
+                    else {},
                     "nft": {
                         "pending_coin_removal_count": -n,
                     },
@@ -468,14 +416,7 @@ async def test_nft_mint_rpc(
     )
 
     # check NFT edition numbers
-    nfts = [
-        nft
-        for nft in (
-            await env_1.rpc_client.list_nfts(
-                NFTGetNFTs(uint32(env_1.wallet_aliases["nft"]))
-            )
-        ).nft_list
-    ]
+    nfts = [nft for nft in (await env_1.rpc_client.list_nfts(NFTGetNFTs(uint32(env_1.wallet_aliases["nft"])))).nft_list]
     for nft in nfts:
         edition_num = nft.edition_number
         meta_dict = metadata_list[edition_num - 1]
@@ -491,16 +432,10 @@ async def test_nft_mint_rpc(
 
 
 @pytest.mark.limit_consensus_modes
-@pytest.mark.parametrize(
-    "wallet_environments",
-    [{"num_environments": 2, "blocks_needed": [1, 1]}],
-    indirect=True,
-)
+@pytest.mark.parametrize("wallet_environments", [{"num_environments": 2, "blocks_needed": [1, 1]}], indirect=True)
 @pytest.mark.parametrize("with_did", [True, False])
 @pytest.mark.anyio
-async def test_nft_mint_multiple_xck(
-    wallet_environments: WalletTestFramework, with_did: bool
-) -> None:
+async def test_nft_mint_multiple_xck(wallet_environments: WalletTestFramework, with_did: bool) -> None:
     env_0 = wallet_environments.environments[0]
     env_1 = wallet_environments.environments[1]
     wallet_0 = env_0.xck_wallet
@@ -515,16 +450,12 @@ async def test_nft_mint_multiple_xck(
         "nft": 2,
     }
 
-    async with env_0.wallet_state_manager.new_action_scope(
-        wallet_environments.tx_config, push=True
-    ) as action_scope:
+    async with env_0.wallet_state_manager.new_action_scope(wallet_environments.tx_config, push=True) as action_scope:
         ph_0 = await action_scope.get_puzzle_hash(env_0.wallet_state_manager)
         did_wallet: DIDWallet = await DIDWallet.create_new_did_wallet(
             env_0.wallet_state_manager, wallet_0, uint64(1), action_scope
         )
-    async with env_1.wallet_state_manager.new_action_scope(
-        wallet_environments.tx_config, push=True
-    ) as action_scope:
+    async with env_1.wallet_state_manager.new_action_scope(wallet_environments.tx_config, push=True) as action_scope:
         ph_1 = await action_scope.get_puzzle_hash(env_1.wallet_state_manager)
 
     await wallet_environments.process_pending_states(
@@ -561,9 +492,7 @@ async def test_nft_mint_multiple_xck(
         env_0.wallet_state_manager, wallet_0, name="NFT WALLET 1", did_id=did_id
     )
 
-    await NFTWallet.create_new_nft_wallet(
-        wallet_1.wallet_state_manager, wallet_1, name="NFT WALLET 2"
-    )
+    await NFTWallet.create_new_nft_wallet(wallet_1.wallet_state_manager, wallet_1, name="NFT WALLET 2")
 
     await env_0.change_balances({"nft": {"init": True}})
     await env_1.change_balances({"nft": {"init": True}})
@@ -581,17 +510,12 @@ async def test_nft_mint_multiple_xck(
     mint_total = 1
     fee = uint64(100)
     metadata_list = [
-        {"program": metadata, "royalty_pc": royalty_pc, "royalty_ph": royalty_addr}
-        for x in range(mint_total)
+        {"program": metadata, "royalty_pc": royalty_pc, "royalty_ph": royalty_addr} for x in range(mint_total)
     ]
 
     # Grab two coins for testing that we can create a bulk minting with more than 1 xck coin
-    async with env_0.wallet_state_manager.new_action_scope(
-        wallet_environments.tx_config, push=False
-    ) as action_scope:
-        xck_coins_1 = await wallet_0.select_coins(
-            amount=uint64(10000), action_scope=action_scope
-        )
+    async with env_0.wallet_state_manager.new_action_scope(wallet_environments.tx_config, push=False) as action_scope:
+        xck_coins_1 = await wallet_0.select_coins(amount=uint64(10000), action_scope=action_scope)
         xck_coins_2 = await wallet_0.select_coins(
             amount=uint64(10000),
             action_scope=action_scope,
@@ -600,9 +524,7 @@ async def test_nft_mint_multiple_xck(
 
     target_list = [ph_1 for x in range(mint_total)]
 
-    async with env_0.wallet_state_manager.new_action_scope(
-        wallet_environments.tx_config, push=True
-    ) as action_scope:
+    async with env_0.wallet_state_manager.new_action_scope(wallet_environments.tx_config, push=True) as action_scope:
         if with_did:
             await nft_wallet_0.mint_from_did(
                 metadata_list,
@@ -635,16 +557,14 @@ async def test_nft_mint_multiple_xck(
                         ">=#pending_change": 1,
                         "pending_coin_removal_count": 2,
                     },
-                    "did": (
-                        {
-                            "spendable_balance": -1,
-                            "max_send_amount": -1,
-                            "pending_change": 1,
-                            "pending_coin_removal_count": 1,
-                        }
-                        if with_did
-                        else {}
-                    ),
+                    "did": {
+                        "spendable_balance": -1,
+                        "max_send_amount": -1,
+                        "pending_change": 1,
+                        "pending_coin_removal_count": 1,
+                    }
+                    if with_did
+                    else {},
                     "nft": {
                         "pending_coin_removal_count": mint_total,
                     },
@@ -658,16 +578,14 @@ async def test_nft_mint_multiple_xck(
                         "pending_coin_removal_count": -2,
                         "unspent_coin_count": -1,  # The two coins get combined for change
                     },
-                    "did": (
-                        {
-                            "spendable_balance": 1,
-                            "max_send_amount": 1,
-                            "pending_change": -1,
-                            "pending_coin_removal_count": -1,
-                        }
-                        if with_did
-                        else {}
-                    ),
+                    "did": {
+                        "spendable_balance": 1,
+                        "max_send_amount": 1,
+                        "pending_change": -1,
+                        "pending_coin_removal_count": -1,
+                    }
+                    if with_did
+                    else {},
                     "nft": {
                         "pending_coin_removal_count": -mint_total,
                     },
