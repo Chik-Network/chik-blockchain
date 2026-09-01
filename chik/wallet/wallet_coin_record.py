@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional, Union
+from typing import Any
 
+from chik_rs import CoinRecord
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik.types.blockchain_format.coin import Coin
-from chik.types.coin_record import CoinRecord
 from chik.util.streamable import VersionedBlob
 from chik.wallet.puzzles.clawback.metadata import ClawbackMetadata, ClawbackVersion
 from chik.wallet.util.wallet_types import CoinType, StreamableWalletIdentifier, WalletType
 from chik.wallet.vc_wallet.cr_cat_drivers import CRCATMetadata, CRCATVersion
 
-MetadataTypes = Union[ClawbackMetadata, CRCATMetadata]
+MetadataTypes = ClawbackMetadata | CRCATMetadata
+
+
+class WalletCoinRecordMetadataParsingError(Exception):
+    pass
 
 
 @dataclass(frozen=True)
@@ -34,14 +38,14 @@ class WalletCoinRecord:
     # The launcher coin ID will change and will break all hardcode offer tests in CAT/NFT/DL, etc.
     # TODO Change hardcode offer in unit tests
     coin_type: CoinType = field(default=CoinType.NORMAL, hash=False)
-    metadata: Optional[VersionedBlob] = field(default=None, hash=False)
+    metadata: VersionedBlob | None = field(default=None, hash=False)
 
     def wallet_identifier(self) -> StreamableWalletIdentifier:
         return StreamableWalletIdentifier(uint32(self.wallet_id), uint8(self.wallet_type))
 
     def parsed_metadata(self) -> MetadataTypes:
         if self.metadata is None:
-            raise ValueError("Can't parse None metadata")
+            raise WalletCoinRecordMetadataParsingError("Can't parse None metadata")
         if self.coin_type == CoinType.CLAWBACK and self.metadata.version == ClawbackVersion.V1.value:
             return ClawbackMetadata.from_bytes(self.metadata.blob)
         if (
@@ -49,7 +53,9 @@ class WalletCoinRecord:
             and self.metadata.version == CRCATVersion.V1.value
         ):
             return CRCATMetadata.from_bytes(self.metadata.blob)
-        raise ValueError(f"Unknown metadata {self.metadata} for coin_type {self.coin_type}")
+        raise WalletCoinRecordMetadataParsingError(
+            f"Unknown metadata {self.metadata} for coin_id {self.coin.name()} of type {self.coin_type}"
+        )
 
     def name(self) -> bytes32:
         return self.coin.name()

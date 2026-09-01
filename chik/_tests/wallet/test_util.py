@@ -82,6 +82,15 @@ def test_cs_config() -> None:
         "excluded_coin_ids": ["0x" + coin_to_exclude.name().hex()],
         "max_coin_amount": 100,
     }
+    with pytest.raises(ValueError, match="`included_coin_ids` and `excluded_coin_ids` must be disjoint"):
+        CoinSelectionConfigLoader(excluded_coin_ids=[bytes32.zeros], included_coin_ids=[bytes32.zeros]).autofill(
+            constants=DEFAULT_CONSTANTS
+        )
+    with pytest.raises(ValueError, match="Some coin selection restrictions eliminated coins specified for inclusion"):
+        a_coin = Coin(bytes32.zeros, bytes32.zeros, uint64(0))
+        CoinSelectionConfigLoader(included_coin_ids=[a_coin.name()], excluded_coin_amounts=[uint64(0)]).autofill(
+            constants=DEFAULT_CONSTANTS
+        ).filter_coins({a_coin})
 
 
 def test_tx_config() -> None:
@@ -106,7 +115,7 @@ def test_list_to_binary_tree() -> None:
 @pytest.mark.parametrize(
     "serializations",
     [
-        (tuple(), Program.to(None), []),
+        (tuple(), Program.NIL, []),
         ((bytes32.zeros,), Program.to([bytes32.zeros]), [LineageProofField.PARENT_NAME]),
         (
             (bytes32.zeros, bytes32.zeros),
@@ -129,7 +138,7 @@ def test_lineage_proof_varargs(serializations: tuple[tuple[Any, ...], Program, l
 @pytest.mark.parametrize(
     "serializations",
     [
-        ({}, Program.to(None), []),
+        ({}, Program.NIL, []),
         ({"parent_name": bytes32.zeros}, Program.to([bytes32.zeros]), [LineageProofField.PARENT_NAME]),
         (
             {"parent_name": bytes32.zeros, "inner_puzzle_hash": bytes32.zeros},

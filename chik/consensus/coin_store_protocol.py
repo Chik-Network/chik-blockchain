@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Collection
-from typing import Optional, Protocol
+from typing import Protocol
 
-from chik_rs import CoinState
+from chik_rs import CoinRecord, CoinState
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
 from chik.types.blockchain_format.coin import Coin
-from chik.types.coin_record import CoinRecord
 from chik.types.mempool_item import UnspentLineageInfo
 
 
@@ -30,7 +29,7 @@ class CoinStoreProtocol(Protocol):
         Add a new block to the coin store
         """
 
-    async def get_coin_record(self, coin_id: bytes32) -> Optional[CoinRecord]:
+    async def get_coin_record(self, coin_id: bytes32) -> CoinRecord | None:
         """
         Returns the coin record for the specified coin id
         """
@@ -101,6 +100,8 @@ class CoinStoreProtocol(Protocol):
         parent_ids: list[bytes32],
         start_height: uint32 = ...,
         end_height: uint32 = ...,
+        *,
+        max_items: int = ...,
     ) -> list[CoinRecord]:
         """
         Returns the coin records for a list of parent ids
@@ -129,12 +130,12 @@ class CoinStoreProtocol(Protocol):
         include_hinted: bool = ...,
         min_amount: uint64 = ...,
         max_items: int = ...,
-    ) -> tuple[list[CoinState], Optional[uint32]]:
+    ) -> tuple[list[CoinState], uint32 | None]:
         """
         Returns the coin states, as well as the next block height (or `None` if finished).
         """
 
-    async def get_unspent_lineage_info_for_puzzle_hash(self, puzzle_hash: bytes32) -> Optional[UnspentLineageInfo]:
+    async def get_unspent_lineage_info_for_puzzle_hash(self, puzzle_hash: bytes32) -> UnspentLineageInfo | None:
         """
         Lookup the most recent unspent lineage that matches a puzzle hash
         """

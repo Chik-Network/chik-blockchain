@@ -8,7 +8,7 @@ import sys
 import tempfile
 
 import importlib_resources
-from klvm_tools_rs import compile_klvm as compile_klvm_rust
+from chiklisp import compile_klvm as compile_klvm_rust
 
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
@@ -96,7 +96,7 @@ def load_serialized_klvm(
     # "" or "0" to trigger automatic recompilation of the Chiklisp on load.
     resources = importlib_resources.files(package_or_requirement)
     if recompile and not getattr(sys, "frozen", False):
-        full_path = resources.joinpath(klvm_filename)
+        full_path = pathlib.Path(str(resources.joinpath(klvm_filename)))
         if full_path.exists():
             # Establish whether the size is zero on entry
             output = full_path.parent / hex_filename

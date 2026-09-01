@@ -4,15 +4,18 @@ import logging
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from chik.plotting.prover import ProverProtocol
 
 from chik_rs import G1Element, PrivateKey
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
-from chikpos import DiskProver
 from typing_extensions import final
 
 from chik.util.config import load_config, lock_and_load_config, save_config
+from chik.util.harvester_config import get_plot_directories
 from chik.util.streamable import Streamable, streamable
 
 log = logging.getLogger(__name__)
@@ -39,9 +42,9 @@ class PlotsRefreshParameter(Streamable):
 
 @dataclass
 class PlotInfo:
-    prover: DiskProver
-    pool_public_key: Optional[G1Element]
-    pool_contract_puzzle_hash: Optional[bytes32]
+    prover: ProverProtocol
+    pool_public_key: G1Element | None
+    pool_contract_puzzle_hash: bytes32 | None
     plot_public_key: G1Element
     file_size: int
     time_modified: float
@@ -86,10 +89,10 @@ class Params:
     num_threads: int
     buckets: int
     tmp_dir: Path
-    tmp2_dir: Optional[Path]
+    tmp2_dir: Path | None
     final_dir: Path
-    plotid: Optional[str]
-    memo: Optional[str]
+    plotid: str | None
+    memo: str | None
     nobitfield: bool
     stripe_size: int = 65536
 
@@ -97,12 +100,6 @@ class Params:
 class HarvestingMode(IntEnum):
     CPU = 1
     GPU = 2
-
-
-def get_plot_directories(root_path: Path, config: Optional[dict] = None) -> list[str]:
-    if config is None:
-        config = load_config(root_path, "config.yaml")
-    return config["harvester"]["plot_directories"] or []
 
 
 def get_plot_filenames(root_path: Path) -> dict[Path, list[Path]]:
@@ -119,40 +116,6 @@ def get_plot_filenames(root_path: Path) -> dict[Path, list[Path]]:
             continue
         all_files[directory] = get_filenames(directory, recursive_scan, recursive_follow_links)
     return all_files
-
-
-def add_plot_directory(root_path: Path, str_path: str) -> dict:
-    path: Path = Path(str_path).resolve()
-    if not path.exists():
-        raise ValueError(f"Path doesn't exist: {path}")
-    if not path.is_dir():
-        raise ValueError(f"Path is not a directory: {path}")
-    log.debug(f"add_plot_directory {str_path}")
-    with lock_and_load_config(root_path, "config.yaml") as config:
-        if str(Path(str_path).resolve()) in get_plot_directories(root_path, config):
-            raise ValueError(f"Path already added: {path}")
-        if not config["harvester"]["plot_directories"]:
-            config["harvester"]["plot_directories"] = []
-        config["harvester"]["plot_directories"].append(str(Path(str_path).resolve()))
-        save_config(root_path, "config.yaml", config)
-    return config
-
-
-def remove_plot_directory(root_path: Path, str_path: str) -> None:
-    log.debug(f"remove_plot_directory {str_path}")
-    with lock_and_load_config(root_path, "config.yaml") as config:
-        str_paths: list[str] = get_plot_directories(root_path, config)
-        # If path str matches exactly, remove
-        if str_path in str_paths:
-            str_paths.remove(str_path)
-
-        # If path matches full path, remove
-        new_paths = [Path(sp).resolve() for sp in str_paths]
-        if Path(str_path).resolve() in new_paths:
-            new_paths.remove(Path(str_path).resolve())
-
-        config["harvester"]["plot_directories"] = [str(np) for np in new_paths]
-        save_config(root_path, "config.yaml", config)
 
 
 def remove_plot(path: Path):
@@ -190,14 +153,14 @@ def get_harvester_config(root_path: Path) -> dict[str, Any]:
 def update_harvester_config(
     root_path: Path,
     *,
-    use_gpu_harvesting: Optional[bool] = None,
-    gpu_index: Optional[int] = None,
-    enforce_gpu_index: Optional[bool] = None,
-    disable_cpu_affinity: Optional[bool] = None,
-    parallel_decompressor_count: Optional[int] = None,
-    decompressor_thread_count: Optional[int] = None,
-    recursive_plot_scan: Optional[bool] = None,
-    refresh_parameter: Optional[PlotsRefreshParameter] = None,
+    use_gpu_harvesting: bool | None = None,
+    gpu_index: int | None = None,
+    enforce_gpu_index: bool | None = None,
+    disable_cpu_affinity: bool | None = None,
+    parallel_decompressor_count: int | None = None,
+    decompressor_thread_count: int | None = None,
+    recursive_plot_scan: bool | None = None,
+    refresh_parameter: PlotsRefreshParameter | None = None,
 ):
     with lock_and_load_config(root_path, "config.yaml") as config:
         if use_gpu_harvesting is not None:
@@ -233,23 +196,29 @@ def get_filenames(directory: Path, recursive: bool, follow_links: bool) -> list[
         if follow_links and recursive:
             import glob
 
-            files = glob.glob(str(directory / "**" / "*.plot"), recursive=True)
-            for file in files:
+            v1_file_strs = glob.glob(str(directory / "**" / "*.plot"), recursive=True)
+            v2_file_strs = glob.glob(str(directory / "**" / "*.plot2"), recursive=True)
+
+            for file in v1_file_strs + v2_file_strs:
                 filepath = Path(file).resolve()
                 if filepath.is_file() and not filepath.name.startswith("._"):
                     all_files.append(filepath)
         else:
             glob_function = directory.rglob if recursive else directory.glob
-            all_files = [
+            v1_files: list[Path] = [
                 child for child in glob_function("*.plot") if child.is_file() and not child.name.startswith("._")
             ]
+            v2_files: list[Path] = [
+                child for child in glob_function("*.plot2") if child.is_file() and not child.name.startswith("._")
+            ]
+            all_files = v1_files + v2_files
         log.debug(f"get_filenames: {len(all_files)} files found in {directory}, recursive: {recursive}")
     except Exception as e:
         log.warning(f"Error reading directory {directory} {e}")
     return all_files
 
 
-def parse_plot_info(memo: bytes) -> tuple[Union[G1Element, bytes32], G1Element, PrivateKey]:
+def parse_plot_info(memo: bytes) -> tuple[G1Element | bytes32, G1Element, PrivateKey]:
     # Parses the plot info bytes into keys
     if len(memo) == (48 + 48 + 32):
         # This is a public key memo

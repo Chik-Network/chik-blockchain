@@ -3,11 +3,12 @@ from __future__ import annotations
 import pytest
 from chikbip158 import PyBIP158
 
+from chik._tests.util.setup_nodes import OldSimulatorsAndWallets
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 
 
 @pytest.mark.anyio
-async def test_basic_filter_test(simulator_and_wallet):
+async def test_basic_filter_test(simulator_and_wallet: OldSimulatorsAndWallets) -> None:
     _full_nodes, wallets, bt = simulator_and_wallet
     wallet_node, _server_2 = wallets[0]
     wallet = wallet_node.wallet_state_manager.main_wallet
@@ -19,7 +20,6 @@ async def test_basic_filter_test(simulator_and_wallet):
         10,
         guarantee_transaction_block=True,
         farmer_reward_puzzle_hash=ph,
-        pool_reward_puzzle_hash=ph,
     )
     for i in range(1, num_blocks):
         byte_array_tx: list[bytes] = []

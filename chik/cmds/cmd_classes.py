@@ -5,15 +5,12 @@ import collections
 import dataclasses
 import inspect
 import pathlib
-import sys
+from collections.abc import Callable
 from dataclasses import MISSING, dataclass, field, fields
 from typing import (
     Any,
-    Callable,
     ClassVar,
-    Optional,
     Protocol,
-    Union,
     final,
     get_args,
     get_origin,
@@ -41,16 +38,10 @@ class AsyncChikCommand(Protocol):
     async def run(self) -> None: ...
 
 
-ChikCommand = Union[SyncChikCommand, AsyncChikCommand]
+ChikCommand = SyncChikCommand | AsyncChikCommand
 
 
 def option(*param_decls: str, **kwargs: Any) -> Any:
-    if sys.version_info >= (3, 10):
-        default_default = MISSING
-    else:  # versions < 3.10 don't know about kw_only and they complain about lacks of defaults
-        # Can't get coverage on this because we only test on one version
-        default_default = None  # pragma: no cover
-
     return field(
         metadata=dict(
             option_args=dict(
@@ -58,7 +49,7 @@ def option(*param_decls: str, **kwargs: Any) -> Any:
                 **kwargs,
             ),
         ),
-        default=kwargs.get("default", default_default),
+        default=kwargs.get("default", MISSING),
     )
 
 
@@ -69,11 +60,11 @@ class ChikCliContext:
 
     root_path: pathlib.Path = DEFAULT_ROOT_PATH
     keys_root_path: pathlib.Path = DEFAULT_KEYS_ROOT_PATH
-    expected_prefix: Optional[str] = None
-    rpc_port: Optional[int] = None
-    keys_fingerprint: Optional[int] = None
-    keys_filename: Optional[str] = None
-    expected_address_prefix: Optional[str] = None
+    expected_prefix: str | None = None
+    rpc_port: int | None = None
+    keys_fingerprint: int | None = None
+    keys_filename: str | None = None
+    expected_address_prefix: str | None = None
 
     @classmethod
     def set_default(cls, ctx: click.Context) -> ChikCliContext:
@@ -86,10 +77,10 @@ class ChikCliContext:
         return {self.context_dict_key: self}
 
 
-class HexString(click.ParamType):
+class HexString(click.ParamType[bytes]):
     name = "hexstring"
 
-    def convert(self, value: str, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> bytes:
+    def convert(self, value: str, param: click.Parameter | None, ctx: click.Context | None) -> bytes:
         if isinstance(value, bytes):  # This if is due to some poor handling on click's part
             return value
         try:
@@ -98,10 +89,10 @@ class HexString(click.ParamType):
             self.fail(f"not a valid hex string: {value!r} ({e})", param, ctx)
 
 
-class HexString32(click.ParamType):
+class HexString32(click.ParamType[bytes32]):
     name = "hexstring32"
 
-    def convert(self, value: str, param: Optional[click.Parameter], ctx: Optional[click.Context]) -> bytes32:
+    def convert(self, value: str, param: click.Parameter | None, ctx: click.Context | None) -> bytes32:
         if isinstance(value, bytes32):  # This if is due to some poor handling on click's part
             return value
         try:
@@ -181,10 +172,10 @@ def _generate_command_parser(cls: type[ChikCommand]) -> _CommandParsingStage:
     needs_context: bool = False
 
     hints = get_type_hints(cls)
-    _fields = fields(cls)  # type: ignore[arg-type]
+    cls_fields = fields(cls)  # type: ignore[arg-type]
 
-    for _field in _fields:
-        field_name = _field.name
+    for cls_field in cls_fields:
+        field_name = cls_field.name
         if getattr(hints[field_name], COMMAND_HELPER_ATTRIBUTE_NAME, False):
             members[field_name] = _generate_command_parser(hints[field_name])
         elif field_name == "context":
@@ -193,9 +184,9 @@ def _generate_command_parser(cls: type[ChikCommand]) -> _CommandParsingStage:
             else:
                 needs_context = True
                 kwarg_names.append(field_name)
-        elif "option_args" in _field.metadata:
+        elif "option_args" in cls_field.metadata:
             option_args: dict[str, Any] = {"multiple": False, "required": False}
-            option_args.update(_field.metadata["option_args"])
+            option_args.update(cls_field.metadata["option_args"])
 
             if "type" not in option_args:
                 origin = get_origin(hints[field_name])
@@ -262,7 +253,7 @@ def _convert_class_to_function(cls: type[ChikCommand]) -> SyncCmd:
 @dataclass_transform(frozen_default=True)
 def chik_command(
     *,
-    group: Optional[click.Group] = None,
+    group: click.Group | None = None,
     name: str,
     short_help: str,
     help: str,
@@ -270,16 +261,10 @@ def chik_command(
     def _chik_command(cls: type[ChikCommand]) -> type[ChikCommand]:
         # The type ignores here are largely due to the fact that the class information is not preserved after being
         # passed through the dataclass wrapper.  Not sure what to do about this right now.
-        if sys.version_info >= (3, 10):
-            wrapped_cls: type[ChikCommand] = dataclass(
-                frozen=True,
-                kw_only=True,
-            )(cls)
-        else:  # pragma: no cover
-            # stuff below 3.10 doesn't know about kw_only
-            wrapped_cls: type[ChikCommand] = dataclass(
-                frozen=True,
-            )(cls)
+        wrapped_cls: type[ChikCommand] = dataclass(
+            frozen=True,
+            kw_only=True,
+        )(cls)
 
         metadata = Metadata(
             command=click.command(
@@ -307,7 +292,7 @@ class Metadata:
 
 
 def get_chik_command_metadata(cls: type[ChikCommand]) -> Metadata:
-    metadata: Optional[Metadata] = getattr(cls, _chik_command_metadata_attribute, None)
+    metadata: Metadata | None = getattr(cls, _chik_command_metadata_attribute, None)
     if metadata is None:
         raise Exception(f"Class is not a chik command: {cls}")
 
@@ -316,9 +301,6 @@ def get_chik_command_metadata(cls: type[ChikCommand]) -> Metadata:
 
 @dataclass_transform(frozen_default=True)
 def command_helper(cls: type[Any]) -> type[Any]:
-    if sys.version_info >= (3, 10):
-        new_cls = dataclass(frozen=True, kw_only=True)(cls)
-    else:  # stuff below 3.10 doesn't support kw_only
-        new_cls = dataclass(frozen=True)(cls)  # pragma: no cover
+    new_cls = dataclass(frozen=True, kw_only=True)(cls)
     setattr(new_cls, COMMAND_HELPER_ATTRIBUTE_NAME, True)
     return new_cls

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, ClassVar, Optional, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from chik_rs import BlockRecord, ConsensusConstants, HeaderBlock
 from chik_rs.sized_bytes import bytes32
@@ -9,8 +9,10 @@ from chik_rs.sized_ints import uint32, uint64
 
 from chik.consensus.block_header_validation import validate_finished_header_block
 from chik.consensus.blockchain import AddBlockResult
+from chik.consensus.blockchain_interface import MMRManagerProtocol
 from chik.consensus.find_fork_point import find_fork_point_in_chain
 from chik.consensus.full_block_to_block_record import block_to_block_record
+from chik.consensus.stub_mmr_manager import StubMMRManager
 from chik.types.validation_state import ValidationState
 from chik.types.weight_proof import WeightProof
 from chik.util.errors import Err
@@ -31,16 +33,17 @@ class WalletBlockchain:
     _basic_store: KeyValStore
     _weight_proof_handler: WalletWeightProofHandler
 
-    synced_weight_proof: Optional[WeightProof]
+    synced_weight_proof: WeightProof | None
     _finished_sync_up_to: uint32
 
-    _peak: Optional[HeaderBlock]
+    _peak: HeaderBlock | None
     _height_to_hash: dict[uint32, bytes32]
     _block_records: dict[bytes32, BlockRecord]
     _latest_timestamp: uint64
     _sub_slot_iters: uint64
     _difficulty: uint64
     CACHE_SIZE: int
+    mmr_manager: MMRManagerProtocol
 
     @staticmethod
     async def create(_basic_store: KeyValStore, constants: ConsensusConstants) -> WalletBlockchain:
@@ -54,23 +57,29 @@ class WalletBlockchain:
         self.constants = constants
         self.CACHE_SIZE = constants.SUB_EPOCH_BLOCKS * 3
         self.synced_weight_proof = await self._basic_store.get_object("SYNCED_WEIGHT_PROOF", WeightProof)
-        self._sub_slot_iters = await self._basic_store.get_object("SUB_SLOT_ITERS", uint64)
-        self._difficulty = await self._basic_store.get_object("DIFFICULTY", uint64)
-        self._finished_sync_up_to = await self._basic_store.get_object("FINISHED_SYNC_UP_TO", uint32)
-        if self._finished_sync_up_to is None:
-            self._finished_sync_up_to = uint32(0)
+        sub_slot_iters = await self._basic_store.get_object("SUB_SLOT_ITERS", uint64)
+        difficulty = await self._basic_store.get_object("DIFFICULTY", uint64)
+        if sub_slot_iters is not None:
+            assert difficulty is not None
+            self._sub_slot_iters = sub_slot_iters
+            self._difficulty = difficulty
+        else:
+            assert difficulty is None
+            self._sub_slot_iters = constants.SUB_SLOT_ITERS_STARTING
+            self._difficulty = constants.DIFFICULTY_STARTING
+        finished_sync_up_to = await self._basic_store.get_object("FINISHED_SYNC_UP_TO", uint32)
+        self._finished_sync_up_to = finished_sync_up_to if finished_sync_up_to is not None else uint32(0)
         self._peak = None
         self._peak = await self.get_peak_block()
         self._latest_timestamp = uint64(0)
         self._height_to_hash = {}
         self._block_records = {}
-        self._sub_slot_iters = constants.SUB_SLOT_ITERS_STARTING
-        self._difficulty = constants.DIFFICULTY_STARTING
+        self.mmr_manager = StubMMRManager()
 
         return self
 
     async def new_valid_weight_proof(self, weight_proof: WeightProof, records: list[BlockRecord]) -> None:
-        peak: Optional[HeaderBlock] = await self.get_peak_block()
+        peak: HeaderBlock | None = await self.get_peak_block()
 
         if peak is not None and weight_proof.recent_chain_data[-1].weight <= peak.weight:
             # No update, don't change anything
@@ -93,7 +102,7 @@ class WalletBlockchain:
             await self.set_peak_block(weight_proof.recent_chain_data[-1], latest_timestamp)
             await self.clean_block_records()
 
-    async def add_block(self, block: HeaderBlock) -> tuple[AddBlockResult, Optional[Err]]:
+    async def add_block(self, block: HeaderBlock) -> tuple[AddBlockResult, Err | None]:
         if self.contains_block(block.header_hash):
             return AddBlockResult.ALREADY_HAVE_BLOCK, None
         if not self.contains_block(block.prev_header_hash) and block.height > 0:
@@ -111,7 +120,15 @@ class WalletBlockchain:
 
         # Validation requires a block cache (self) that goes back to a subepoch barrier
         expected_vs = ValidationState(sub_slot_iters, difficulty, None)
-        required_iters, error = validate_finished_header_block(self.constants, self, block, False, expected_vs, False)
+        required_iters, error = validate_finished_header_block(
+            self.constants,
+            self,
+            block,
+            False,
+            expected_vs,
+            check_sub_epoch_summary=False,
+            skip_commitment_validation=True,
+        )
         if error is not None:
             return AddBlockResult.INVALID_BLOCK, error.code
         if required_iters is None:
@@ -159,7 +176,7 @@ class WalletBlockchain:
 
         await self._basic_store.remove_object("PEAK_BLOCK")
 
-    async def set_peak_block(self, block: HeaderBlock, timestamp: Optional[uint64] = None) -> None:
+    async def set_peak_block(self, block: HeaderBlock, timestamp: uint64 | None = None) -> None:
         await self._basic_store.set_object("PEAK_BLOCK", block)
         self._peak = block
         if timestamp is not None:
@@ -168,7 +185,7 @@ class WalletBlockchain:
             self._latest_timestamp = block.foliage_transaction_block.timestamp
         log.info(f"Peak set to: {self._peak.height} timestamp: {self._latest_timestamp}")
 
-    async def get_peak_block(self) -> Optional[HeaderBlock]:
+    async def get_peak_block(self) -> HeaderBlock | None:
         if self._peak is not None:
             return self._peak
         header_block = await self._basic_store.get_object("PEAK_BLOCK", HeaderBlock)
@@ -183,7 +200,7 @@ class WalletBlockchain:
             await self.clean_block_records()
 
     async def get_finished_sync_up_to(self) -> uint32:
-        h: Optional[uint32] = await self._basic_store.get_object("FINISHED_SYNC_UP_TO", uint32)
+        h: uint32 | None = await self._basic_store.get_object("FINISHED_SYNC_UP_TO", uint32)
         if h is None:
             return uint32(0)
         return h
@@ -191,7 +208,7 @@ class WalletBlockchain:
     def get_latest_timestamp(self) -> uint64:
         return self._latest_timestamp
 
-    def contains_block(self, header_hash: bytes32, height: Optional[uint32] = None) -> bool:
+    def contains_block(self, header_hash: bytes32, height: uint32 | None = None) -> bool:
         """
         True if we have already added this block to the chain. This may return false for orphan blocks
         that we have added but no longer keep in memory.
@@ -204,18 +221,23 @@ class WalletBlockchain:
     def height_to_hash(self, height: uint32) -> bytes32:
         return self._height_to_hash[height]
 
-    def try_block_record(self, header_hash: bytes32) -> Optional[BlockRecord]:
+    def get_mmr_root_for_block(
+        self, prev_header_hash: bytes32, new_sp_index: int, starts_new_slot: bool
+    ) -> bytes32 | None:
+        return self.mmr_manager.get_mmr_root_for_block(prev_header_hash, new_sp_index, starts_new_slot, self)
+
+    def try_block_record(self, header_hash: bytes32) -> BlockRecord | None:
         return self._block_records.get(header_hash)
 
     def height_to_block_record(self, height: uint32) -> BlockRecord:
-        header_hash: Optional[bytes32] = self.height_to_hash(height)
+        header_hash: bytes32 | None = self.height_to_hash(height)
         assert header_hash is not None
         return self._block_records[header_hash]
 
     def block_record(self, header_hash: bytes32) -> BlockRecord:
         return self._block_records[header_hash]
 
-    async def get_block_record_from_db(self, header_hash: bytes32) -> Optional[BlockRecord]:
+    async def get_block_record_from_db(self, header_hash: bytes32) -> BlockRecord | None:
         # the wallet doesn't have the blockchain DB, this implements the
         # blockchain_interface
         return self._block_records.get(header_hash)
@@ -228,6 +250,8 @@ class WalletBlockchain:
 
     def add_block_record(self, block_record: BlockRecord) -> None:
         self._block_records[block_record.header_hash] = block_record
+        # Update MMR with the new block (even though WalletBlockchain uses StubMMRManager)
+        self.mmr_manager.add_block_to_mmr(block_record.header_hash, block_record.prev_hash, block_record.height)
 
     async def clean_block_records(self) -> None:
         """

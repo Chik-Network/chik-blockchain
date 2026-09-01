@@ -9,7 +9,7 @@ import dataclasses
 import logging
 from collections.abc import AsyncIterator
 from enum import IntEnum
-from typing import Generic, Optional, TypeVar
+from typing import Generic, TypeVar
 
 from typing_extensions import final
 
@@ -23,10 +23,11 @@ class NestedLockUnsupportedError(Exception):
 _T_Priority = TypeVar("_T_Priority", bound=IntEnum)
 
 
-@dataclasses.dataclass(frozen=True)
+# eq=False: queued waiters are removed by identity (deque.remove), so distinct waiters must never compare equal.
+@dataclasses.dataclass(frozen=True, eq=False)
 class _Element:
-    task: asyncio.Task[object] = dataclasses.field(compare=False)
-    ready_event: asyncio.Event = dataclasses.field(default_factory=asyncio.Event, compare=False)
+    task: asyncio.Task[object]
+    ready_event: asyncio.Event = dataclasses.field(default_factory=asyncio.Event)
 
 
 @final
@@ -49,7 +50,7 @@ class PriorityMutex(Generic[_T_Priority]):
     """
 
     _deques: dict[_T_Priority, collections.deque[_Element]]
-    _active: Optional[_Element] = None
+    _active: _Element | None = None
 
     @classmethod
     def create(cls, priority_type: type[_T_Priority]) -> PriorityMutex[_T_Priority]:

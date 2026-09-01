@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
+from itertools import chain
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import aiofiles
 import click
@@ -18,6 +20,8 @@ from chik.util.path import path_from_root
 from chik.util.task_referencer import create_referenced_task
 
 DEFAULT_PIPELINE_DEPTH: int = 10
+log = logging.getLogger("validate_rpcs")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-8s %(message)s")
 
 
 def get_height_to_hash_filename(root_path: Path, config: dict[str, Any]) -> Path:
@@ -40,7 +44,7 @@ async def get_height_to_hash_bytes(root_path: Path, config: dict[str, Any]) -> b
         return await f.read()
 
 
-def get_block_hash_from_height(height: int, height_to_hash: bytes) -> bytes32:
+def get_block_hash_for_height(height: int, height_to_hash: bytes) -> bytes32:
     """
     Get the block header hash from the height-to-hash database.
     """
@@ -113,13 +117,13 @@ def get_block_hash_from_height(height: int, height_to_hash: bytes) -> bytes32:
 )
 def cli(
     root_path: str,
-    rpc_port: Optional[int],
+    rpc_port: int | None,
     spends_with_conditions: bool,
     block_spends: bool,
     additions_and_removals: bool,
     pipeline_depth: int,
-    start_height: Optional[int] = None,
-    end_height: Optional[int] = None,
+    start_height: int | None = None,
+    end_height: int | None = None,
 ) -> None:
     root_path_path = Path(root_path)
     requests_per_batch = 0
@@ -153,9 +157,13 @@ async def node_spends_with_conditions(
     block_hash: bytes32,
     height: int,
 ) -> None:
-    result = await node_client.get_block_spends_with_conditions(block_hash)
-    if result is None:
-        print(f"ERROR: [{height}] get_block_spends_with_conditions returned invalid result")
+    try:
+        res = await node_client.get_block_spends_with_conditions(block_hash)
+        for c in res:
+            c.coin_spend.get_hash()  # Ensure CoinSpend is valid
+    except Exception as e:
+        log.error(f"ERROR: [{height}] get_block_spends_with_conditions returned invalid result")
+        raise e
 
 
 async def node_block_spends(
@@ -163,9 +171,13 @@ async def node_block_spends(
     block_hash: bytes32,
     height: int,
 ) -> None:
-    result = await node_client.get_block_spends(block_hash)
-    if result is None:
-        print(f"ERROR: [{height}] get_block_spends returned invalid result")
+    try:
+        res = await node_client.get_block_spends(block_hash)
+        for c in res:
+            c.get_hash()  # Ensure CoinSpend is valid
+    except Exception as e:
+        log.error(f"ERROR: [{height}] get_block_spends returned invalid result")
+        raise e
 
 
 async def node_additions_removals(
@@ -173,20 +185,25 @@ async def node_additions_removals(
     block_hash: bytes32,
     height: int,
 ) -> None:
-    response = await node_client.get_additions_and_removals(block_hash)
-    if response is None:
-        print(f"ERROR: [{height}] get_additions_and_removals returned invalid result")
+    try:
+        add, rem = await node_client.get_additions_and_removals(block_hash)
+        for coin in chain(add, rem):
+            coin.get_hash()
+
+    except Exception as e:
+        log.error(f"ERROR: [{height}] get_additions_and_removals returned invalid result")
+        raise e
 
 
 async def cli_async(
     root_path: Path,
-    rpc_port: Optional[int],
+    rpc_port: int | None,
     spends_with_conditions: bool,
     block_spends: bool,
     additions_and_removals: bool,
     pipeline_depth: int,
     start_height: int,
-    end_height: Optional[int] = None,
+    end_height: int | None = None,
 ) -> None:
     async with get_any_service_client(FullNodeRpcClient, root_path, rpc_port) as (
         node_client,
@@ -206,7 +223,7 @@ async def cli_async(
 
         height_to_hash_bytes: bytes = await get_height_to_hash_bytes(root_path=root_path, config=config)
 
-        print("block header hashes loaded from height-to-hash file.")
+        log.info("block header hashes loaded from height-to-hash file.")
 
         # Set initial values for the loop
 
@@ -218,7 +235,7 @@ async def cli_async(
         start_time: float = cycle_start
 
         def add_tasks_for_height(height: int) -> None:
-            block_header_hash = get_block_hash_from_height(height, height_to_hash_bytes)
+            block_header_hash = get_block_hash_for_height(height, height_to_hash_bytes)
             # Create tasks for each RPC call based on the flags
             if spends_with_conditions:
                 pipeline.add(
@@ -232,13 +249,13 @@ async def cli_async(
         for i in range(start_height, end_height + 1):
             add_tasks_for_height(height=i)
             # Make Status Updates.
-            if len(pipeline) >= pipeline_depth:
+            while len(pipeline) >= pipeline_depth:
                 done, pipeline = await asyncio.wait(pipeline, return_when=asyncio.FIRST_COMPLETED)
                 completed_requests += len(done)
                 now = time.monotonic()
                 if cycle_start + 5 < now:
                     time_taken = now - cycle_start
-                    print(
+                    log.info(
                         f"Processed {completed_requests} RPCs in {time_taken:.2f}s, "
                         f"{time_taken / completed_requests:.4f}s per RPC "
                         f"({i - start_height} Blocks completed out of {end_height - start_height})"
@@ -247,7 +264,7 @@ async def cli_async(
                     cycle_start = now
 
         # Wait for any remaining tasks to complete
-        print(f"Waiting for {len(pipeline)} remaining tasks to complete...")
+        log.info(f"Waiting for {len(pipeline)} remaining tasks to complete...")
         if pipeline:
             await asyncio.gather(*pipeline)
 

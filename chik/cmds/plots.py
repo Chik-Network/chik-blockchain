@@ -8,13 +8,14 @@ from pathlib import Path
 import click
 
 from chik.cmds.cmd_classes import ChikCliContext
-from chik.plotting.util import add_plot_directory, validate_plot_size
+from chik.plotting.util import validate_plot_size
+from chik.util.harvester_config import add_plot_directory
 
 log = logging.getLogger(__name__)
 
 
 def show_plots(root_path: Path) -> None:
-    from chik.plotting.util import get_plot_directories
+    from chik.util.harvester_config import get_plot_directories
 
     print("Directories where plots are being searched for:")
     print("Note that subdirectories must be added manually")
@@ -199,7 +200,7 @@ def check_cmd(
 )
 @click.pass_context
 def add_cmd(ctx: click.Context, final_dir: str) -> None:
-    from chik.plotting.util import add_plot_directory
+    from chik.util.harvester_config import add_plot_directory
 
     try:
         add_plot_directory(ChikCliContext.set_default(ctx).root_path, final_dir)
@@ -219,7 +220,7 @@ def add_cmd(ctx: click.Context, final_dir: str) -> None:
 )
 @click.pass_context
 def remove_cmd(ctx: click.Context, final_dir: str) -> None:
-    from chik.plotting.util import remove_plot_directory
+    from chik.util.harvester_config import remove_plot_directory
 
     remove_plot_directory(ChikCliContext.set_default(ctx).root_path, final_dir)
 

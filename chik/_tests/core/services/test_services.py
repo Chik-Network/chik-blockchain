@@ -7,7 +7,7 @@ import sys
 import time
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import aiohttp.client_exceptions
 import pytest
@@ -86,15 +86,15 @@ async def test_daemon_terminates(signal_number: signal.Signals, chik_root: ChikR
 @pytest.mark.parametrize(
     argnames=["create_service", "module_path", "service_config_name"],
     argvalues=[
-        [DataLayerRpcClient.create_as_context, "chik.server.start_data_layer", "data_layer"],
-        [FarmerRpcClient.create_as_context, "chik.server.start_farmer", "farmer"],
-        [FullNodeRpcClient.create_as_context, "chik.server.start_full_node", "full_node"],
-        [HarvesterRpcClient.create_as_context, "chik.server.start_harvester", "harvester"],
-        [WalletRpcClient.create_as_context, "chik.server.start_wallet", "wallet"],
-        [None, "chik.server.start_introducer", "introducer"],
+        [DataLayerRpcClient.create_as_context, "chik.data_layer.start_data_layer", "data_layer"],
+        [FarmerRpcClient.create_as_context, "chik.farmer.start_farmer", "farmer"],
+        [FullNodeRpcClient.create_as_context, "chik.full_node.start_full_node", "full_node"],
+        [HarvesterRpcClient.create_as_context, "chik.harvester.start_harvester", "harvester"],
+        [WalletRpcClient.create_as_context, "chik.wallet.start_wallet", "wallet"],
+        [None, "chik.introducer.start_introducer", "introducer"],
         # TODO: fails...  make it not do that
         # [None, "chik.seeder.start_crawler", "crawler"],
-        [None, "chik.server.start_timelord", "timelord"],
+        [None, "chik.timelord.start_timelord", "timelord"],
         pytest.param(
             None,
             "chik.timelord.timelord_launcher",
@@ -114,7 +114,7 @@ async def test_daemon_terminates(signal_number: signal.Signals, chik_root: ChikR
 async def test_services_terminate(
     signal_number: signal.Signals,
     chik_root: ChikRoot,
-    create_service: Optional[CreateServiceProtocol],
+    create_service: CreateServiceProtocol | None,
     module_path: str,
     service_config_name: str,
 ) -> None:

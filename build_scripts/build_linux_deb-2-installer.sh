@@ -22,8 +22,15 @@ if [ ! "$CHIK_INSTALLER_VERSION" ]; then
   echo "WARNING: No environment variable CHIK_INSTALLER_VERSION set. Using 0.0.0."
   CHIK_INSTALLER_VERSION="0.0.0"
 fi
+if [ ! "$CHIK_SEMVER_VERSION" ]; then
+  echo "WARNING: No environment variable CHIK_SEMVER_VERSION set. Using $CHIK_INSTALLER_VERSION."
+  CHIK_SEMVER_VERSION="$CHIK_INSTALLER_VERSION"
+fi
+
 echo "Chik Installer Version is: $CHIK_INSTALLER_VERSION"
+echo "Chik Semver Version is: $CHIK_SEMVER_VERSION"
 export CHIK_INSTALLER_VERSION
+export CHIK_SEMVER_VERSION
 
 echo "Installing npm and electron packagers"
 cd npm_linux || exit 1
@@ -49,29 +56,20 @@ echo "Building pip and NPM license directory"
 pwd
 bash ./build_license_directory.sh
 
-# Builds CLI only .deb
-# need j2 for templating the control file
-format_deb_version_string() {
-  version_str=$1
-  # Use sed to conform to expected apt versioning conventions:
-  # - conditionally insert a hyphen before 'rc' or 'beta' if not already present
-  # - replace '.dev' with '-dev'
-  echo "$version_str" | sed -E 's/([0-9])(rc|beta)/\1-\2/g; s/\.dev/-dev/g'
-}
 pip install jinjanator
 CLI_DEB_BASE="chik-blockchain-cli_$CHIK_INSTALLER_VERSION-1_$PLATFORM"
 mkdir -p "dist/$CLI_DEB_BASE/opt/chik"
 mkdir -p "dist/$CLI_DEB_BASE/usr/bin"
 mkdir -p "dist/$CLI_DEB_BASE/DEBIAN"
 mkdir -p "dist/$CLI_DEB_BASE/etc/systemd/system"
-CHIK_DEB_CONTROL_VERSION=$(format_deb_version_string "$CHIK_INSTALLER_VERSION")
+CHIK_DEB_CONTROL_VERSION=$CHIK_SEMVER_VERSION
 export CHIK_DEB_CONTROL_VERSION
 j2 -o "dist/$CLI_DEB_BASE/DEBIAN/control" assets/deb/control.j2
 cp assets/systemd/*.service "dist/$CLI_DEB_BASE/etc/systemd/system/"
 cp -r dist/daemon/* "dist/$CLI_DEB_BASE/opt/chik/"
 
 ln -s ../../opt/chik/chik "dist/$CLI_DEB_BASE/usr/bin/chik"
-dpkg-deb --build --root-owner-group "dist/$CLI_DEB_BASE"
+dpkg-deb -Zxz -z9 --build --root-owner-group "dist/$CLI_DEB_BASE"
 # CLI only .deb done
 
 cp -r dist/daemon ../chik-blockchain-gui/packages/gui
@@ -81,44 +79,31 @@ cd ../chik-blockchain-gui/packages/gui || exit 1
 
 # sets the version for chik-blockchain in package.json
 cp package.json package.json.orig
-jq --arg VER "$CHIK_INSTALLER_VERSION" '.version=$VER' package.json >temp.json && mv temp.json package.json
+jq --arg VER "$CHIK_SEMVER_VERSION" '.version=$VER' package.json >temp.json && mv temp.json package.json
 
 echo "Building Linux(deb) Electron app"
-PRODUCT_NAME="chik"
 if [ "$PLATFORM" = "arm64" ]; then
-  # electron-builder does not work for arm64 as of Aug 16, 2022.
-  # This is a temporary fix.
   # https://github.com/jordansissel/fpm/issues/1801#issuecomment-919877499
-  # @TODO Consolidates the process to amd64 if the issue of electron-builder is resolved
-  sudo apt-get -y install ruby ruby-dev
-  # ERROR:  Error installing fpm:
-  #     The last version of dotenv (>= 0) to support your Ruby & RubyGems was 2.8.1. Try installing it with `gem install dotenv -v 2.8.1` and then running the current command again
-  #     dotenv requires Ruby version >= 3.0. The current ruby version is 2.7.0.0.
-  # @TODO Once ruby 3.0 can be installed on `apt install ruby`, installing dotenv below should be removed.
-  sudo gem install dotenv -v 2.8.1
-  sudo gem install fpm
+  # workaround for above now implemented in the image build at
+  # https://github.com/Chik-Network/build-images/blob/7c74d2f20739543c486c2522032cf09d96396d24/ubuntu-22.04/Dockerfile#L48-L61
   echo USE_SYSTEM_FPM=true "${NPM_PATH}/electron-builder" build --linux deb --arm64 \
     --config.extraMetadata.name=chik-blockchain \
-    --config.productName="$PRODUCT_NAME" --config.linux.desktop.Name="Chik Blockchain" \
-    --config.deb.packageName="chik-blockchain" \
-    --config ../../../build_scripts/electron-builder.json
+    --config ../../../build_scripts/electron-builder.json \
+    --publish never
   USE_SYSTEM_FPM=true "${NPM_PATH}/electron-builder" build --linux deb --arm64 \
     --config.extraMetadata.name=chik-blockchain \
-    --config.productName="$PRODUCT_NAME" --config.linux.desktop.Name="Chik Blockchain" \
-    --config.deb.packageName="chik-blockchain" \
-    --config ../../../build_scripts/electron-builder.json
+    --config ../../../build_scripts/electron-builder.json \
+    --publish never
   LAST_EXIT_CODE=$?
 else
   echo "${NPM_PATH}/electron-builder" build --linux deb --x64 \
     --config.extraMetadata.name=chik-blockchain \
-    --config.productName="$PRODUCT_NAME" --config.linux.desktop.Name="Chik Blockchain" \
-    --config.deb.packageName="chik-blockchain" \
-    --config ../../../build_scripts/electron-builder.json
+    --config ../../../build_scripts/electron-builder.json \
+    --publish never
   "${NPM_PATH}/electron-builder" build --linux deb --x64 \
     --config.extraMetadata.name=chik-blockchain \
-    --config.productName="$PRODUCT_NAME" --config.linux.desktop.Name="Chik Blockchain" \
-    --config.deb.packageName="chik-blockchain" \
-    --config ../../../build_scripts/electron-builder.json
+    --config ../../../build_scripts/electron-builder.json \
+    --publish never
   LAST_EXIT_CODE=$?
 fi
 ls -l dist/linux*-unpacked/resources
@@ -132,7 +117,7 @@ if [ "$LAST_EXIT_CODE" -ne 0 ]; then
 fi
 
 GUI_DEB_NAME=chik-blockchain_${CHIK_INSTALLER_VERSION}_${PLATFORM}.deb
-mv "dist/${PRODUCT_NAME}-${CHIK_INSTALLER_VERSION}.deb" "../../../build_scripts/dist/${GUI_DEB_NAME}"
+mv "dist/chik-${CHIK_INSTALLER_VERSION}.deb" "../../../build_scripts/dist/${GUI_DEB_NAME}"
 cd ../../../build_scripts || exit 1
 
 echo "Create final installer"

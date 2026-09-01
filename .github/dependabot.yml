@@ -8,6 +8,8 @@ updates:
     schedule:
       interval: "weekly"
       day: "tuesday"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 10
     rebase-strategy: auto
     labels:
@@ -25,32 +27,38 @@ updates:
     schedule:
       interval: "weekly"
       day: "tuesday"
-    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 30
     rebase-strategy: auto
     labels:
       - dependencies
       - python
       - "Changed"
-    reviewers: ["emlowe", "altendky"]
+    reviewers: ["emlowe"]
 
   - package-ecosystem: "github-actions"
     directories: ["/", ".github/actions/*"]
     schedule:
       interval: "weekly"
       day: "tuesday"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 10
     rebase-strategy: auto
     labels:
       - dependencies
       - github_actions
       - "Changed"
-    reviewers: ["cmmarslender", "altendky"]
+    reviewers: ["cmmarslender"]
 
   - package-ecosystem: "npm"
     directory: /
     schedule:
       interval: "weekly"
       day: "tuesday"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 10
     rebase-strategy: auto
     labels:
@@ -64,6 +72,8 @@ updates:
     schedule:
       interval: "weekly"
       day: "tuesday"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 10
     rebase-strategy: auto
     labels:
@@ -76,5 +86,7 @@ updates:
     schedule:
       interval: "weekly"
       day: "tuesday"
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 10
     rebase-strategy: auto

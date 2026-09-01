@@ -7,11 +7,12 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import anyio
 from chik_rs import (
     DONT_VALIDATE_SIGNATURE,
+    CoinRecord,
     CoinSpend,
     ConsensusConstants,
     G2Element,
@@ -19,6 +20,7 @@ from chik_rs import (
     get_flags_for_height_and_constants,
     run_block_generator2,
 )
+from chik_rs import get_puzzle_and_solution_for_coin2 as get_puzzle_and_solution_for_coin
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 from typing_extensions import Self
@@ -30,17 +32,16 @@ from chik.full_node.bundle_tools import simple_solution_generator
 from chik.full_node.coin_store import CoinStore
 from chik.full_node.hint_store import HintStore
 from chik.full_node.mempool import Mempool
-from chik.full_node.mempool_check_conditions import get_puzzle_and_solution_for_coin
 from chik.full_node.mempool_manager import MempoolManager
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import INFINITE_COST
-from chik.types.coin_record import CoinRecord
 from chik.types.generator_types import BlockGenerator
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
 from chik.types.mempool_item import MempoolItem
 from chik.util.db_wrapper import DBWrapper2
 from chik.util.errors import Err, ValidationError
 from chik.util.hash import std_hash
+from chik.util.inline_executor import InlineExecutor
 from chik.util.streamable import Streamable, streamable
 from chik.wallet.util.compute_hints import HintedCoin, compute_spend_hints_and_additions
 from chik.wallet.wallet_spend_bundle import T_SpendBundle
@@ -58,7 +59,7 @@ and is designed so that you could test with it and then swap in a real rpc clien
 
 @asynccontextmanager
 async def sim_and_client(
-    db_path: Optional[Path] = None, defaults: ConsensusConstants = DEFAULT_CONSTANTS, pass_prefarm: bool = True
+    db_path: Path | None = None, defaults: ConsensusConstants = DEFAULT_CONSTANTS, pass_prefarm: bool = True
 ) -> AsyncIterator[tuple[SpendSim, SimClient]]:
     async with SpendSim.managed(db_path, defaults) as sim:
         client: SimClient = SimClient(sim)
@@ -75,7 +76,7 @@ class CostLogger:
     def add_cost(self, descriptor: str, spend_bundle: T_SpendBundle) -> T_SpendBundle:
         program: BlockGenerator = simple_solution_generator(spend_bundle)
         flags = get_flags_for_height_and_constants(DEFAULT_CONSTANTS.HARD_FORK_HEIGHT, DEFAULT_CONSTANTS)
-        _err, conds = run_block_generator2(
+        _err, _err_msg, conds = run_block_generator2(
             bytes(program.program),
             [],
             INFINITE_COST,
@@ -103,7 +104,7 @@ class CostLogger:
 @streamable
 @dataclass(frozen=True)
 class SimFullBlock(Streamable):
-    transactions_generator: Optional[BlockGenerator]
+    transactions_generator: BlockGenerator | None
     height: uint32  # Note that height is not on a regular FullBlock
 
 
@@ -155,7 +156,7 @@ class SpendSim:
     @classmethod
     @contextlib.asynccontextmanager
     async def managed(
-        cls, db_path: Optional[Path] = None, defaults: ConsensusConstants = DEFAULT_CONSTANTS
+        cls, db_path: Path | None = None, defaults: ConsensusConstants = DEFAULT_CONSTANTS
     ) -> AsyncIterator[Self]:
         self = cls()
         if db_path is None:
@@ -166,44 +167,48 @@ class SpendSim:
         async with DBWrapper2.managed(database=uri, uri=True, reader_count=1, db_version=2) as self.db_wrapper:
             self.coin_store = await CoinStore.create(self.db_wrapper)
             self.hint_store = await HintStore.create(self.db_wrapper)
-            self.mempool_manager = MempoolManager(
-                self.coin_store.get_coin_records, self.coin_store.get_unspent_lineage_info_for_puzzle_hash, defaults
-            )
             self.defaults = defaults
 
-            # Load the next data if there is any
-            async with self.db_wrapper.writer_maybe_transaction() as conn:
-                await conn.execute("CREATE TABLE IF NOT EXISTS block_data(data blob PRIMARY KEY)")
-                cursor = await conn.execute("SELECT * from block_data")
-                row = await cursor.fetchone()
-                await cursor.close()
-                if row is not None:
-                    store_data = SimStore.from_bytes(row[0])
-                    self.timestamp = store_data.timestamp
-                    self.block_height = store_data.block_height
-                    self.block_records = store_data.block_records
-                    self.blocks = store_data.blocks
-                    self.mempool_manager.peak = self.block_records[-1]
-                else:
-                    self.timestamp = uint64(1)
-                    self.block_height = uint32(0)
-                    self.block_records = []
-                    self.blocks = []
+            async with MempoolManager.managed(
+                self.coin_store.get_coin_records,
+                self.coin_store.get_unspent_lineage_info_for_puzzle_hash,
+                defaults,
+                InlineExecutor(),
+                validation_timeout=10,
+            ) as self.mempool_manager:
+                # Load the next data if there is any
+                async with self.db_wrapper.writer_maybe_transaction() as conn:
+                    await conn.execute("CREATE TABLE IF NOT EXISTS block_data(data blob PRIMARY KEY)")
+                    cursor = await conn.execute("SELECT * from block_data")
+                    row = await cursor.fetchone()
+                    await cursor.close()
+                    if row is not None:
+                        store_data = SimStore.from_bytes(row[0])
+                        self.timestamp = store_data.timestamp
+                        self.block_height = store_data.block_height
+                        self.block_records = store_data.block_records
+                        self.blocks = store_data.blocks
+                        self.mempool_manager.peak = self.block_records[-1]
+                    else:
+                        self.timestamp = uint64(1)
+                        self.block_height = uint32(0)
+                        self.block_records = []
+                        self.blocks = []
 
-            try:
-                yield self
-            finally:
-                with anyio.CancelScope(shield=True):
-                    async with self.db_wrapper.writer_maybe_transaction() as conn:
-                        c = await conn.execute("DELETE FROM block_data")
-                        await c.close()
-                        c = await conn.execute(
-                            "INSERT INTO block_data VALUES(?)",
-                            (bytes(SimStore(self.timestamp, self.block_height, self.block_records, self.blocks)),),
-                        )
-                        await c.close()
+                try:
+                    yield self
+                finally:
+                    with anyio.CancelScope(shield=True):
+                        async with self.db_wrapper.writer_maybe_transaction() as conn:
+                            c = await conn.execute("DELETE FROM block_data")
+                            await c.close()
+                            c = await conn.execute(
+                                "INSERT INTO block_data VALUES(?)",
+                                (bytes(SimStore(self.timestamp, self.block_height, self.block_records, self.blocks)),),
+                            )
+                            await c.close()
 
-    async def new_peak(self, spent_coins_ids: Optional[list[bytes32]]) -> None:
+    async def new_peak(self, spent_coins_ids: list[bytes32] | None) -> None:
         await self.mempool_manager.new_peak(self.block_records[-1], spent_coins_ids)
 
     def new_coin_record(self, coin: Coin, coinbase: bool = False) -> CoinRecord:
@@ -229,7 +234,7 @@ class SpendSim:
             coins.add(coin)
         return list(coins)
 
-    async def generate_transaction_generator(self, bundle: Optional[SpendBundle]) -> Optional[BlockGenerator]:
+    async def generate_transaction_generator(self, bundle: SpendBundle | None) -> BlockGenerator | None:
         if bundle is None:
             return None
         return simple_solution_generator(bundle)
@@ -257,7 +262,7 @@ class SpendSim:
             ),
         ]
         # Coin store gets updated
-        generator_bundle: Optional[SpendBundle] = None
+        generator_bundle: SpendBundle | None = None
         tx_additions = []
         tx_removals = []
         spent_coins_ids = None
@@ -295,7 +300,7 @@ class SpendSim:
             tx_removals=spent_coins_ids if spent_coins_ids is not None else [],
         )
         # SimBlockRecord is created
-        generator: Optional[BlockGenerator] = await self.generate_transaction_generator(generator_bundle)
+        generator: BlockGenerator | None = await self.generate_transaction_generator(generator_bundle)
         self.block_records.append(SimBlockRecord.create(included_reward_coins, next_block_height, self.timestamp))
         self.blocks.append(SimFullBlock(generator, next_block_height))
 
@@ -336,7 +341,7 @@ class SimClient:
     def __init__(self, service: SpendSim) -> None:
         self.service = service
 
-    async def push_tx(self, spend_bundle: SpendBundle) -> tuple[MempoolInclusionStatus, Optional[Err]]:
+    async def push_tx(self, spend_bundle: SpendBundle) -> tuple[MempoolInclusionStatus, Err | None]:
         try:
             spend_bundle_id = spend_bundle.name()
             sbc = await self.service.mempool_manager.pre_validate_spendbundle(spend_bundle, spend_bundle_id)
@@ -348,14 +353,14 @@ class SimClient:
         )
         return info.status, info.error
 
-    async def get_coin_record_by_name(self, name: bytes32) -> Optional[CoinRecord]:
+    async def get_coin_record_by_name(self, name: bytes32) -> CoinRecord | None:
         return await self.service.coin_store.get_coin_record(name)
 
     async def get_coin_records_by_names(
         self,
         names: list[bytes32],
-        start_height: Optional[int] = None,
-        end_height: Optional[int] = None,
+        start_height: int | None = None,
+        end_height: int | None = None,
         include_spent_coins: bool = False,
     ) -> list[CoinRecord]:
         kwargs: dict[str, Any] = {"include_spent_coins": include_spent_coins, "names": names}
@@ -368,8 +373,8 @@ class SimClient:
     async def get_coin_records_by_parent_ids(
         self,
         parent_ids: list[bytes32],
-        start_height: Optional[int] = None,
-        end_height: Optional[int] = None,
+        start_height: int | None = None,
+        end_height: int | None = None,
         include_spent_coins: bool = False,
     ) -> list[CoinRecord]:
         kwargs: dict[str, Any] = {"include_spent_coins": include_spent_coins, "parent_ids": parent_ids}
@@ -383,8 +388,8 @@ class SimClient:
         self,
         puzzle_hash: bytes32,
         include_spent_coins: bool = True,
-        start_height: Optional[int] = None,
-        end_height: Optional[int] = None,
+        start_height: int | None = None,
+        end_height: int | None = None,
     ) -> list[CoinRecord]:
         kwargs: dict[str, Any] = {"include_spent_coins": include_spent_coins, "puzzle_hash": puzzle_hash}
         if start_height is not None:
@@ -397,8 +402,8 @@ class SimClient:
         self,
         puzzle_hashes: list[bytes32],
         include_spent_coins: bool = True,
-        start_height: Optional[int] = None,
-        end_height: Optional[int] = None,
+        start_height: int | None = None,
+        end_height: int | None = None,
     ) -> list[CoinRecord]:
         kwargs: dict[str, Any] = {"include_spent_coins": include_spent_coins, "puzzle_hashes": puzzle_hashes}
         if start_height is not None:
@@ -442,8 +447,14 @@ class SimClient:
         generator: BlockGenerator = filtered_generators[0].transactions_generator  # type: ignore[assignment]
         coin_record = await self.service.coin_store.get_coin_record(coin_id)
         assert coin_record is not None
-        spend_info = get_puzzle_and_solution_for_coin(generator, coin_record.coin, height, self.service.defaults)
-        return CoinSpend(coin_record.coin, spend_info.puzzle, spend_info.solution)
+        puzzle, solution = get_puzzle_and_solution_for_coin(
+            generator.program,
+            generator.generator_refs,
+            self.service.defaults.MAX_BLOCK_COST_KLVM,
+            coin_record.coin,
+            get_flags_for_height_and_constants(height, self.service.defaults),
+        )
+        return CoinSpend(coin_record.coin, puzzle, solution)
 
     async def get_all_mempool_tx_ids(self) -> list[bytes32]:
         return self.service.mempool_manager.mempool.all_item_ids()
@@ -454,7 +465,7 @@ class SimClient:
             spends[item.name] = item
         return spends
 
-    async def get_mempool_item_by_tx_id(self, tx_id: bytes32) -> Optional[dict[str, Any]]:
+    async def get_mempool_item_by_tx_id(self, tx_id: bytes32) -> dict[str, Any] | None:
         item = self.service.mempool_manager.get_mempool_item(tx_id)
         if item is None:
             return None
@@ -465,8 +476,8 @@ class SimClient:
         self,
         hint: bytes32,
         include_spent_coins: bool = True,
-        start_height: Optional[int] = None,
-        end_height: Optional[int] = None,
+        start_height: int | None = None,
+        end_height: int | None = None,
     ) -> list[CoinRecord]:
         """
         Retrieves coins by hint, by default returns unspent coins.

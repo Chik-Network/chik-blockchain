@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable
-from typing import Callable
+from collections.abc import Awaitable, Callable
 
 from chik_rs.sized_ints import uint32
 

@@ -3,10 +3,10 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import TYPE_CHECKING, Any, ClassVar, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import aiohttp
-from chik_rs import AugSchemeMPL, G2Element, PlotSize, PoolTarget, PrivateKey
+from chik_rs import AugSchemeMPL, G2Element, PlotParam, PoolTarget, PrivateKey, ProofOfSpace
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint16, uint32, uint64
 from packaging.version import Version
@@ -18,6 +18,7 @@ from chik.harvester.harvester_api import HarvesterAPI
 from chik.protocols import farmer_protocol, harvester_protocol
 from chik.protocols.farmer_protocol import DeclareProofOfSpace, SignedValues
 from chik.protocols.harvester_protocol import (
+    PartialProofsData,
     PlotSyncDone,
     PlotSyncPathList,
     PlotSyncPlotList,
@@ -34,6 +35,7 @@ from chik.protocols.pool_protocol import (
     get_current_authentication_token,
 )
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
+from chik.protocols.solver_protocol import SolverInfo, SolverResponse
 from chik.server.api_protocol import ApiMetadata
 from chik.server.server import ssl_context_for_root
 from chik.server.ws_connection import WSChikConnection
@@ -42,16 +44,17 @@ from chik.types.blockchain_format.proof_of_space import (
     calculate_prefix_bits,
     generate_plot_public_key,
     generate_taproot_sk,
-    get_plot_id,
     verify_and_get_quality_string,
 )
 
 
 class FarmerAPI:
     if TYPE_CHECKING:
-        from chik.server.api_protocol import ApiProtocol
+        from chik.apis.farmer_stub import FarmerApiStub
 
-        _protocol_check: ClassVar[ApiProtocol] = cast("FarmerAPI", None)
+        # Verify this class implements the FarmerApiStub protocol
+        def _protocol_check(self: FarmerAPI) -> FarmerApiStub:
+            return self
 
     log: logging.Logger
     farmer: Farmer
@@ -75,7 +78,7 @@ class FarmerAPI:
         """
         if new_proof_of_space.sp_hash not in self.farmer.number_of_responses:
             self.farmer.number_of_responses[new_proof_of_space.sp_hash] = 0
-            self.farmer.cache_add_time[new_proof_of_space.sp_hash] = uint64(int(time.time()))
+            self.farmer.cache_add_time[new_proof_of_space.sp_hash] = uint64(time.time())
 
         max_pos_per_sp = 5
 
@@ -102,9 +105,10 @@ class FarmerAPI:
                 new_proof_of_space.challenge_hash,
                 new_proof_of_space.sp_hash,
                 height=sp.peak_height,
+                prev_transaction_block_height=sp.last_tx_height,
             )
             if computed_quality_string is None:
-                plotid: bytes32 = get_plot_id(new_proof_of_space.proof)
+                plotid: bytes32 = new_proof_of_space.proof.compute_plot_id()
                 self.farmer.log.error(f"Invalid proof of space: {plotid.hex()} proof: {new_proof_of_space.proof}")
                 return None
 
@@ -113,11 +117,9 @@ class FarmerAPI:
             required_iters: uint64 = calculate_iterations_quality(
                 self.farmer.constants,
                 computed_quality_string,
-                new_proof_of_space.proof.size(),
+                new_proof_of_space.proof.param(),
                 sp.difficulty,
                 new_proof_of_space.sp_hash,
-                sp.sub_slot_iters,
-                sp.last_tx_height,
             )
 
             # If the iters are good enough to make a block, proceed with the block making flow
@@ -125,7 +127,7 @@ class FarmerAPI:
                 if new_proof_of_space.farmer_reward_address_override is not None:
                     self.farmer.notify_farmer_reward_taken_by_harvester_as_fee(sp, new_proof_of_space)
 
-                sp_src_data: Optional[list[Optional[SignatureRequestSourceData]]] = None
+                sp_src_data: list[SignatureRequestSourceData | None] | None = None
                 if (
                     new_proof_of_space.include_source_signature_data
                     or new_proof_of_space.farmer_reward_address_override is not None
@@ -172,14 +174,14 @@ class FarmerAPI:
                         new_proof_of_space.proof,
                     )
                 )
-                self.farmer.cache_add_time[new_proof_of_space.sp_hash] = uint64(int(time.time()))
+                self.farmer.cache_add_time[new_proof_of_space.sp_hash] = uint64(time.time())
                 self.farmer.quality_str_to_identifiers[computed_quality_string] = (
                     new_proof_of_space.plot_identifier,
                     new_proof_of_space.challenge_hash,
                     new_proof_of_space.sp_hash,
                     peer.peer_node_id,
                 )
-                self.farmer.cache_add_time[computed_quality_string] = uint64(int(time.time()))
+                self.farmer.cache_add_time[computed_quality_string] = uint64(time.time())
 
                 await peer.send_message(make_msg(ProtocolMessageTypes.request_signatures, request))
 
@@ -222,11 +224,9 @@ class FarmerAPI:
                 required_iters = calculate_iterations_quality(
                     self.farmer.constants,
                     computed_quality_string,
-                    new_proof_of_space.proof.size(),
+                    new_proof_of_space.proof.param(),
                     pool_state_dict["current_difficulty"],
                     new_proof_of_space.sp_hash,
-                    sp.sub_slot_iters,
-                    sp.last_tx_height,
                 )
                 if required_iters >= calculate_sp_interval_iters(
                     self.farmer.constants, self.farmer.constants.POOL_SUB_SLOT_ITERS
@@ -278,7 +278,7 @@ class FarmerAPI:
 
                 # The plot key is 2/2 so we need the harvester's half of the signature
                 m_to_sign = payload.get_hash()
-                m_src_data: Optional[list[Optional[SignatureRequestSourceData]]] = None
+                m_src_data: list[SignatureRequestSourceData | None] | None = None
 
                 if (  # pragma: no cover
                     new_proof_of_space.include_source_signature_data
@@ -311,7 +311,7 @@ class FarmerAPI:
 
                 assert len(response.message_signatures) == 1
 
-                plot_signature: Optional[G2Element] = None
+                plot_signature: G2Element | None = None
                 for sk in self.farmer.get_private_keys():
                     pk = sk.get_g1()
                     if pk == response.farmer_pk:
@@ -326,9 +326,7 @@ class FarmerAPI:
                         )
                         assert AugSchemeMPL.verify(agg_pk, m_to_sign, plot_signature)
 
-                authentication_sk: Optional[PrivateKey] = self.farmer.get_authentication_sk(
-                    pool_state_dict["pool_config"]
-                )
+                authentication_sk: PrivateKey | None = self.farmer.get_authentication_sk(pool_state_dict["pool_config"])
                 if authentication_sk is None:
                     self.farmer.log.error(f"No authentication sk for {p2_singleton_puzzle_hash}")
                     increment_pool_stats(
@@ -480,6 +478,114 @@ class FarmerAPI:
 
                 return
 
+    @metadata.request(peer_required=True)
+    async def partial_proofs(self, partial_proof_data: PartialProofsData, peer: WSChikConnection) -> None:
+        """
+        This is a response from the harvester for V2 plots, containing only partial proof data.
+        We send these to the solver service and wait for a response with the full proof.
+        """
+        if partial_proof_data.sp_hash not in self.farmer.number_of_responses:
+            self.farmer.number_of_responses[partial_proof_data.sp_hash] = 0
+            self.farmer.cache_add_time[partial_proof_data.sp_hash] = uint64(time.time())
+
+        if partial_proof_data.sp_hash not in self.farmer.sps:
+            self.farmer.log.warning(
+                f"Received partial proofs for a signage point that we do not have {partial_proof_data.sp_hash}"
+            )
+            return None
+
+        self.farmer.cache_add_time[partial_proof_data.sp_hash] = uint64(time.time())
+
+        self.farmer.log.info(
+            f"Received V2 partial proof collection with {len(partial_proof_data.partial_proofs)} partail proofs "
+            f"for plot {partial_proof_data.plot_identifier[:10]}... from {peer.peer_node_id}"
+        )
+
+        # Process each partial proof chain through solver service to get full proofs
+        for partial_proof in partial_proof_data.partial_proofs:
+            solver_info = SolverInfo(
+                partial_proof=partial_proof,
+                plot_id=partial_proof_data.plot_id,
+                strength=partial_proof_data.strength,
+                size=partial_proof_data.plot_size,
+            )
+
+            key = bytes(partial_proof)
+            try:
+                # store pending request data for matching with response
+                self.farmer.pending_solver_requests[key] = {
+                    "proof_data": partial_proof_data,
+                    "peer": peer,
+                }
+
+                # send solve request to all solver connections
+                msg = make_msg(ProtocolMessageTypes.solve, solver_info)
+                await self.farmer.server.send_to_all([msg], NodeType.SOLVER)
+                self.farmer.log.debug(f"Sent solve request for partial proof {partial_proof.fragments[:5]}...")
+
+            except Exception as e:
+                self.farmer.log.error(
+                    f"Failed to call solver service for partial proof {partial_proof.fragments[:5]}...: {e}"
+                )
+                # clean up pending request
+                if key in self.farmer.pending_solver_requests:
+                    del self.farmer.pending_solver_requests[key]
+
+    @metadata.request()
+    async def solution_response(self, response: SolverResponse, peer: WSChikConnection) -> None:
+        """
+        Handle solution response from solver service.
+        This is called when a solver responds to a solve request.
+        """
+        self.farmer.log.debug(f"Received solution response: {len(response.proof)} bytes from {peer.peer_node_id}")
+
+        # find the matching pending request using partial_proof
+
+        key = bytes(response.partial_proof)
+        if key not in self.farmer.pending_solver_requests:
+            self.farmer.log.warning(
+                f"Received solver response for unknown partial proof {response.partial_proof.fragments[:5]}"
+            )
+            return
+
+        # get the original request data
+        request_data = self.farmer.pending_solver_requests.pop(key)
+        proof_data = request_data["proof_data"]
+        original_peer = request_data["peer"]
+        partial_proof = response.partial_proof
+
+        # create the proof of space with the solver's proof
+        proof_bytes = response.proof
+        if proof_bytes is None or len(proof_bytes) == 0:
+            self.farmer.log.warning(f"Received empty proof from solver for proof {partial_proof.fragments[:5]}...")
+            return
+
+        sp_challenge_hash = proof_data.challenge_hash
+        new_proof_of_space = harvester_protocol.NewProofOfSpace(
+            proof_data.challenge_hash,
+            proof_data.sp_hash,
+            proof_data.plot_identifier,
+            ProofOfSpace(
+                sp_challenge_hash,
+                proof_data.pool_public_key,
+                proof_data.pool_contract_puzzle_hash,
+                proof_data.plot_public_key,
+                uint8(1),  # we only use this for v2 plots
+                proof_data.plot_index,
+                proof_data.meta_group,
+                proof_data.strength,
+                uint8(0),  # size is unused for v2 proofs
+                proof_bytes,
+            ),
+            proof_data.signage_point_index,
+            include_source_signature_data=False,
+            farmer_reward_address_override=None,
+            fee_info=None,
+        )
+
+        # process the proof of space
+        await self.new_proof_of_space(new_proof_of_space, original_peer)
+
     @metadata.request()
     async def respond_signatures(self, response: harvester_protocol.RespondSignatures) -> None:
         request = self._process_respond_signatures(response)
@@ -552,7 +658,7 @@ class FarmerAPI:
                 new_signage_point.challenge_chain_sp,
                 pool_difficulties,
                 uint8(
-                    calculate_prefix_bits(self.farmer.constants, new_signage_point.peak_height, PlotSize.make_v1(32))
+                    calculate_prefix_bits(self.farmer.constants, new_signage_point.peak_height, PlotParam.make_v1(32))
                 ),
             )
 
@@ -584,7 +690,7 @@ class FarmerAPI:
 
                     pool_dict[key] = strip_old_entries(pairs=pool_dict[key], before=cutoff_24h)
 
-        now = uint64(int(time.time()))
+        now = uint64(time.time())
         self.farmer.cache_add_time[new_signage_point.challenge_chain_sp] = now
         missing_signage_points = self.farmer.check_missing_signage_points(now, new_signage_point)
         self.farmer.state_changed(
@@ -593,7 +699,7 @@ class FarmerAPI:
         )
 
     @metadata.request()
-    async def request_signed_values(self, full_node_request: farmer_protocol.RequestSignedValues) -> Optional[Message]:
+    async def request_signed_values(self, full_node_request: farmer_protocol.RequestSignedValues) -> Message | None:
         if full_node_request.quality_string not in self.farmer.quality_str_to_identifiers:
             self.farmer.log.error(f"Do not have quality string {full_node_request.quality_string}")
             return None
@@ -602,7 +708,7 @@ class FarmerAPI:
             full_node_request.quality_string
         ]
 
-        message_data: Optional[list[Optional[SignatureRequestSourceData]]] = None
+        message_data: list[SignatureRequestSourceData | None] | None = None
 
         if full_node_request.foliage_block_data is not None:
             message_data = [
@@ -693,7 +799,7 @@ class FarmerAPI:
 
     def _process_respond_signatures(
         self, response: harvester_protocol.RespondSignatures
-    ) -> Optional[Union[DeclareProofOfSpace, SignedValues]]:
+    ) -> DeclareProofOfSpace | SignedValues | None:
         """
         Processing the responded signatures happens when receiving an unsolicited request for an SP or when receiving
         the signature response for a block from a harvester.
@@ -704,6 +810,7 @@ class FarmerAPI:
         is_sp_signatures: bool = False
         sps = self.farmer.sps[response.sp_hash]
         peak_height = sps[0].peak_height
+        last_tx_height = sps[0].last_tx_height
         signage_point_index = sps[0].signage_point_index
         found_sp_hash_debug = False
         for sp_candidate in sps:
@@ -722,7 +829,12 @@ class FarmerAPI:
         include_taproot: bool = pospace.pool_contract_puzzle_hash is not None
 
         computed_quality_string = verify_and_get_quality_string(
-            pospace, self.farmer.constants, response.challenge_hash, response.sp_hash, height=peak_height
+            pospace,
+            self.farmer.constants,
+            response.challenge_hash,
+            response.sp_hash,
+            height=peak_height,
+            prev_transaction_block_height=last_tx_height,
         )
         if computed_quality_string is None:
             self.farmer.log.warning(f"Have invalid PoSpace {pospace}")
@@ -768,9 +880,9 @@ class FarmerAPI:
                             )
                             return None
 
-                        pool_target: Optional[PoolTarget] = PoolTarget(self.farmer.pool_target, uint32(0))
+                        pool_target: PoolTarget | None = PoolTarget(self.farmer.pool_target, uint32(0))
                         assert pool_target is not None
-                        pool_target_signature: Optional[G2Element] = AugSchemeMPL.sign(
+                        pool_target_signature: G2Element | None = AugSchemeMPL.sign(
                             self.farmer.pool_sks_map[pool_pk], bytes(pool_target)
                         )
                     else:

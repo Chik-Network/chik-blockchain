@@ -14,6 +14,10 @@ from chik._tests.util.misc import BenchmarkRunner
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.consensus.pot_iterations import is_overflow_block
 from chik.protocols import full_node_protocol as fnp
+from chik.server.server import ChikServer
+from chik.simulator.block_tools import BlockTools
+from chik.simulator.full_node_simulator import FullNodeSimulator
+from chik.simulator.wallet_tools import WalletTool
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
 from chik.util.casts import int_to_bytes
@@ -24,11 +28,14 @@ log = logging.getLogger(__name__)
 class TestPerformance:
     @pytest.mark.anyio
     async def test_full_block_performance(
-        self, request: pytest.FixtureRequest, wallet_nodes_perf, self_hostname, benchmark_runner: BenchmarkRunner
-    ):
+        self,
+        request: pytest.FixtureRequest,
+        wallet_nodes_perf: tuple[FullNodeSimulator, ChikServer, WalletTool, WalletTool, BlockTools],
+        self_hostname: str,
+        benchmark_runner: BenchmarkRunner,
+    ) -> None:
         full_node_1, server_1, wallet_a, wallet_receiver, bt = wallet_nodes_perf
         blocks = await full_node_1.get_all_full_blocks()
-        full_node_1.full_node.mempool_manager.limit_factor = 1
 
         wallet_ph = wallet_a.get_new_puzzlehash()
         blocks = bt.get_consecutive_blocks(
@@ -36,24 +43,21 @@ class TestPerformance:
             block_list_input=blocks,
             guarantee_transaction_block=True,
             farmer_reward_puzzle_hash=wallet_ph,
-            pool_reward_puzzle_hash=wallet_ph,
         )
         for block in blocks:
             await full_node_1.full_node.add_block(block)
 
-        start_height = (
-            full_node_1.full_node.blockchain.get_peak().height
-            if full_node_1.full_node.blockchain.get_peak() is not None
-            else -1
-        )
+        peak_record = full_node_1.full_node.blockchain.get_peak()
+        start_height = peak_record.height if peak_record is not None else -1
         _incoming_queue, node_id = await add_dummy_connection(server_1, self_hostname, 12312)
         fake_peer = server_1.all_connections[node_id]
+        fake_peer.expected_mempool_responses = 10000
         # Mempool has capacity of 100, make 110 unspents that we can use
         puzzle_hashes = []
 
         # Makes a bunch of coins
         for i in range(20):
-            conditions_dict: dict = {ConditionOpcode.CREATE_COIN: []}
+            conditions_dict: dict[ConditionOpcode, list[ConditionWithArgs]] = {ConditionOpcode.CREATE_COIN: []}
             # This should fit in one transaction
             for _ in range(100):
                 receiver_puzzlehash = wallet_receiver.get_new_puzzlehash()
@@ -63,7 +67,7 @@ class TestPerformance:
                 conditions_dict[ConditionOpcode.CREATE_COIN].append(output)
 
             spend_bundle = wallet_a.generate_signed_transaction(
-                100,
+                uint64(100),
                 puzzle_hashes[0],
                 get_future_reward_coins(blocks[1 + i])[0],
                 condition_dic=conditions_dict,
@@ -123,15 +127,12 @@ class TestPerformance:
         while not curr.is_transaction_block:
             curr = full_node_1.full_node.blockchain.block_record(curr.prev_hash)
         mempool_bundle = full_node_1.full_node.mempool_manager.create_bundle_from_mempool(curr.header_hash)
-        if mempool_bundle is None:
-            spend_bundle = None
-        else:
-            spend_bundle = mempool_bundle[0]
+        transaction_data = mempool_bundle[0] if mempool_bundle is not None else None
 
         current_blocks = await full_node_1.get_all_full_blocks()
         blocks = bt.get_consecutive_blocks(
             1,
-            transaction_data=spend_bundle,
+            transaction_data=transaction_data,
             block_list_input=current_blocks,
             guarantee_transaction_block=True,
         )

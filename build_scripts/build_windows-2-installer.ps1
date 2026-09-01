@@ -11,7 +11,13 @@ if (-not (Test-Path env:CHIK_INSTALLER_VERSION)) {
   $env:CHIK_INSTALLER_VERSION = '0.0.0'
   Write-Output "WARNING: No environment variable CHIK_INSTALLER_VERSION set. Using 0.0.0"
 }
+if (-not (Test-Path env:CHIK_SEMVER_VERSION)) {
+  $env:CHIK_SEMVER_VERSION = $env:CHIK_INSTALLER_VERSION
+  Write-Output "WARNING: No environment variable CHIK_SEMVER_VERSION set. Using $env:CHIK_INSTALLER_VERSION"
+}
+
 Write-Output "Chik Version is: $env:CHIK_INSTALLER_VERSION"
+Write-Output "Chik Semver Version is: $env:CHIK_SEMVER_VERSION"
 Write-Output "   ---"
 
 Write-Output "   ---"
@@ -62,7 +68,7 @@ Write-Output "   ---"
 Write-Output "fix version in package.json"
 choco install jq
 cp package.json package.json.orig
-jq --arg VER "$env:CHIK_INSTALLER_VERSION" '.version=$VER' package.json > temp.json
+jq --arg VER "$env:CHIK_SEMVER_VERSION" '.version=$VER' package.json > temp.json
 rm package.json
 mv temp.json package.json
 Write-Output "   ---"
@@ -90,7 +96,7 @@ If ($env:HAS_SIGNING_SECRET) {
 
 Write-Output "   ---"
 Write-Output "electron-builder create installer"
-& "$NPM_PATH/electron-builder.ps1" build --win --x64 --config.productName="Chik" --pd ".\dist\win-unpacked" --config ../../../build_scripts/electron-builder.json
+& "$NPM_PATH/electron-builder.ps1" build --win --x64 --config.productName="Chik" --pd ".\dist\win-unpacked" --config ../../../build_scripts/electron-builder.json --publish never
 Write-Output "   ---"
 
 If ($env:HAS_SIGNING_SECRET) {

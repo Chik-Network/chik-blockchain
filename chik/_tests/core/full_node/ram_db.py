@@ -7,11 +7,12 @@ from pathlib import Path
 
 from chik_rs import ConsensusConstants
 
+from chik.consensus.block_height_map import BlockHeightMap
 from chik.consensus.blockchain import Blockchain
-from chik.full_node.block_height_map import BlockHeightMap
 from chik.full_node.block_store import BlockStore
 from chik.full_node.coin_store import CoinStore
 from chik.util.db_wrapper import DBWrapper2
+from chik.util.inline_executor import InlineExecutor
 
 
 @contextlib.asynccontextmanager
@@ -23,7 +24,7 @@ async def create_ram_blockchain(
         block_store = await BlockStore.create(db_wrapper)
         coin_store = await CoinStore.create(db_wrapper)
         height_map = await BlockHeightMap.create(Path("."), db_wrapper)
-        blockchain = await Blockchain.create(coin_store, block_store, height_map, consensus_constants, 2)
+        blockchain = await Blockchain.create(coin_store, block_store, height_map, consensus_constants, InlineExecutor())
         try:
             yield db_wrapper, blockchain
         finally:

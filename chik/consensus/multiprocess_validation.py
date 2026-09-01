@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-import asyncio
-import copy
 import logging
 import time
 import traceback
 from collections.abc import Awaitable, Collection
-from concurrent.futures import Executor
 from dataclasses import dataclass
-from typing import Optional
 
 from chik_rs import (
     BlockRecord,
@@ -26,9 +22,10 @@ from chik_rs.sized_ints import uint16, uint32, uint64
 from chik.consensus.augmented_chain import AugmentedBlockchain
 from chik.consensus.block_header_validation import validate_finished_header_block
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
+from chik.consensus.difficulty_adjustment import get_next_sub_slot_iters_and_difficulty
 from chik.consensus.full_block_to_block_record import block_to_block_record
 from chik.consensus.generator_tools import get_block_header, tx_removals_and_additions
-from chik.consensus.get_block_challenge import get_block_challenge, prev_tx_block
+from chik.consensus.get_block_challenge import get_block_challenge, pre_sp_tx_block_height
 from chik.consensus.get_block_generator import get_block_generator
 from chik.consensus.pot_iterations import (
     is_overflow_block,
@@ -38,6 +35,7 @@ from chik.types.blockchain_format.coin import Coin
 from chik.types.generator_types import BlockGenerator
 from chik.types.validation_state import ValidationState
 from chik.util.errors import Err
+from chik.util.priority_thread_pool_executor import Executor, _SupportsLessThan
 from chik.util.streamable import Streamable, streamable
 
 log = logging.getLogger(__name__)
@@ -46,9 +44,10 @@ log = logging.getLogger(__name__)
 @streamable
 @dataclass(frozen=True)
 class PreValidationResult(Streamable):
-    error: Optional[uint16]
-    required_iters: Optional[uint64]  # Iff error is None
-    conds: Optional[SpendBundleConditions]  # Iff error is None and block is a transaction block
+    error: uint16 | None
+    error_msg: str | None
+    required_iters: uint64 | None  # Iff error is None
+    conds: SpendBundleConditions | None  # Iff error is None and block is a transaction block
     timing: uint32  # the time (in milliseconds) it took to pre-validate the block
 
     @property
@@ -60,11 +59,11 @@ class PreValidationResult(Streamable):
 
 # this layer of abstraction is here to let wallet tests monkeypatch it
 def _run_block(
-    block: FullBlock, prev_generators: list[bytes], constants: ConsensusConstants
-) -> tuple[Optional[int], Optional[SpendBundleConditions]]:
+    block: FullBlock, prev_generators: list[bytes], prev_tx_height: uint32, constants: ConsensusConstants
+) -> tuple[int | None, str | None, SpendBundleConditions | None]:
     assert block.transactions_generator is not None
     assert block.transactions_info is not None
-    flags = get_flags_for_height_and_constants(block.height, constants)
+    flags = get_flags_for_height_and_constants(prev_tx_height, constants)
     if block.height >= constants.HARD_FORK_HEIGHT:
         run_block = run_block_generator2
     else:
@@ -84,9 +83,11 @@ def _pre_validate_block(
     constants: ConsensusConstants,
     blockchain: BlockRecordsProtocol,
     block: FullBlock,
-    prev_generators: Optional[list[bytes]],
-    conds: Optional[SpendBundleConditions],
+    prev_generators: list[bytes] | None,
+    conds: SpendBundleConditions | None,
     expected_vs: ValidationState,
+    *,
+    skip_commitment_validation: bool = False,
 ) -> PreValidationResult:
     """
     Args:
@@ -97,11 +98,13 @@ def _pre_validate_block(
         conds:
         expected_vs: The validation state that we calculate for the next block
             if it's validated.
+        skip_commitment_validation: If True, skips validation of MMR roots (for weight proofs without full history).
+            Challenge merkle tree validation is gated by HARD_FORK2_HEIGHT, not this flag.
     """
 
     try:
         validation_start = time.monotonic()
-        removals_and_additions: Optional[tuple[Collection[bytes32], Collection[Coin]]] = None
+        removals_and_additions: tuple[Collection[bytes32], Collection[Coin]] | None = None
         if conds is not None:
             assert conds.validated_signature is True
             assert block.transactions_generator is not None
@@ -113,15 +116,22 @@ def _pre_validate_block(
             if block.transactions_info.cost > constants.MAX_BLOCK_COST_KLVM:
                 validation_time = time.monotonic() - validation_start
                 return PreValidationResult(
-                    uint16(Err.BLOCK_COST_EXCEEDS_MAX.value), None, None, uint32(validation_time * 1000)
+                    uint16(Err.BLOCK_COST_EXCEEDS_MAX.value), None, None, None, uint32(validation_time * 1000)
                 )
 
-            err, conds = _run_block(block, prev_generators, constants)
+            prev_tx_height = pre_sp_tx_block_height(
+                constants=constants,
+                blocks=blockchain,
+                prev_b_hash=block.prev_header_hash,
+                sp_index=block.reward_chain_block.signage_point_index,
+                finished_sub_slots=len(block.finished_sub_slots),
+            )
+            err, err_msg, conds = _run_block(block, prev_generators, prev_tx_height, constants)
 
             assert (err is None) != (conds is None)
             if err is not None:
                 validation_time = time.monotonic() - validation_start
-                return PreValidationResult(uint16(err), None, None, uint32(validation_time * 1000))
+                return PreValidationResult(uint16(err), err_msg, None, None, uint32(validation_time * 1000))
             assert conds is not None
             assert conds.validated_signature is True
             removals_and_additions = tx_removals_and_additions(conds)
@@ -136,14 +146,16 @@ def _pre_validate_block(
             get_block_header(block, removals_and_additions),
             True,  # check_filter
             expected_vs,
+            skip_commitment_validation=skip_commitment_validation,
         )
-        error_int: Optional[uint16] = None
+        error_int: uint16 | None = None
         if error is not None:
             error_int = uint16(error.code.value)
 
         validation_time = time.monotonic() - validation_start
         return PreValidationResult(
             error_int,
+            None,
             required_iters,
             conds,
             uint32(validation_time * 1000),
@@ -152,7 +164,7 @@ def _pre_validate_block(
         error_stack = traceback.format_exc()
         log.error(f"Exception: {error_stack}")
         validation_time = time.monotonic() - validation_start
-        return PreValidationResult(uint16(Err.UNKNOWN.value), None, None, uint32(validation_time * 1000))
+        return PreValidationResult(uint16(Err.UNKNOWN.value), None, None, None, uint32(validation_time * 1000))
 
 
 async def pre_validate_block(
@@ -160,10 +172,13 @@ async def pre_validate_block(
     blockchain: AugmentedBlockchain,
     block: FullBlock,
     pool: Executor,
-    conds: Optional[SpendBundleConditions],
+    conds: SpendBundleConditions | None,
     vs: ValidationState,
     *,
-    wp_summaries: Optional[list[SubEpochSummary]] = None,
+    wp_summaries: list[SubEpochSummary] | None = None,
+    skip_commitment_validation: bool = False,
+    nice: _SupportsLessThan = (0,),
+    dedicated: bool = True,
 ) -> Awaitable[PreValidationResult]:
     """
     This method must be called under the blockchain lock
@@ -189,10 +204,10 @@ async def pre_validate_block(
         wp_summaries:
         validate_signatures:
     """
-    prev_b: Optional[BlockRecord] = None
+    prev_b: BlockRecord | None = None
 
     async def return_error(error_code: Err) -> PreValidationResult:
-        return PreValidationResult(uint16(error_code.value), None, None, uint32(0))
+        return PreValidationResult(uint16(error_code.value), None, None, None, uint32(0))
 
     if block.height > 0:
         curr = blockchain.try_block_record(block.prev_header_hash)
@@ -201,11 +216,14 @@ async def pre_validate_block(
         prev_b = curr
 
     assert isinstance(block, FullBlock)
-    if len(block.finished_sub_slots) > 0:
-        if block.finished_sub_slots[0].challenge_chain.new_difficulty is not None:
-            vs.difficulty = block.finished_sub_slots[0].challenge_chain.new_difficulty
-        if block.finished_sub_slots[0].challenge_chain.new_sub_slot_iters is not None:
-            vs.ssi = block.finished_sub_slots[0].challenge_chain.new_sub_slot_iters
+    if len(block.finished_sub_slots) > 0 and (
+        block.finished_sub_slots[0].challenge_chain.new_sub_slot_iters is not None
+        or block.finished_sub_slots[0].challenge_chain.new_difficulty is not None
+    ):
+        expected_ssi, expected_difficulty = get_next_sub_slot_iters_and_difficulty(constants, True, prev_b, blockchain)
+        expected_vs = ValidationState(expected_ssi, expected_difficulty, vs.prev_ses_block)
+    else:
+        expected_vs = ValidationState(vs.ssi, vs.difficulty, vs.prev_ses_block)
     overflow = is_overflow_block(constants, block.reward_chain_block.signage_point_index)
     challenge = get_block_challenge(constants, block, blockchain, prev_b is None, overflow, False)
     if block.reward_chain_block.challenge_chain_sp_vdf is None:
@@ -219,9 +237,14 @@ async def pre_validate_block(
         challenge,
         cc_sp_hash,
         block.height,
-        vs.difficulty,
-        vs.ssi,
-        prev_tx_block(blockchain, prev_b),
+        expected_vs.difficulty,
+        pre_sp_tx_block_height(
+            constants=constants,
+            blocks=blockchain,
+            prev_b_hash=block.prev_header_hash,
+            sp_index=block.reward_chain_block.signage_point_index,
+            finished_sub_slots=len(block.finished_sub_slots),
+        ),
     )
     if required_iters is None:
         return return_error(Err.INVALID_POSPACE)
@@ -232,8 +255,8 @@ async def pre_validate_block(
             blockchain,
             required_iters,
             block,
-            sub_slot_iters=vs.ssi,
-            prev_ses_block=vs.prev_ses_block,
+            sub_slot_iters=expected_vs.ssi,
+            prev_ses_block=expected_vs.prev_ses_block,
         )
     except ValueError:
         log.exception("block_to_block_record()")
@@ -248,27 +271,35 @@ async def pre_validate_block(
     blockchain.add_extra_block(block, block_rec)  # Temporarily add block to chain
     prev_b = block_rec
 
-    previous_generators: Optional[list[bytes]] = None
+    previous_generators: list[bytes] | None = None
 
     try:
-        block_generator: Optional[BlockGenerator] = await get_block_generator(blockchain.lookup_block_generators, block)
+        block_generator: BlockGenerator | None = await get_block_generator(blockchain.lookup_block_generators, block)
         if block_generator is not None:
             previous_generators = block_generator.generator_refs
     except ValueError:
         return return_error(Err.FAILED_GETTING_GENERATOR_MULTIPROCESSING)
 
-    future = asyncio.get_running_loop().run_in_executor(
-        pool,
+    readonly_blockchain = blockchain.read_only_snapshot()
+
+    future = pool.run_in_loop(
         _pre_validate_block,
         constants,
-        blockchain,
+        readonly_blockchain,
         block,
         previous_generators,
         conds,
-        copy.copy(vs),
+        expected_vs,
+        skip_commitment_validation=skip_commitment_validation,
+        nice=nice,
+        dedicated=dedicated,
     )
 
     if block_rec.sub_epoch_summary_included is not None:
         vs.prev_ses_block = block_rec
+        if block_rec.sub_epoch_summary_included.new_difficulty is not None:
+            vs.difficulty = block_rec.sub_epoch_summary_included.new_difficulty
+        if block_rec.sub_epoch_summary_included.new_sub_slot_iters is not None:
+            vs.ssi = block_rec.sub_epoch_summary_included.new_sub_slot_iters
 
     return future

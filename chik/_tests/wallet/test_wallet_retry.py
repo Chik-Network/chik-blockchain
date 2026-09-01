@@ -7,6 +7,7 @@ import pytest
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
 
+from chik._tests.conftest import ConsensusMode
 from chik._tests.util.time_out_assert import time_out_assert, time_out_assert_custom_interval
 from chik.full_node.full_node_api import FullNodeAPI
 from chik.full_node.mempool import MempoolRemoveReason
@@ -34,6 +35,7 @@ def evict_from_pool(node: FullNodeAPI, sb: WalletSpendBundle) -> None:
     node.full_node.mempool_manager.remove_seen(sb.name())
 
 
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_wallet_tx_retry(
     setup_two_nodes_and_wallet_fast_retry: tuple[list[FullNodeSimulator], list[tuple[Any, Any]], BlockTools],

@@ -7,7 +7,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from statistics import StatisticsError, mean, stdev
-from typing import Any, Optional, TextIO, final
+from typing import Any, TextIO, final
 
 import click
 import lxml.etree
@@ -126,7 +126,7 @@ def main(
     percent_margin: int,
     randomoji: bool,
     tag: str,
-    result_count_limit: Optional[int],
+    result_count_limit: int | None,
 ) -> None:
     data_type = supported_data_types_by_tag[tag]
 
@@ -139,6 +139,8 @@ def main(
             if case.find("skipped") is not None:
                 continue
             test_id_property = case.find("properties/property[@name='test_id']")
+            if test_id_property is None:
+                continue
             test_id = TestId.unmarshal(json.loads(test_id_property.attrib["value"]))
             test_id = dataclasses.replace(
                 test_id, ids=tuple(id for id in test_id.ids if not id.startswith(f"{data_type.tag}_repeat"))

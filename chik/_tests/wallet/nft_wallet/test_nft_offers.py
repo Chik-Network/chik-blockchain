@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from typing import Optional, Union
-
 import pytest
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
+from typing_extensions import Any
 
 from chik._tests.environments.wallet import WalletStateTransition, WalletTestFramework
 from chik._tests.util.time_out_assert import time_out_assert
+from chik._tests.wallet.cat_wallet.test_cat_wallet import mint_cat
 from chik.types.blockchain_format.program import Program
 from chik.wallet.cat_wallet.cat_wallet import CATWallet
+from chik.wallet.cat_wallet.r_cat_wallet import RCATWallet
 from chik.wallet.nft_wallet.nft_wallet import NFTWallet
 from chik.wallet.outer_puzzles import create_asset_id, match_puzzle
 from chik.wallet.puzzle_drivers import PuzzleInfo
@@ -113,7 +114,7 @@ async def test_nft_offer_with_fee(wallet_environments: WalletTestFramework) -> N
     # MAKE FIRST TRADE: 1 NFT for 100 xck
 
     nft_to_offer = coins_maker[0]
-    nft_info: Optional[PuzzleInfo] = match_puzzle(uncurry_puzzle(nft_to_offer.full_puzzle))
+    nft_info: PuzzleInfo | None = match_puzzle(uncurry_puzzle(nft_to_offer.full_puzzle))
     assert nft_info is not None
     nft_asset_id = create_asset_id(nft_info)
     assert nft_asset_id is not None
@@ -121,7 +122,7 @@ async def test_nft_offer_with_fee(wallet_environments: WalletTestFramework) -> N
 
     xck_request = 100
     maker_fee = uint64(10)
-    offer_nft_for_xck: dict[Union[int, bytes32], int] = {wallet_maker.id(): xck_request, nft_asset_id: -1}
+    offer_nft_for_xck: dict[int | bytes32, int] = {wallet_maker.id(): xck_request, nft_asset_id: -1}
 
     async with trade_manager_maker.wallet_state_manager.new_action_scope(
         wallet_environments.tx_config, push=False
@@ -212,7 +213,7 @@ async def test_nft_offer_with_fee(wallet_environments: WalletTestFramework) -> N
     # MAKE SECOND TRADE: 100 xck for 1 NFT
 
     nft_to_buy = coins_taker[0]
-    nft_to_buy_info: Optional[PuzzleInfo] = match_puzzle(uncurry_puzzle(nft_to_buy.full_puzzle))
+    nft_to_buy_info: PuzzleInfo | None = match_puzzle(uncurry_puzzle(nft_to_buy.full_puzzle))
     assert nft_to_buy_info is not None
     nft_to_buy_asset_id = create_asset_id(nft_to_buy_info)
     assert nft_to_buy_asset_id is not None
@@ -220,7 +221,7 @@ async def test_nft_offer_with_fee(wallet_environments: WalletTestFramework) -> N
 
     xck_offered = 1000
     maker_fee = uint64(10)
-    offer_xck_for_nft: dict[Union[int, bytes32], int] = {wallet_maker.id(): -xck_offered, nft_to_buy_asset_id: 1}
+    offer_xck_for_nft: dict[int | bytes32, int] = {wallet_maker.id(): -xck_offered, nft_to_buy_asset_id: 1}
 
     async with trade_manager_maker.wallet_state_manager.new_action_scope(
         wallet_environments.tx_config, push=False
@@ -382,7 +383,7 @@ async def test_nft_offer_cancellations(wallet_environments: WalletTestFramework)
 
     # maker creates offer and cancels
     nft_to_offer = coins_maker[0]
-    nft_info: Optional[PuzzleInfo] = match_puzzle(uncurry_puzzle(nft_to_offer.full_puzzle))
+    nft_info: PuzzleInfo | None = match_puzzle(uncurry_puzzle(nft_to_offer.full_puzzle))
     assert nft_info is not None
     nft_asset_id = create_asset_id(nft_info)
     assert nft_asset_id is not None
@@ -390,7 +391,7 @@ async def test_nft_offer_cancellations(wallet_environments: WalletTestFramework)
 
     xck_request = 100
     maker_fee = uint64(10)
-    offer_nft_for_xck: dict[Union[bytes32, int], int] = {wallet_maker.id(): xck_request, nft_asset_id: -1}
+    offer_nft_for_xck: dict[bytes32 | int, int] = {wallet_maker.id(): xck_request, nft_asset_id: -1}
 
     async with trade_manager_maker.wallet_state_manager.new_action_scope(
         wallet_environments.tx_config, push=False
@@ -599,7 +600,7 @@ async def test_nft_offer_with_metadata_update(wallet_environments: WalletTestFra
 
     # MAKE FIRST TRADE: 1 NFT for 100 xck
     nft_to_offer = coins_maker[0]
-    nft_info: Optional[PuzzleInfo] = match_puzzle(uncurry_puzzle(nft_to_offer.full_puzzle))
+    nft_info: PuzzleInfo | None = match_puzzle(uncurry_puzzle(nft_to_offer.full_puzzle))
     assert nft_info is not None
     nft_asset_id = create_asset_id(nft_info)
     assert nft_asset_id is not None
@@ -607,7 +608,7 @@ async def test_nft_offer_with_metadata_update(wallet_environments: WalletTestFra
 
     xck_request = 100
     maker_fee = uint64(10)
-    offer_nft_for_xck: dict[Union[bytes32, int], int] = {wallet_maker.id(): xck_request, nft_asset_id: -1}
+    offer_nft_for_xck: dict[bytes32 | int, int] = {wallet_maker.id(): xck_request, nft_asset_id: -1}
 
     async with trade_manager_maker.wallet_state_manager.new_action_scope(
         wallet_environments.tx_config, push=False
@@ -696,8 +697,9 @@ async def test_nft_offer_with_metadata_update(wallet_environments: WalletTestFra
 
 @pytest.mark.limit_consensus_modes(reason="irrelevant")
 @pytest.mark.parametrize("wallet_environments", [{"num_environments": 2, "blocks_needed": [1, 1]}], indirect=True)
+@pytest.mark.parametrize("wallet_type", [CATWallet, RCATWallet])
 @pytest.mark.anyio
-async def test_nft_offer_nft_for_cat(wallet_environments: WalletTestFramework) -> None:
+async def test_nft_offer_nft_for_cat(wallet_environments: WalletTestFramework, wallet_type: type[CATWallet]) -> None:
     env_0 = wallet_environments.environments[0]
     env_1 = wallet_environments.environments[1]
     wallet_maker = env_0.xck_wallet
@@ -785,76 +787,45 @@ async def test_nft_offer_nft_for_cat(wallet_environments: WalletTestFramework) -
     assert await nft_wallet_taker.get_nft_count() == 0
 
     # Create two new CATs and wallets for maker and taker
-    cats_to_mint = 10000
-    async with wallet_maker.wallet_state_manager.new_action_scope(
-        wallet_environments.tx_config, push=True
-    ) as action_scope:
-        cat_wallet_maker = await CATWallet.create_new_cat_wallet(
-            env_0.wallet_state_manager,
-            wallet_maker,
-            {"identifier": "genesis_by_id"},
-            uint64(cats_to_mint),
-            action_scope,
-        )
-
-    async with wallet_taker.wallet_state_manager.new_action_scope(
-        wallet_environments.tx_config, push=True
-    ) as action_scope:
-        cat_wallet_taker = await CATWallet.create_new_cat_wallet(
-            env_1.wallet_state_manager,
-            wallet_taker,
-            {"identifier": "genesis_by_id"},
-            uint64(cats_to_mint),
-            action_scope,
-        )
-
-    # mostly set_remainder here as minting CATs is tested elsewhere
-    await wallet_environments.process_pending_states(
-        [
-            WalletStateTransition(
-                pre_block_balance_updates={
-                    "xck": {"set_remainder": True},
-                    "maker cat": {
-                        "init": True,
-                        "set_remainder": True,
-                    },
-                },
-                post_block_balance_updates={
-                    "xck": {"set_remainder": True},
-                    "maker cat": {
-                        "set_remainder": True,
-                    },
-                },
-            ),
-            WalletStateTransition(
-                pre_block_balance_updates={
-                    "xck": {"set_remainder": True},
-                    "taker cat": {
-                        "init": True,
-                        "set_remainder": True,
-                    },
-                },
-                post_block_balance_updates={
-                    "xck": {"set_remainder": True},
-                    "taker cat": {
-                        "set_remainder": True,
-                    },
-                },
-            ),
-        ]
+    cats_to_mint = uint64(10000)
+    cat_wallet_maker = await mint_cat(
+        wallet_environments,
+        env_0,
+        "xck",
+        "maker cat",
+        cats_to_mint,
+        wallet_type,
+        "maker cat",
     )
 
-    wallet_maker_for_taker_cat: CATWallet = await CATWallet.get_or_create_wallet_for_cat(
-        env_0.wallet_state_manager, wallet_maker, cat_wallet_taker.get_asset_id()
+    cat_wallet_taker = await mint_cat(
+        wallet_environments,
+        env_1,
+        "xck",
+        "taker cat",
+        cats_to_mint,
+        wallet_type,
+        "taker cat",
     )
 
-    await CATWallet.get_or_create_wallet_for_cat(
-        env_1.wallet_state_manager, wallet_taker, cat_wallet_maker.get_asset_id()
+    if wallet_type is RCATWallet:
+        extra_args: Any = (bytes32.zeros,)
+    else:
+        extra_args = tuple()
+    wallet_maker_for_taker_cat: CATWallet = await wallet_type.get_or_create_wallet_for_cat(
+        env_0.wallet_state_manager, wallet_maker, cat_wallet_taker.get_asset_id(), *extra_args
     )
+
+    await wallet_type.get_or_create_wallet_for_cat(
+        env_1.wallet_state_manager, wallet_taker, cat_wallet_maker.get_asset_id(), *extra_args
+    )
+
+    await env_0.change_balances({"taker cat": {"init": True}})
+    await env_1.change_balances({"maker cat": {"init": True}})
 
     # MAKE FIRST TRADE: 1 NFT for 10 taker cats
     nft_to_offer = coins_maker[0]
-    nft_info: Optional[PuzzleInfo] = match_puzzle(uncurry_puzzle(nft_to_offer.full_puzzle))
+    nft_info: PuzzleInfo | None = match_puzzle(uncurry_puzzle(nft_to_offer.full_puzzle))
     assert nft_info is not None
     nft_asset_id = create_asset_id(nft_info)
     assert nft_asset_id is not None
@@ -862,7 +833,7 @@ async def test_nft_offer_nft_for_cat(wallet_environments: WalletTestFramework) -
 
     maker_fee = uint64(10)
     taker_cat_offered = 2500
-    offer_nft_for_cat: dict[Union[bytes32, int], int] = {
+    offer_nft_for_cat: dict[bytes32 | int, int] = {
         nft_asset_id: -1,
         wallet_maker_for_taker_cat.id(): taker_cat_offered,
     }
@@ -902,9 +873,7 @@ async def test_nft_offer_nft_for_cat(wallet_environments: WalletTestFramework) -
                         "<=#max_send_amount": -maker_fee,
                         "pending_coin_removal_count": 1,
                     },
-                    "taker cat": {
-                        "init": True,
-                    },
+                    "taker cat": {},
                     "nft": {
                         "pending_coin_removal_count": 1,
                     },
@@ -940,9 +909,7 @@ async def test_nft_offer_nft_for_cat(wallet_environments: WalletTestFramework) -
                         ">=#pending_change": 1,
                         "pending_coin_removal_count": 1,
                     },
-                    "maker cat": {
-                        "init": True,
-                    },
+                    "maker cat": {},
                     "taker cat": {
                         "unconfirmed_wallet_balance": -taker_cat_offered,
                         "<=#spendable_balance": -taker_cat_offered,
@@ -986,7 +953,7 @@ async def test_nft_offer_nft_for_cat(wallet_environments: WalletTestFramework) -
     taker_cat_amount = 500
 
     nft_to_buy = coins_taker[0]
-    nft_to_buy_info: Optional[PuzzleInfo] = match_puzzle(uncurry_puzzle(nft_to_buy.full_puzzle))
+    nft_to_buy_info: PuzzleInfo | None = match_puzzle(uncurry_puzzle(nft_to_buy.full_puzzle))
     assert nft_to_buy_info is not None
     nft_to_buy_asset_id = create_asset_id(nft_to_buy_info)
     assert nft_to_buy_asset_id is not None
@@ -995,7 +962,7 @@ async def test_nft_offer_nft_for_cat(wallet_environments: WalletTestFramework) -
     }
 
     maker_fee = uint64(10)
-    offer_multi_cats_for_nft: dict[Union[bytes32, int], int] = {
+    offer_multi_cats_for_nft: dict[bytes32 | int, int] = {
         nft_to_buy_asset_id: 1,
         wallet_maker_for_taker_cat.id(): -taker_cat_amount,
         cat_wallet_maker.id(): -maker_cat_amount,
@@ -1261,13 +1228,13 @@ async def test_nft_offer_nft_for_nft(wallet_environments: WalletTestFramework) -
     assert len(coins_taker) == 1
 
     nft_to_offer = coins_maker[0]
-    nft_to_offer_info: Optional[PuzzleInfo] = match_puzzle(uncurry_puzzle(nft_to_offer.full_puzzle))
+    nft_to_offer_info: PuzzleInfo | None = match_puzzle(uncurry_puzzle(nft_to_offer.full_puzzle))
     assert nft_to_offer_info is not None
     nft_to_offer_asset_id = create_asset_id(nft_to_offer_info)
     assert nft_to_offer_asset_id is not None
 
     nft_to_take = coins_taker[0]
-    nft_to_take_info: Optional[PuzzleInfo] = match_puzzle(uncurry_puzzle(nft_to_take.full_puzzle))
+    nft_to_take_info: PuzzleInfo | None = match_puzzle(uncurry_puzzle(nft_to_take.full_puzzle))
     assert nft_to_take_info is not None
     nft_to_take_asset_id = create_asset_id(nft_to_take_info)
     assert nft_to_take_asset_id is not None
@@ -1278,7 +1245,7 @@ async def test_nft_offer_nft_for_nft(wallet_environments: WalletTestFramework) -
     }
 
     maker_fee = uint64(10)
-    offer_nft_for_nft: dict[Union[bytes32, int], int] = {nft_to_take_asset_id: 1, nft_to_offer_asset_id: -1}
+    offer_nft_for_nft: dict[bytes32 | int, int] = {nft_to_take_asset_id: 1, nft_to_offer_asset_id: -1}
 
     async with trade_manager_maker.wallet_state_manager.new_action_scope(
         wallet_environments.tx_config, push=False
@@ -1367,8 +1334,11 @@ async def test_nft_offer_nft_for_nft(wallet_environments: WalletTestFramework) -
 
 @pytest.mark.limit_consensus_modes(reason="irrelevant")
 @pytest.mark.parametrize("wallet_environments", [{"num_environments": 2, "blocks_needed": [1, 1]}], indirect=True)
+@pytest.mark.parametrize("wallet_type", [CATWallet, RCATWallet])
 @pytest.mark.anyio
-async def test_nft_offer_nft0_and_xck_for_cat(wallet_environments: WalletTestFramework) -> None:
+async def test_nft_offer_nft0_and_xck_for_cat(
+    wallet_environments: WalletTestFramework, wallet_type: type[CATWallet]
+) -> None:
     env_0 = wallet_environments.environments[0]
     env_1 = wallet_environments.environments[1]
     wallet_maker = env_0.xck_wallet
@@ -1456,84 +1426,45 @@ async def test_nft_offer_nft0_and_xck_for_cat(wallet_environments: WalletTestFra
 
     assert await nft_wallet_taker.get_nft_count() == 0
     # Create two new CATs and wallets for maker and taker
-    cats_to_mint = 10000
-    async with wallet_maker.wallet_state_manager.new_action_scope(
-        wallet_environments.tx_config, push=True
-    ) as action_scope:
-        cat_wallet_maker = await CATWallet.create_new_cat_wallet(
-            env_0.wallet_state_manager,
-            wallet_maker,
-            {"identifier": "genesis_by_id"},
-            uint64(cats_to_mint),
-            action_scope,
-        )
+    cats_to_mint = uint64(10000)
+    cat_wallet_maker = await mint_cat(
+        wallet_environments,
+        env_0,
+        "xck",
+        "maker cat",
+        cats_to_mint,
+        CATWallet,
+        "maker cat",
+    )
 
-    async with wallet_taker.wallet_state_manager.new_action_scope(
-        wallet_environments.tx_config, push=True
-    ) as action_scope:
-        cat_wallet_taker = await CATWallet.create_new_cat_wallet(
-            env_1.wallet_state_manager,
-            wallet_taker,
-            {"identifier": "genesis_by_id"},
-            uint64(cats_to_mint),
-            action_scope,
-        )
+    cat_wallet_taker = await mint_cat(
+        wallet_environments,
+        env_1,
+        "xck",
+        "taker cat",
+        cats_to_mint,
+        CATWallet,
+        "taker cat",
+    )
 
+    if wallet_type is RCATWallet:
+        extra_args: Any = (bytes32.zeros,)
+    else:
+        extra_args = tuple()
     wallet_maker_for_taker_cat: CATWallet = await CATWallet.get_or_create_wallet_for_cat(
-        env_0.wallet_state_manager, wallet_maker, cat_wallet_taker.get_asset_id()
+        env_0.wallet_state_manager, wallet_maker, cat_wallet_taker.get_asset_id(), *extra_args
     )
 
     await CATWallet.get_or_create_wallet_for_cat(
-        env_1.wallet_state_manager, wallet_taker, cat_wallet_maker.get_asset_id()
+        env_1.wallet_state_manager, wallet_taker, cat_wallet_maker.get_asset_id(), *extra_args
     )
 
-    # mostly set_remainder here as minting CATs is tested elsewhere
-    await wallet_environments.process_pending_states(
-        [
-            WalletStateTransition(
-                pre_block_balance_updates={
-                    "xck": {"set_remainder": True},
-                    "maker cat": {
-                        "init": True,
-                        "set_remainder": True,
-                    },
-                    "taker cat": {
-                        "init": True,
-                        "set_remainder": True,
-                    },
-                },
-                post_block_balance_updates={
-                    "xck": {"set_remainder": True},
-                    "maker cat": {
-                        "set_remainder": True,
-                    },
-                },
-            ),
-            WalletStateTransition(
-                pre_block_balance_updates={
-                    "xck": {"set_remainder": True},
-                    "maker cat": {
-                        "init": True,
-                        "set_remainder": True,
-                    },
-                    "taker cat": {
-                        "init": True,
-                        "set_remainder": True,
-                    },
-                },
-                post_block_balance_updates={
-                    "xck": {"set_remainder": True},
-                    "taker cat": {
-                        "set_remainder": True,
-                    },
-                },
-            ),
-        ]
-    )
+    await env_0.change_balances({"taker cat": {"init": True}})
+    await env_1.change_balances({"maker cat": {"init": True}})
 
     # MAKE FIRST TRADE: 1 NFT for 10 taker cats
     nft_to_offer = coins_maker[0]
-    nft_info: Optional[PuzzleInfo] = match_puzzle(uncurry_puzzle(nft_to_offer.full_puzzle))
+    nft_info: PuzzleInfo | None = match_puzzle(uncurry_puzzle(nft_to_offer.full_puzzle))
     assert nft_info is not None
     nft_asset_id = create_asset_id(nft_info)
     assert nft_asset_id is not None
@@ -1543,7 +1474,7 @@ async def test_nft_offer_nft0_and_xck_for_cat(wallet_environments: WalletTestFra
     maker_xck_offered = 1000
     taker_cat_offered = 2500
     wallet_maker_id = wallet_maker.id()
-    offer_nft_for_cat: dict[Union[bytes32, int], int] = {
+    offer_nft_for_cat: dict[bytes32 | int, int] = {
         wallet_maker_id: -maker_xck_offered,
         nft_asset_id: -1,
         wallet_maker_for_taker_cat.id(): taker_cat_offered,
@@ -1662,7 +1593,7 @@ async def test_nft_offer_nft0_and_xck_for_cat(wallet_environments: WalletTestFra
     taker_cat_amount = 500
 
     nft_to_buy = coins_taker[0]
-    nft_to_buy_info: Optional[PuzzleInfo] = match_puzzle(uncurry_puzzle(nft_to_buy.full_puzzle))
+    nft_to_buy_info: PuzzleInfo | None = match_puzzle(uncurry_puzzle(nft_to_buy.full_puzzle))
     assert nft_to_buy_info is not None
     nft_to_buy_asset_id = create_asset_id(nft_to_buy_info)
     assert nft_to_buy_asset_id is not None
@@ -1672,7 +1603,7 @@ async def test_nft_offer_nft0_and_xck_for_cat(wallet_environments: WalletTestFra
     }
 
     maker_fee = uint64(10)
-    offer_multi_cats_for_nft: dict[Union[bytes32, int], int] = {
+    offer_multi_cats_for_nft: dict[bytes32 | int, int] = {
         nft_to_buy_asset_id: 1,
         wallet_maker_for_taker_cat.id(): -taker_cat_amount,
         cat_wallet_maker.id(): -maker_cat_amount,

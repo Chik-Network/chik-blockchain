@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from click import ClickException
 
@@ -197,6 +197,9 @@ class Err(Enum):
     # the transactions generator uses overlong encoding of KLVM atoms in its
     # serialization
     INVALID_TRANSACTIONS_GENERATOR_ENCODING = 148
+    # block or spendbundle had too many spends
+    TOO_MANY_SPENDS = 149
+    INVALID_HEADER_MMR_ROOT = 150
 
 
 class ValidationError(Exception):
@@ -213,10 +216,11 @@ class TimestampError(Exception):
 
 
 class ConsensusError(Exception):
-    def __init__(self, code: Err, errors: list[Any] = []):
-        super().__init__(f"Error code: {code.name} {errors}")
+    def __init__(self, code: Err, errors: list[Any] = [], error_msg: str | None = None):
+        super().__init__(f"Error code: {code.name} {errors}" + (f" ({error_msg})" if error_msg else ""))
         self.code = code
         self.errors = errors
+        self.error_msg = error_msg
 
 
 class ProtocolError(Exception):
@@ -227,11 +231,11 @@ class ProtocolError(Exception):
 
 
 class ApiError(Exception):
-    def __init__(self, code: Err, message: str, data: Optional[bytes] = None):
+    def __init__(self, code: Err, message: str, data: bytes | None = None):
         super().__init__(f"{code.name}: {message}")
         self.code: Err = code
         self.message: str = message
-        self.data: Optional[bytes] = data
+        self.data: bytes | None = data
 
 
 ##

@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import logging
 import random
-from collections.abc import Sequence
-from typing import Callable, Optional
+from collections.abc import Callable, Sequence
 
 import chik_rs
 from chik_rs import (
@@ -31,6 +30,7 @@ from chikbip158 import PyBIP158
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
 from chik.consensus.coinbase import create_farmer_coin, create_pool_coin
+from chik.consensus.get_block_challenge import post_hard_fork2
 from chik.consensus.prev_transaction_block import get_prev_transaction_block
 from chik.consensus.signage_point import SignagePoint
 from chik.types.blockchain_format.coin import Coin, hash_coin_ids
@@ -54,18 +54,18 @@ def compute_block_fee(additions: Sequence[Coin], removals: Sequence[Coin]) -> ui
 def create_foliage(
     constants: ConsensusConstants,
     reward_block_unfinished: RewardChainBlockUnfinished,
-    new_block_gen: Optional[NewBlockGenerator],
-    prev_block: Optional[BlockRecord],
+    new_block_gen: NewBlockGenerator | None,
+    prev_block: BlockRecord | None,
     blocks: BlockRecordsProtocol,
     total_iters_sp: uint128,
     timestamp: uint64,
     farmer_reward_puzzlehash: bytes32,
     pool_target: PoolTarget,
     get_plot_signature: Callable[[bytes32, G1Element], G2Element],
-    get_pool_signature: Callable[[PoolTarget, Optional[G1Element]], Optional[G2Element]],
+    get_pool_signature: Callable[[PoolTarget, G1Element | None], G2Element | None],
     seed: bytes,
     compute_fees: Callable[[Sequence[Coin], Sequence[Coin]], uint64],
-) -> tuple[Foliage, Optional[FoliageTransactionBlock], Optional[TransactionsInfo]]:
+) -> tuple[Foliage, FoliageTransactionBlock | None, TransactionsInfo | None]:
     """
     Creates a foliage for a given reward chain block. This may or may not be a tx block. In the case of a tx block,
     the return values are not None. This is called at the signage point, so some of this information may be
@@ -90,7 +90,7 @@ def create_foliage(
     if prev_block is not None:
         res = get_prev_transaction_block(prev_block, blocks, total_iters_sp)
         is_transaction_block: bool = res[0]
-        prev_transaction_block: Optional[BlockRecord] = res[1]
+        prev_transaction_block: BlockRecord | None = res[1]
     else:
         # Genesis is a transaction block
         prev_transaction_block = None
@@ -110,7 +110,7 @@ def create_foliage(
     tx_additions: list[Coin] = []
     tx_removals: list[bytes32] = []
 
-    pool_target_signature: Optional[G2Element] = get_pool_signature(
+    pool_target_signature: G2Element | None = get_pool_signature(
         pool_target, reward_block_unfinished.proof_of_space.pool_public_key
     )
 
@@ -134,7 +134,7 @@ def create_foliage(
 
     generator_block_heights_list: list[uint32] = []
 
-    foliage_transaction_block_hash: Optional[bytes32]
+    foliage_transaction_block_hash: bytes32 | None
 
     if is_transaction_block:
         cost: uint64
@@ -236,7 +236,7 @@ def create_foliage(
 
         filter_hash: bytes32 = std_hash(encoded)
 
-        transactions_info: Optional[TransactionsInfo] = TransactionsInfo(
+        transactions_info: TransactionsInfo | None = TransactionsInfo(
             generator_hash,
             generator_refs_hash,
             new_block_gen.signature if new_block_gen else G2Element(),
@@ -250,7 +250,7 @@ def create_foliage(
             prev_transaction_block_hash = prev_transaction_block.header_hash
 
         assert transactions_info is not None
-        foliage_transaction_block: Optional[FoliageTransactionBlock] = FoliageTransactionBlock(
+        foliage_transaction_block: FoliageTransactionBlock | None = FoliageTransactionBlock(
             prev_transaction_block_hash,
             timestamp,
             filter_hash,
@@ -261,7 +261,7 @@ def create_foliage(
         assert foliage_transaction_block is not None
 
         foliage_transaction_block_hash = foliage_transaction_block.get_hash()
-        foliage_transaction_block_signature: Optional[G2Element] = get_plot_signature(
+        foliage_transaction_block_signature: G2Element | None = get_plot_signature(
             foliage_transaction_block_hash, reward_block_unfinished.proof_of_space.plot_public_key
         )
         assert foliage_transaction_block_signature is not None
@@ -287,23 +287,22 @@ def create_foliage(
 def create_unfinished_block(
     constants: ConsensusConstants,
     sub_slot_start_total_iters: uint128,
-    sub_slot_iters: uint64,
+    infusion_point_total_iters: uint128,
     signage_point_index: uint8,
     sp_iters: uint64,
-    ip_iters: uint64,
     proof_of_space: ProofOfSpace,
     slot_cc_challenge: bytes32,
     farmer_reward_puzzle_hash: bytes32,
     pool_target: PoolTarget,
     get_plot_signature: Callable[[bytes32, G1Element], G2Element],
-    get_pool_signature: Callable[[PoolTarget, Optional[G1Element]], Optional[G2Element]],
+    get_pool_signature: Callable[[PoolTarget, G1Element | None], G2Element | None],
     signage_point: SignagePoint,
     timestamp: uint64,
     blocks: BlockRecordsProtocol,
     seed: bytes = b"",
-    new_block_gen: Optional[NewBlockGenerator] = None,
-    prev_block: Optional[BlockRecord] = None,
-    finished_sub_slots_input: Optional[list[EndOfSubSlotBundle]] = None,
+    new_block_gen: NewBlockGenerator | None = None,
+    prev_block: BlockRecord | None = None,
+    finished_sub_slots_input: list[EndOfSubSlotBundle] | None = None,
     compute_fees: Callable[[Sequence[Coin], Sequence[Coin]], uint64] = compute_block_fee,
 ) -> UnfinishedBlock:
     """
@@ -313,7 +312,7 @@ def create_unfinished_block(
     Args:
         constants: consensus constants being used for this chain
         sub_slot_start_total_iters: the starting sub-slot iters at the signage point sub-slot
-        sub_slot_iters: sub-slot-iters at the infusion point epoch
+        infusion_point_total_iters: total iters at the infusion point
         signage_point_index: signage point index of the block to create
         sp_iters: sp_iters of the block to create
         ip_iters: ip_iters of the block to create
@@ -338,7 +337,6 @@ def create_unfinished_block(
         finished_sub_slots: list[EndOfSubSlotBundle] = []
     else:
         finished_sub_slots = finished_sub_slots_input.copy()
-    overflow: bool = sp_iters > ip_iters
     total_iters_sp: uint128 = uint128(sub_slot_start_total_iters + sp_iters)
     is_genesis: bool = prev_block is None
 
@@ -354,29 +352,26 @@ def create_unfinished_block(
     else:
         if new_sub_slot:
             rc_sp_hash = finished_sub_slots[-1].reward_chain.get_hash()
+        elif is_genesis:
+            rc_sp_hash = constants.GENESIS_CHALLENGE
         else:
-            if is_genesis:
-                rc_sp_hash = constants.GENESIS_CHALLENGE
-            else:
-                assert prev_block is not None
-                assert blocks is not None
-                curr = prev_block
-                while not curr.first_in_sub_slot:
-                    curr = blocks.block_record(curr.prev_hash)
-                assert curr.finished_reward_slot_hashes is not None
-                rc_sp_hash = curr.finished_reward_slot_hashes[-1]
+            assert prev_block is not None
+            assert blocks is not None
+            curr = prev_block
+            while not curr.first_in_sub_slot:
+                curr = blocks.block_record(curr.prev_hash)
+            assert curr.finished_reward_slot_hashes is not None
+            rc_sp_hash = curr.finished_reward_slot_hashes[-1]
         signage_point = SignagePoint(None, None, None, None)
 
-    cc_sp_signature: Optional[G2Element] = get_plot_signature(cc_sp_hash, proof_of_space.plot_public_key)
-    rc_sp_signature: Optional[G2Element] = get_plot_signature(rc_sp_hash, proof_of_space.plot_public_key)
+    cc_sp_signature: G2Element | None = get_plot_signature(cc_sp_hash, proof_of_space.plot_public_key)
+    rc_sp_signature: G2Element | None = get_plot_signature(rc_sp_hash, proof_of_space.plot_public_key)
     assert cc_sp_signature is not None
     assert rc_sp_signature is not None
     assert chik_rs.AugSchemeMPL.verify(proof_of_space.plot_public_key, cc_sp_hash, cc_sp_signature)
 
-    total_iters = uint128(sub_slot_start_total_iters + ip_iters + (sub_slot_iters if overflow else 0))
-
     rc_block = RewardChainBlockUnfinished(
-        total_iters,
+        infusion_point_total_iters,
         signage_point_index,
         slot_cc_challenge,
         proof_of_space,
@@ -419,13 +414,14 @@ def unfinished_block_to_full_block(
     cc_ip_proof: VDFProof,
     rc_ip_vdf: VDFInfo,
     rc_ip_proof: VDFProof,
-    icc_ip_vdf: Optional[VDFInfo],
-    icc_ip_proof: Optional[VDFProof],
+    icc_ip_vdf: VDFInfo | None,
+    icc_ip_proof: VDFProof | None,
     finished_sub_slots: list[EndOfSubSlotBundle],
-    prev_block: Optional[BlockRecord],
+    prev_block: BlockRecord | None,
     blocks: BlockRecordsProtocol,
     total_iters_sp: uint128,
     difficulty: uint64,
+    header_mmr_root: bytes32 | None,
 ) -> FullBlock:
     """
     Converts an unfinished block to a finished block. Includes all the infusion point VDFs as well as tweaking
@@ -483,8 +479,10 @@ def unfinished_block_to_full_block(
         unfinished_block.reward_chain_block.reward_chain_sp_signature,
         rc_ip_vdf,
         icc_ip_vdf,
+        header_mmr_root,
         is_transaction_block,
     )
+
     if prev_block is None:
         new_foliage = unfinished_block.foliage.replace(reward_block_hash=reward_chain_block.get_hash())
     else:
@@ -516,3 +514,64 @@ def unfinished_block_to_full_block(
         new_generator_ref_list,
     )
     return ret
+
+
+def calculate_infusion_point_total_iters(
+    sub_slot_start_total_iters: uint128, sp_iters: uint64, ip_iters: uint64, sub_slot_iters: uint64
+) -> uint128:
+    """
+    Calculates the candidate's infusion point total iterations
+    """
+    overflow = sp_iters > ip_iters
+    return uint128(sub_slot_start_total_iters + ip_iters + (sub_slot_iters if overflow else 0))
+
+
+def unfinished_block_to_full_block_with_mmr(
+    unfinished_block: UnfinishedBlock,
+    cc_ip_vdf: VDFInfo,
+    cc_ip_proof: VDFProof,
+    rc_ip_vdf: VDFInfo,
+    rc_ip_proof: VDFProof,
+    icc_ip_vdf: VDFInfo | None,
+    icc_ip_proof: VDFProof | None,
+    finished_sub_slots: list[EndOfSubSlotBundle],
+    prev_block: BlockRecord | None,
+    blocks: BlockRecordsProtocol,
+    total_iters_sp: uint128,
+    difficulty: uint64,
+    constants: ConsensusConstants,
+) -> FullBlock:
+    """
+    Wrapper around unfinished_block_to_full_block that automatically computes the MMR root.
+    This maintains backward compatibility while adding MMR support.
+    """
+    # Before fork, use None for MMR root.
+    header_mmr_root = None
+    if post_hard_fork2(
+        constants=constants,
+        blocks=blocks,
+        prev_b_hash=unfinished_block.prev_header_hash,
+        sp_index=unfinished_block.reward_chain_block.signage_point_index,
+        finished_sub_slots=len(finished_sub_slots),
+    ):
+        header_mmr_root = blocks.get_mmr_root_for_block(
+            unfinished_block.prev_header_hash,
+            unfinished_block.reward_chain_block.signage_point_index,
+            len(finished_sub_slots) > 0,
+        )
+
+    return unfinished_block_to_full_block(
+        unfinished_block,
+        cc_ip_vdf,
+        cc_ip_proof,
+        rc_ip_vdf,
+        rc_ip_proof,
+        icc_ip_vdf,
+        icc_ip_proof,
+        finished_sub_slots,
+        prev_block,
+        blocks,
+        total_iters_sp,
+        difficulty,
+        header_mmr_root,
+    )

@@ -3,17 +3,31 @@
 from __future__ import annotations
 
 import dataclasses
+import functools
 import io
 import os
 import pprint
 import traceback
-from collections.abc import Collection
-from enum import Enum
-from typing import TYPE_CHECKING, Any, BinaryIO, Callable, ClassVar, Optional, TypeVar, Union, get_type_hints
+import types
+from collections.abc import Callable, Collection
+from enum import Enum, EnumMeta
+from types import UnionType
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    BinaryIO,
+    ClassVar,
+    Literal,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint16, uint32, uint64
-from typing_extensions import Literal, Self, get_args, get_origin
+from typing_extensions import Self
 
 from chik.util.byte_types import hexstr_to_bytes
 from chik.util.hash import std_hash
@@ -85,9 +99,26 @@ class Field:
     parse_function: ParseFunctionType
     convert_function: ConvertFunctionType
     post_init_function: ConvertFunctionType
+    list_inner_parse_function: ParseFunctionType | None = None
+    list_element_fixed_size: int | None = None
 
 
 StreamableFields = tuple[Field, ...]
+
+
+_FIXED_SIZE_PRIMITIVES: dict[type, int] = {
+    bool: 1,
+}
+
+
+def _element_fixed_size(inner_type: type[Any]) -> int | None:
+    """Return the fixed byte size of a streamable element type, or None if variable-size."""
+    if inner_type in _FIXED_SIZE_PRIMITIVES:
+        return _FIXED_SIZE_PRIMITIVES[inner_type]
+    size = getattr(inner_type, "_size", None)
+    if isinstance(size, int):
+        return size
+    return None
 
 
 def create_fields(cls: type[DataclassInstance]) -> StreamableFields:
@@ -95,6 +126,12 @@ def create_fields(cls: type[DataclassInstance]) -> StreamableFields:
     fields = []
     for field in dataclasses.fields(cls):
         hint = hints[field.name]
+        list_inner_parse: ParseFunctionType | None = None
+        list_elem_size: int | None = None
+        if is_type_List(hint):
+            inner_type = get_args(hint)[0]
+            list_inner_parse = function_to_parse_one_item(inner_type)
+            list_elem_size = _element_fixed_size(inner_type)
         fields.append(
             Field(
                 name=field.name,
@@ -105,6 +142,8 @@ def create_fields(cls: type[DataclassInstance]) -> StreamableFields:
                 parse_function=function_to_parse_one_item(hint),
                 convert_function=function_to_convert_one_item(hint),
                 post_init_function=function_to_post_init_process_one_item(hint),
+                list_inner_parse_function=list_inner_parse,
+                list_element_fixed_size=list_elem_size,
             )
         )
 
@@ -119,7 +158,7 @@ def is_type_SpecificOptional(f_type: object) -> bool:
     """
     Returns true for types such as Optional[T], but not Optional, or T.
     """
-    return get_origin(f_type) == Union and get_args(f_type)[1]() is None
+    return get_origin(f_type) in {Union, UnionType} and get_args(f_type)[1]() is None
 
 
 def is_type_Tuple(f_type: object) -> bool:
@@ -128,6 +167,10 @@ def is_type_Tuple(f_type: object) -> bool:
 
 def is_type_Dict(f_type: object) -> bool:
     return get_origin(f_type) is dict or f_type is dict
+
+
+def is_type_Enum(f_type: object) -> bool:
+    return type(f_type) is EnumMeta
 
 
 def convert_optional(convert_func: ConvertFunctionType, item: Any) -> Any:
@@ -206,7 +249,7 @@ def streamable_from_dict(klass: type[_T_Streamable], item: Any) -> _T_Streamable
 
 
 def function_to_convert_one_item(
-    f_type: type[Any], json_parser: Optional[Callable[[object], Streamable]] = None
+    f_type: type[Any], json_parser: Callable[[object, type[object]], Streamable] | None = None
 ) -> ConvertFunctionType:
     if is_type_SpecificOptional(f_type):
         convert_inner_func = function_to_convert_one_item(get_args(f_type)[0], json_parser)
@@ -230,8 +273,9 @@ def function_to_convert_one_item(
         return lambda mapping: convert_dict(key_converter, value_converter, mapping)  # type: ignore[arg-type]
     elif hasattr(f_type, "from_json_dict"):
         if json_parser is None:
-            json_parser = f_type.from_json_dict
-        return json_parser
+            return f_type.from_json_dict  # type: ignore[no-any-return]
+        else:
+            return functools.partial(json_parser, streamable_type=f_type)  # type: ignore[call-arg]
     elif issubclass(f_type, bytes):
         # Type is bytes, data is a hex string or bytes
         return lambda item: convert_byte_type(f_type, item)
@@ -281,13 +325,15 @@ def function_to_post_init_process_one_item(f_type: type[object]) -> ConvertFunct
 
 
 def recurse_jsonify(
-    d: Any, next_recursion_step: Optional[Callable[[Any, Any], Any]] = None, **next_recursion_env: Any
+    d: Any, next_recursion_step: Callable[[Any, Any], Any] | None = None, **next_recursion_env: Any
 ) -> Any:
     """
     Makes bytes objects into strings with 0x, and makes large ints into strings.
     """
     if next_recursion_step is None:
         next_recursion_step = recurse_jsonify
+    if getattr(d, "json_serialization_override", None) is not None:
+        return d.json_serialization_override(d)
     if dataclasses.is_dataclass(d):
         new_dict = {}
         for field in dataclasses.fields(d):
@@ -303,13 +349,14 @@ def recurse_jsonify(
     elif isinstance(d, dict):
         new_dict = {}
         for name, val in d.items():
-            new_dict[name] = next_recursion_step(val, None, **next_recursion_env)
+            new_dict[next_recursion_step(name, None, **next_recursion_env)] = next_recursion_step(
+                val, None, **next_recursion_env
+            )
         return new_dict
-
+    elif isinstance(d, Enum):
+        return next_recursion_step(d.value, None, **next_recursion_env)
     elif issubclass(type(d), bytes):
         return f"0x{bytes(d).hex()}"
-    elif isinstance(d, Enum):
-        return d.name
     elif isinstance(d, bool):
         return d
     elif isinstance(d, int):
@@ -317,7 +364,7 @@ def recurse_jsonify(
     elif d is None or type(d) is str:
         return d
     elif hasattr(d, "to_json_dict"):
-        ret: Union[list[Any], dict[str, Any], str, int, None] = d.to_json_dict()
+        ret: list[Any] | dict[str, Any] | str | int | None = d.to_json_dict()
         return ret
     raise UnsupportedType(f"failed to jsonify {d} (type: {type(d)})")
 
@@ -343,7 +390,7 @@ def write_uint32(f: BinaryIO, value: uint32, byteorder: Literal["little", "big"]
     f.write(value.to_bytes(4, byteorder))
 
 
-def parse_optional(f: BinaryIO, parse_inner_type_f: ParseFunctionType) -> Optional[object]:
+def parse_optional(f: BinaryIO, parse_inner_type_f: ParseFunctionType) -> object | None:
     is_present_bytes = f.read(1)
     assert is_present_bytes is not None and len(is_present_bytes) == 1  # Checks for EOF
     if is_present_bytes == bytes([0]):
@@ -375,6 +422,28 @@ def parse_list(f: BinaryIO, parse_inner_type_f: ParseFunctionType) -> list[objec
     list_size = parse_uint32(f)
     for list_index in range(list_size):
         full_list.append(parse_inner_type_f(f))
+    return full_list
+
+
+def parse_list_limited(
+    f: BinaryIO,
+    parse_inner_type_f: ParseFunctionType,
+    max_items: int,
+    element_fixed_size: int | None = None,
+) -> object:
+    """Parse a list, stopping after max_items and seeking past the remainder."""
+    list_size = parse_uint32(f)
+    items_to_parse = min(list_size, max_items)
+    full_list: list[object] = []
+    for _ in range(items_to_parse):
+        full_list.append(parse_inner_type_f(f))
+    remaining = list_size - items_to_parse
+    if remaining > 0:
+        if element_fixed_size is not None:
+            f.seek(remaining * element_fixed_size, 1)
+        else:
+            for _ in range(remaining):
+                parse_inner_type_f(f)
     return full_list
 
 
@@ -437,6 +506,10 @@ def function_to_parse_one_item(f_type: type[Any]) -> ParseFunctionType:
         key_parse_inner_type_f = function_to_parse_one_item(inner_types[0])
         value_parse_inner_type_f = function_to_parse_one_item(inner_types[1])
         return lambda f: parse_dict(f, key_parse_inner_type_f, value_parse_inner_type_f)
+    if is_type_Enum(f_type):
+        if not hasattr(f_type, "_streamable_proxy"):
+            raise UnsupportedType(f"Using Enum ({f_type}) in streamable requires a 'streamable_enum' wrapper.")
+        return lambda f: f_type(function_to_parse_one_item(f_type._streamable_proxy)(f))
     if f_type is str:
         return parse_str
     raise UnsupportedType(f"Type {f_type} does not have parse")
@@ -527,6 +600,13 @@ def function_to_stream_one_item(f_type: type[Any]) -> StreamFunctionType:
         key_stream_inner_type_func = function_to_stream_one_item(inner_types[0])
         value_stream_inner_type_func = function_to_stream_one_item(inner_types[1])
         return lambda item, f: stream_dict(key_stream_inner_type_func, value_stream_inner_type_func, item, f)
+    elif is_type_Enum(f_type):
+        if not hasattr(f_type, "_streamable_proxy"):
+            raise UnsupportedType(f"Using Enum ({f_type}) in streamable requires a 'streamable_enum' wrapper.")
+        return lambda item, f: function_to_stream_one_item(f_type._streamable_proxy)(
+            f_type._streamable_proxy(item.value),  # type: ignore[attr-defined]
+            f,
+        )
     elif f_type is str:
         return stream_str
     elif f_type is bool:
@@ -569,6 +649,29 @@ def streamable(cls: type[_T_Streamable]) -> type[_T_Streamable]:
     cls._streamable_fields = create_fields(cls)
 
     return cls
+
+
+def _apply_list_limits(obj: Any, list_limits: dict[str, int]) -> None:
+    """Truncate list fields on rust-typed objects and recurse into sub-objects."""
+    if len(list_limits) == 0:
+        return
+
+    if hasattr(obj, "truncate"):
+        for field_name, max_size in list_limits.items():
+            try:
+                obj.truncate(field_name, max_size)
+            except KeyError:
+                pass
+        for name, desc in vars(type(obj)).items():
+            if isinstance(desc, types.GetSetDescriptorType):
+                child = getattr(obj, name)
+                if hasattr(child, "truncate") or dataclasses.is_dataclass(child):
+                    _apply_list_limits(child, list_limits)
+    elif dataclasses.is_dataclass(obj):
+        for field in dataclasses.fields(obj):
+            child = getattr(obj, field.name)
+            if hasattr(child, "truncate") or dataclasses.is_dataclass(child):
+                _apply_list_limits(child, list_limits)
 
 
 class Streamable:
@@ -633,25 +736,38 @@ class Streamable:
             raise
 
     @classmethod
-    def parse(cls, f: BinaryIO) -> Self:
+    def parse(cls, f: BinaryIO, list_limits: dict[str, int] | None = None) -> Self:
         # Create the object without calling __init__() to avoid unnecessary post-init checks in strictdataclass
         obj: Self = object.__new__(cls)
-        for field in cls._streamable_fields:
-            object.__setattr__(obj, field.name, field.parse_function(f))
+        for field in cls.streamable_fields():
+            if list_limits is not None and field.name in list_limits and field.list_inner_parse_function is not None:
+                value = parse_list_limited(
+                    f,
+                    field.list_inner_parse_function,
+                    list_limits[field.name],
+                    field.list_element_fixed_size,
+                )
+            else:
+                value = field.parse_function(f)
+            object.__setattr__(obj, field.name, value)
+        if list_limits is not None and len(list_limits) > 0:
+            _apply_list_limits(obj, list_limits)
         return obj
 
     def stream(self, f: BinaryIO) -> None:
-        for field in self._streamable_fields:
+        for field in self.streamable_fields():
             field.stream_function(getattr(self, field.name), f)
 
     def get_hash(self) -> bytes32:
         return std_hash(bytes(self), skip_bytes_conversion=True)
 
     @classmethod
-    def from_bytes(cls, blob: bytes) -> Self:
+    def from_bytes(cls, blob: bytes, list_limits: dict[str, int] | None = None) -> Self:
         f = io.BytesIO(blob)
-        parsed = cls.parse(f)
-        assert f.read() == b""
+        parsed = cls.parse(f, list_limits=list_limits)
+        remainder = f.read()
+        if remainder != b"":
+            raise ValueError(f"{cls.__name__}: {len(remainder)} bytes not consumed")
         return parsed
 
     def stream_to_bytes(self) -> bytes:
@@ -698,3 +814,15 @@ class UInt32Range(Streamable):
 class UInt64Range(Streamable):
     start: uint64 = uint64(0)
     stop: uint64 = uint64.MAXIMUM
+
+
+_T_Enum = TypeVar("_T_Enum", bound=EnumMeta)
+
+
+def streamable_enum(proxy: type[object]) -> Callable[[_T_Enum], _T_Enum]:
+    def streamable_enum_wrapper(cls: _T_Enum) -> _T_Enum:
+        setattr(cls, "_streamable_proxy", proxy)
+        setattr(cls, "_ignore_", ["_streamable_proxy"])
+        return cls
+
+    return streamable_enum_wrapper

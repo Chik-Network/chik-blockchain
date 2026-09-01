@@ -4,18 +4,18 @@ import logging
 import pathlib
 import sys
 from multiprocessing import freeze_support
-from typing import Any, Optional
+from typing import Any
 
 from chik_rs import ConsensusConstants
 
-from chik.apis import ApiProtocolRegistry
+from chik.apis import StubMetadataRegistry
 from chik.consensus.constants import replace_str_to_bytes
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.protocols.outbound_message import NodeType
 from chik.seeder.crawler import Crawler
 from chik.seeder.crawler_api import CrawlerAPI
 from chik.seeder.crawler_rpc_api import CrawlerRpcApi
-from chik.server.aliases import CrawlerService
+from chik.seeder.crawler_service import CrawlerService
 from chik.server.signal_handlers import SignalHandlers
 from chik.server.start_service import RpcInfo, Service, async_run
 from chik.util.chik_logging import initialize_service_logging
@@ -46,7 +46,7 @@ def create_full_node_crawler_service(
 
     network_id = service_config["selected_network"]
 
-    rpc_info: Optional[RpcInfo[CrawlerRpcApi]] = None
+    rpc_info: RpcInfo[CrawlerRpcApi] | None = None
     if crawler_config.get("start_rpc_server", True):
         rpc_info = (CrawlerRpcApi, crawler_config.get("rpc_port", 9795))
 
@@ -63,7 +63,7 @@ def create_full_node_crawler_service(
         network_id=network_id,
         rpc_info=rpc_info,
         connect_to_daemon=connect_to_daemon,
-        class_for_type=ApiProtocolRegistry,
+        stub_metadata_for_type=StubMetadataRegistry,
     )
 
 

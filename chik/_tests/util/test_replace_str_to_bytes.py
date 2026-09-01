@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import pytest
 from chik_rs import ConsensusConstants
 from chik_rs.sized_bytes import bytes32
@@ -27,8 +29,7 @@ test_constants = ConsensusConstants(
     NUMBER_ZERO_BITS_PLOT_FILTER_V2=uint8(9),
     MIN_PLOT_SIZE_V1=uint8(32),
     MAX_PLOT_SIZE_V1=uint8(50),
-    MIN_PLOT_SIZE_V2=uint8(28),
-    MAX_PLOT_SIZE_V2=uint8(32),
+    PLOT_SIZE_V2=uint8(18),
     SUB_SLOT_TIME_TARGET=uint16(600),
     NUM_SP_INTERVALS_EXTRA=uint8(3),
     MAX_FUTURE_TIME2=uint32(2 * 60),
@@ -56,21 +57,22 @@ test_constants = ConsensusConstants(
     BLOCKS_CACHE_SIZE=uint32(4608 + (128 * 4)),
     WEIGHT_PROOF_RECENT_BLOCKS=uint32(1000),
     MAX_BLOCK_COUNT_PER_REQUESTS=uint32(32),
-    MAX_GENERATOR_SIZE=uint32(1000000),
     MAX_GENERATOR_REF_LIST_SIZE=uint32(512),
     POOL_SUB_SLOT_ITERS=uint64(37600000000),
     HARD_FORK_HEIGHT=uint32(5496000),
     HARD_FORK2_HEIGHT=uint32(0xFFFFFFFF),
-    PLOT_V1_PHASE_OUT=uint32(1179648),
+    SOFT_FORK8_HEIGHT=uint32(8655000),
+    SOFT_FORK9_HEIGHT=uint32(8655000),
+    PLOT_V1_PHASE_OUT_EPOCH_BITS=uint8(8),
     PLOT_FILTER_128_HEIGHT=uint32(10542000),
     PLOT_FILTER_64_HEIGHT=uint32(15592000),
     PLOT_FILTER_32_HEIGHT=uint32(20643000),
-    PLOT_DIFFICULTY_INITIAL=uint8(2),
-    PLOT_DIFFICULTY_4_HEIGHT=uint32(0xFFFFFFFF),
-    PLOT_DIFFICULTY_5_HEIGHT=uint32(0xFFFFFFFF),
-    PLOT_DIFFICULTY_6_HEIGHT=uint32(0xFFFFFFFF),
-    PLOT_DIFFICULTY_7_HEIGHT=uint32(0xFFFFFFFF),
-    PLOT_DIFFICULTY_8_HEIGHT=uint32(0xFFFFFFFF),
+    MIN_PLOT_STRENGTH=uint8(2),
+    MAX_PLOT_STRENGTH=uint8(32),
+    PLOT_FILTER_V2_FIRST_ADJUSTMENT_HEIGHT=uint32(0xFFFFFFFA),
+    PLOT_FILTER_V2_SECOND_ADJUSTMENT_HEIGHT=uint32(0xFFFFFFFB),
+    PLOT_FILTER_V2_THIRD_ADJUSTMENT_HEIGHT=uint32(0xFFFFFFFC),
+    TESTNET=True,
 )
 
 
@@ -138,9 +140,34 @@ def test_replace_str_to_bytes_deprecated_field(caplog: pytest.LogCaptureFixture)
     assert caplog.text == ""
 
 
+def test_replace_str_to_bytes_legacy_min_plot_size(caplog: pytest.LogCaptureFixture) -> None:
+    test2 = replace_str_to_bytes(test_constants, MIN_PLOT_SIZE=uint8(18))
+    assert test2 == test_constants.replace(MIN_PLOT_SIZE_V1=uint8(18))
+    assert test2.MIN_PLOT_SIZE_V1 == 18
+    assert caplog.text == ""
+
+
+def test_replace_str_to_bytes_legacy_max_plot_size(caplog: pytest.LogCaptureFixture) -> None:
+    test2 = replace_str_to_bytes(test_constants, MAX_PLOT_SIZE=uint8(40))
+    assert test2 == test_constants.replace(MAX_PLOT_SIZE_V1=uint8(40))
+    assert test2.MAX_PLOT_SIZE_V1 == 40
+    assert caplog.text == ""
+
+
+def test_replace_str_to_bytes_legacy_does_not_override_new(caplog: pytest.LogCaptureFixture) -> None:
+    test2 = replace_str_to_bytes(test_constants, MIN_PLOT_SIZE=uint8(18), MIN_PLOT_SIZE_V1=uint8(20))
+    assert test2 == test_constants.replace(MIN_PLOT_SIZE_V1=uint8(20))
+    assert test2.MIN_PLOT_SIZE_V1 == 20
+    assert caplog.text == ""
+
+
 def test_replace_str_to_bytes_invalid_value() -> None:
     # invalid value
-    with pytest.raises(ValueError, match="non-hexadecimal number found in"):
+    if sys.version_info >= (3, 14):
+        matchstr = "arg must contain an even number of hexadecimal digits"
+    else:
+        matchstr = "non-hexadecimal number found in"
+    with pytest.raises(ValueError, match=matchstr):
         replace_str_to_bytes(
             test_constants,
             GENESIS_PRE_FARM_FARMER_PUZZLE_HASH="fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from chik_rs.sized_bytes import bytes32
 
@@ -18,10 +18,10 @@ class FarmerRpcClient(RpcClient):
     to the full node.
     """
 
-    async def get_signage_point(self, sp_hash: bytes32) -> Optional[dict[str, Any]]:
+    async def get_signage_point(self, sp_hash: bytes32) -> dict[str, Any] | None:
         try:
             return await self.fetch("get_signage_point", {"sp_hash": sp_hash.hex()})
-        except ValueError:
+        except ValueError:  # not synced
             return None
 
     async def get_signage_points(self) -> list[dict[str, Any]]:
@@ -44,8 +44,8 @@ class FarmerRpcClient(RpcClient):
 
     async def set_reward_targets(
         self,
-        farmer_target: Optional[str] = None,
-        pool_target: Optional[str] = None,
+        farmer_target: str | None = None,
+        pool_target: str | None = None,
     ) -> dict[str, Any]:
         request = {}
         if farmer_target is not None:
@@ -79,9 +79,13 @@ class FarmerRpcClient(RpcClient):
     async def get_harvester_plots_duplicates(self, request: PlotPathRequestData) -> dict[str, Any]:
         return await self.fetch("get_harvester_plots_duplicates", recurse_jsonify(request))
 
-    async def get_pool_login_link(self, launcher_id: bytes32) -> Optional[str]:
+    async def get_pool_login_link(self, launcher_id: bytes32) -> str | None:
         try:
             result = await self.fetch("get_pool_login_link", {"launcher_id": launcher_id.hex()})
-            return cast(Optional[str], result["login_link"])
-        except ValueError:
+            return cast(str | None, result["login_link"])
+        except ValueError:  # not connected to pool.
             return None
+
+    async def connect_to_solver(self, host: str, port: int) -> dict[str, Any]:
+        """Connect farmer to specific solver"""
+        return await self.fetch("connect_to_solver", {"host": host, "port": port})

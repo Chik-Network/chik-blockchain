@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass
 from ipaddress import IPv4Address, IPv6Address
 from socket import AF_INET, AF_INET6, SOCK_STREAM
-from typing import Optional, Union, cast
+from typing import cast
 from unittest.mock import AsyncMock
 
 import dns
@@ -83,7 +83,7 @@ def database_peers() -> dict[str, PeerReliability]:
             uint64(0),
             uint32(0),
             uint64(0),
-            uint64(int(time.time())),
+            uint64(time.time()),
             uint64(0),
             "undefined",
             uint64(0),
@@ -367,9 +367,9 @@ def get_mock_resolver() -> AsyncMock:
 
     # Adjust mock_resolve to accept all arguments
     async def mock_resolve(
-        qname: Union[dns.name.Name, str],
-        rdtype: Union[dns.rdatatype.RdataType, str] = dns.rdatatype.A,
-        lifetime: Optional[float] = None,
+        qname: dns.name.Name | str,
+        rdtype: dns.rdatatype.RdataType | str = dns.rdatatype.A,
+        lifetime: float | None = None,
     ) -> RRset:
         if rdtype == "A":
             return mock_rrset_a

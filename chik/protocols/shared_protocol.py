@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Optional
 
 from chik_rs.sized_ints import int16, uint8, uint16
 
@@ -17,6 +16,7 @@ protocol_version = {
     NodeType.INTRODUCER: "0.0.36",
     NodeType.WALLET: "0.0.38",
     NodeType.DATA_LAYER: "0.0.36",
+    NodeType.SOLVER: "0.0.37",
 }
 
 """
@@ -45,6 +45,17 @@ class Capability(IntEnum):
     # This is between a full node and receiving wallet
     MEMPOOL_UPDATES = 5
 
+    # Signals support for Hard Fork 2
+    HARD_FORK_2 = 6
+
+    # When both peers advertise this, a ConfigureWindowSizes message is
+    # required immediately following the handshake, and rate limits v3 replace
+    # v2 for supported protocol message types.
+    # Sequence: outbound sends ConfigureWindowSizes then inbound validates and
+    # replies with ConfigureWindowSizes.
+    # Settings must be non empty and window_size == 0 means unlimited.
+    RATE_LIMITS_V3 = 7
+
 
 # These are the default capabilities used in all outgoing handshakes.
 # "1" means the capability is supported and enabled.
@@ -56,6 +67,9 @@ _capabilities: list[tuple[uint16, str]] = [
 _mempool_updates = [
     (uint16(Capability.MEMPOOL_UPDATES.value), "1"),
 ]
+_rate_limits_v3 = [
+    (uint16(Capability.RATE_LIMITS_V3.value), "1"),
+]
 
 default_capabilities = {
     NodeType.FULL_NODE: _capabilities + _mempool_updates,
@@ -65,6 +79,7 @@ default_capabilities = {
     NodeType.INTRODUCER: _capabilities,
     NodeType.WALLET: _capabilities,
     NodeType.DATA_LAYER: _capabilities,
+    NodeType.SOLVER: _capabilities,
 }
 
 
@@ -81,7 +96,14 @@ class Handshake(Streamable):
 
 @streamable
 @dataclass(frozen=True)
+class ConfigureWindowSizes(Streamable):
+    # List of tuples of protocol message type and window size (0 is unlimited)
+    settings: list[tuple[uint8, uint16]]
+
+
+@streamable
+@dataclass(frozen=True)
 class Error(Streamable):
     code: int16  # Err
     message: str
-    data: Optional[bytes] = None
+    data: bytes | None = None

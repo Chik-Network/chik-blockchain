@@ -3,21 +3,20 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import logging.config
 import os
 import signal
-from collections.abc import AsyncIterator, Awaitable, Coroutine
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from pathlib import Path
 from types import FrameType
-from typing import Any, Callable, Generic, Optional, TypeVar, cast
+from typing import Any, Generic, TypeVar, cast
 
 from chik_rs.sized_ints import uint16
 
 from chik.daemon.server import service_launch_lock_path
 from chik.protocols.outbound_message import NodeType
-from chik.protocols.shared_protocol import default_capabilities
+from chik.protocols.shared_protocol import _rate_limits_v3, default_capabilities
 from chik.rpc.rpc_server import RpcApiProtocol, RpcServer, RpcServiceProtocol, start_rpc_server
-from chik.server.api_protocol import ApiProtocol
+from chik.server.api_protocol import ApiMetadata, ApiProtocol
 from chik.server.chik_policy import set_chik_policy
 from chik.server.server import ChikServer
 from chik.server.signal_handlers import SignalHandlers
@@ -34,7 +33,7 @@ from chik.util.task_referencer import create_referenced_task
 
 # this is used to detect whether we are running in the main process or not, in
 # signal handlers. We need to ignore signals in the sub processes.
-main_pid: Optional[int] = None
+main_pid: int | None = None
 
 T = TypeVar("T")
 _T_RpcServiceProtocol = TypeVar("_T_RpcServiceProtocol", bound=RpcServiceProtocol)
@@ -57,19 +56,19 @@ class Service(Generic[_T_RpcServiceProtocol, _T_ApiProtocol, _T_RpcApiProtocol])
         node: _T_RpcServiceProtocol,
         peer_api: _T_ApiProtocol,
         node_type: NodeType,
-        advertised_port: Optional[int],
+        advertised_port: int | None,
         service_name: str,
         network_id: str,
         *,
         config: dict[str, Any],
-        class_for_type: dict[NodeType, type[ApiProtocol]],
-        upnp_ports: Optional[list[int]] = None,
-        connect_peers: Optional[set[UnresolvedPeerInfo]] = None,
-        on_connect_callback: Optional[Callable[[WSChikConnection], Awaitable[None]]] = None,
-        rpc_info: Optional[RpcInfo[_T_RpcApiProtocol]] = None,
+        stub_metadata_for_type: dict[NodeType, ApiMetadata],
+        upnp_ports: list[int] | None = None,
+        connect_peers: set[UnresolvedPeerInfo] | None = None,
+        on_connect_callback: Callable[[WSChikConnection], Awaitable[None]] | None = None,
+        rpc_info: RpcInfo[_T_RpcApiProtocol] | None = None,
         connect_to_daemon: bool = True,
-        max_request_body_size: Optional[int] = None,
-        override_capabilities: Optional[list[tuple[uint16, str]]] = None,
+        max_request_body_size: int | None = None,
+        override_capabilities: list[tuple[uint16, str]] | None = None,
     ) -> None:
         if upnp_ports is None:
             upnp_ports = []
@@ -86,7 +85,7 @@ class Service(Generic[_T_RpcServiceProtocol, _T_ApiProtocol, _T_RpcApiProtocol])
         self._connect_to_daemon = connect_to_daemon
         self._node_type = node_type
         self._service_name = service_name
-        self.rpc_server: Optional[RpcServer[_T_RpcApiProtocol]] = None
+        self.rpc_server: RpcServer[_T_RpcApiProtocol] | None = None
         self._network_id: str = network_id
         self.max_request_body_size = max_request_body_size
         self.reconnect_retry_seconds: int = 3
@@ -106,6 +105,8 @@ class Service(Generic[_T_RpcServiceProtocol, _T_ApiProtocol, _T_RpcApiProtocol])
             inbound_rlp = self.service_config.get("inbound_rate_limit_percent", inbound_rlp)
             outbound_rlp = 60
         capabilities_to_use: list[tuple[uint16, str]] = default_capabilities[node_type]
+        if self.config.get("rate_limits", 2) >= 3:
+            capabilities_to_use = capabilities_to_use + _rate_limits_v3  # noqa: PLR6104 -- += would mutate the shared default_capabilities list
         if override_capabilities is not None:
             capabilities_to_use = override_capabilities
 
@@ -124,7 +125,7 @@ class Service(Generic[_T_RpcServiceProtocol, _T_ApiProtocol, _T_RpcApiProtocol])
             self.service_config,
             (private_ca_crt, private_ca_key),
             (chik_ca_crt, chik_ca_key),
-            class_for_type=class_for_type,
+            stub_metadata_for_type=stub_metadata_for_type,
             name=f"{service_name}_server",
         )
         f = getattr(node, "set_server", None)
@@ -142,7 +143,7 @@ class Service(Generic[_T_RpcServiceProtocol, _T_ApiProtocol, _T_RpcApiProtocol])
         self._on_connect_callback = on_connect_callback
         self._advertised_port = advertised_port
         self._connect_peers = connect_peers
-        self._connect_peers_task: Optional[asyncio.Task[None]] = None
+        self._connect_peers_task: asyncio.Task[None] | None = None
         self.upnp: UPnP = UPnP()
         self.stop_requested = asyncio.Event()
 
@@ -169,7 +170,7 @@ class Service(Generic[_T_RpcServiceProtocol, _T_ApiProtocol, _T_RpcApiProtocol])
                 ):
                     continue
 
-                if not await self._server.start_client(resolved, None):
+                if not await self._server.start_client(resolved, None, server_hostname=unresolved.host):
                     self._log.info(f"Failed to connect to {resolved}")
                     # Re-resolve to make sure the IP didn't change, this helps for example to keep dyndns hostnames
                     # up to date.
@@ -288,7 +289,7 @@ class Service(Generic[_T_RpcServiceProtocol, _T_ApiProtocol, _T_RpcApiProtocol])
     def _accept_signal(
         self,
         signal_: signal.Signals,
-        stack_frame: Optional[FrameType],
+        stack_frame: FrameType | None,
         loop: asyncio.AbstractEventLoop,
     ) -> None:
         # we only handle signals in the main process. In the ProcessPoolExecutor
@@ -310,7 +311,7 @@ class Service(Generic[_T_RpcServiceProtocol, _T_ApiProtocol, _T_RpcApiProtocol])
         self.stop_requested.set()
 
 
-def async_run(coro: Coroutine[object, object, T], connection_limit: Optional[int] = None) -> T:
+def async_run(coro: Coroutine[object, object, T], connection_limit: int | None = None) -> T:
     with log_exceptions(log=log, message="fatal uncaught exception"):
         if connection_limit is not None:
             set_chik_policy(connection_limit)

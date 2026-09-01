@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Coroutine, Sequence
+from collections.abc import AsyncIterator, Callable, Coroutine, Sequence
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, TypeVar
 
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
@@ -29,8 +29,8 @@ class WalletClientInfo:
 @command_helper
 class NeedsWalletRPC:
     context: ChikCliContext = field(default_factory=ChikCliContext)
-    client_info: Optional[WalletClientInfo] = None
-    wallet_rpc_port: Optional[int] = option(
+    client_info: WalletClientInfo | None = None
+    wallet_rpc_port: int | None = option(
         "-wp",
         "--wallet-rpc_port",
         help=(
@@ -39,7 +39,7 @@ class NeedsWalletRPC:
         type=int,
         default=None,
     )
-    fingerprint: Optional[int] = option(
+    fingerprint: int | None = option(
         "-f",
         "--fingerprint",
         help="Fingerprint of the wallet to use",
@@ -78,7 +78,7 @@ class TransactionsIn:
 
 @command_helper
 class TransactionsOut:
-    transaction_file_out: Optional[str] = option(
+    transaction_file_out: str | None = option(
         "--transaction-file-out",
         type=str,
         default=None,
@@ -120,6 +120,19 @@ class NeedsCoinSelectionConfig:
         type=Bytes32ParamType(),
         help="Exclude this coin from being spent.",
     )
+    coins_to_include: Sequence[bytes32] = option(
+        "--include-coin",
+        multiple=True,
+        type=Bytes32ParamType(),
+        help="Include this coin in the spend.",
+    )
+    primary_coin: bytes32 | None = option(
+        "--primary-coin",
+        type=Bytes32ParamType(),
+        required=False,
+        default=None,
+        help="Use this coin as the primary coin that creates the conditions.",
+    )
     amounts_to_exclude: Sequence[CliAmount] = option(
         "--exclude-amount",
         multiple=True,
@@ -133,12 +146,14 @@ class NeedsCoinSelectionConfig:
             max_coin_amount=self.max_coin_amount,
             excluded_coin_amounts=list(_ for _ in self.amounts_to_exclude),
             excluded_coin_ids=list(_ for _ in self.coins_to_exclude),
+            included_coin_ids=list(_ for _ in self.coins_to_include),
+            primary_coin=self.primary_coin,
         ).to_coin_selection_config(mojo_per_unit)
 
 
 @command_helper
 class NeedsTXConfig(NeedsCoinSelectionConfig):
-    reuse: Optional[bool] = option(
+    reuse: bool | None = option(
         "--reuse/--new-address",
         "--reuse-puzhash/--generate-new-puzhash",
         help="Reuse existing address for the change.",
@@ -152,6 +167,8 @@ class NeedsTXConfig(NeedsCoinSelectionConfig):
             max_coin_amount=self.max_coin_amount,
             excluded_coin_amounts=list(_ for _ in self.amounts_to_exclude),
             excluded_coin_ids=list(_ for _ in self.coins_to_exclude),
+            included_coin_ids=list(_ for _ in self.coins_to_include),
+            primary_coin=self.primary_coin,
             reuse_puzhash=self.reuse,
         ).to_tx_config(mojo_per_unit, config, fingerprint)
 
@@ -189,7 +206,7 @@ class TransactionEndpoint:
     push: bool = option(
         "--push/--no-push", help="Push the transaction to the network", type=bool, is_flag=True, default=True
     )
-    valid_at: Optional[int] = option(
+    valid_at: int | None = option(
         "--valid-at",
         help="UNIX timestamp at which the associated transactions become valid",
         type=int,
@@ -197,7 +214,7 @@ class TransactionEndpoint:
         default=None,
         hidden=True,
     )
-    expires_at: Optional[int] = option(
+    expires_at: int | None = option(
         "--expires-at",
         help="UNIX timestamp at which the associated transactions expire",
         type=int,
@@ -223,14 +240,14 @@ class TransactionEndpoint:
 
 @dataclass(frozen=True)
 class TransactionEndpointWithTimelocks(TransactionEndpoint):
-    valid_at: Optional[int] = option(
+    valid_at: int | None = option(
         "--valid-at",
         help="UNIX timestamp at which the associated transactions become valid",
         type=int,
         required=False,
         default=None,
     )
-    expires_at: Optional[int] = option(
+    expires_at: int | None = option(
         "--expires-at",
         help="UNIX timestamp at which the associated transactions expire",
         type=int,

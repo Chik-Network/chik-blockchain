@@ -18,7 +18,7 @@ from contextlib import asynccontextmanager
 from enum import Enum
 from pathlib import Path
 from types import FrameType
-from typing import Any, Optional, TextIO
+from typing import Any, TextIO
 
 from chik_rs import G1Element
 from chik_rs.sized_ints import uint32
@@ -30,7 +30,6 @@ from chik.cmds.passphrase_funcs import default_passphrase, using_default_passphr
 from chik.daemon.keychain_server import KeychainServer, keychain_commands
 from chik.daemon.windows_signal import kill
 from chik.plotters.plotters import get_available_plotters
-from chik.plotting.util import add_plot_directory
 from chik.server.server import ssl_context_for_server
 from chik.server.signal_handlers import SignalHandlers
 from chik.util.bech32m import encode_puzzle_hash
@@ -38,6 +37,7 @@ from chik.util.chik_logging import initialize_service_logging
 from chik.util.chik_version import chik_short_version
 from chik.util.config import load_config
 from chik.util.errors import KeychainCurrentPassphraseIsInvalid
+from chik.util.harvester_config import add_plot_directory
 from chik.util.json_util import dict_to_json_str
 from chik.util.keychain import Keychain, KeyData, passphrase_requirements, supports_os_passphrase_storage
 from chik.util.lock import Lockfile, LockfileError
@@ -141,7 +141,7 @@ class Command(Protocol):
     async def __call__(self, websocket: WebSocketResponse, request: dict[str, Any]) -> dict[str, Any]: ...
 
 
-def _get_keys_by_fingerprints(fingerprints: Optional[list[uint32]]) -> tuple[list[KeyData], set[uint32]]:
+def _get_keys_by_fingerprints(fingerprints: list[uint32] | None) -> tuple[list[KeyData], set[uint32]]:
     all_keys = Keychain().get_keys(include_secrets=True)
     missing_fingerprints = set()
 
@@ -186,44 +186,43 @@ class WebSocketServer:
     ):
         self.root_path = root_path
         self.log = log
-        self.services: dict[str, list[subprocess.Popen]] = dict()
-        self.plots_queue: list[dict] = []
+        self.services: dict[str, list[subprocess.Popen[Any]]] = dict()
+        self.plots_queue: list[dict[str, Any]] = []
         self.connections: dict[str, set[WebSocketResponse]] = dict()  # service name : {WebSocketResponse}
-        self.ping_job: Optional[asyncio.Task] = None
+        self.ping_job: asyncio.Task[None] | None = None
         self.net_config = load_config(root_path, "config.yaml")
         self.self_hostname = self.net_config["self_hostname"]
         self.daemon_port = self.net_config["daemon_port"]
         self.daemon_max_message_size = self.net_config.get("daemon_max_message_size", 50 * 1000 * 1000)
         self.heartbeat = self.net_config.get("daemon_heartbeat", 300)
-        self.webserver: Optional[WebServer] = None
+        self.webserver: WebServer | None = None
         self.ssl_context = ssl_context_for_server(ca_crt_path, ca_key_path, crt_path, key_path, log=self.log)
         self.keychain_server = KeychainServer()
         self.run_check_keys_on_unlock = run_check_keys_on_unlock
         self.shutdown_event = asyncio.Event()
         self.state_changed_msg_queue: asyncio.Queue[StatusMessage] = asyncio.Queue()
-        self.state_changed_task: Optional[asyncio.Task] = None
+        self.state_changed_task: asyncio.Task[None] | None = None
 
     @asynccontextmanager
     async def run(self) -> AsyncIterator[None]:
         self.log.info(f"Starting Daemon Server ({self.self_hostname}:{self.daemon_port})")
 
-        # Note: the minimum_version has been already set to TLSv1_2
+        # Note: the minimum_version has been already set to TLSv1_3
         # in ssl_context_for_server()
-        # Daemon is internal connections, so override to TLSv1_3 only unless specified in the config
-        if ssl.HAS_TLSv1_3 and not self.net_config.get("daemon_allow_tls_1_2", False):
-            try:
-                self.ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
-            except ValueError:
-                # in case the attempt above confused the config, set it again (likely not needed but doesn't hurt)
-                self.ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
-
-        if self.ssl_context.minimum_version is not ssl.TLSVersion.TLSv1_3:
-            self.log.warning(
-                (
-                    "Deprecation Warning: Your version of SSL (%s) does not support TLS1.3. "
-                    "A future version of Chik will require TLS1.3."
-                ),
-                ssl.OPENSSL_VERSION,
+        # Daemon is internal connections, so override to TLSv1_2 only if specified in the config
+        if self.net_config.get("daemon_allow_tls_1_2", False):
+            self.ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+            self.ssl_context.set_ciphers(
+                "ECDHE-ECDSA-AES256-GCM-SHA384:"
+                "ECDHE-RSA-AES256-GCM-SHA384:"
+                "ECDHE-ECDSA-CHACHA20-POLY1305:"
+                "ECDHE-RSA-CHACHA20-POLY1305:"
+                "ECDHE-ECDSA-AES128-GCM-SHA256:"
+                "ECDHE-RSA-AES128-GCM-SHA256:"
+                "ECDHE-ECDSA-AES256-SHA384:"
+                "ECDHE-RSA-AES256-SHA384:"
+                "ECDHE-ECDSA-AES128-SHA256:"
+                "ECDHE-RSA-AES128-SHA256"
             )
 
         self.state_changed_task = create_referenced_task(self._process_state_changed_queue())
@@ -249,7 +248,7 @@ class WebSocketServer:
     async def _accept_signal(
         self,
         signal_: signal.Signals,
-        stack_frame: Optional[FrameType],
+        stack_frame: FrameType | None,
         loop: asyncio.AbstractEventLoop,
     ) -> None:
         self.log.info("Received signal %s (%s), shutting down.", signal_.name, signal_.value)
@@ -408,7 +407,7 @@ class WebSocketServer:
 
     async def handle_message(
         self, websocket: WebSocketResponse, message: WsRpcMessage
-    ) -> Optional[tuple[str, set[WebSocketResponse]]]:
+    ) -> tuple[str, set[WebSocketResponse]] | None:
         """
         This function gets called when new message is received via websocket.
         """
@@ -519,8 +518,8 @@ class WebSocketServer:
 
     async def unlock_keyring(self, websocket: WebSocketResponse, request: dict[str, Any]) -> dict[str, Any]:
         success: bool = False
-        error: Optional[str] = None
-        key: Optional[str] = request.get("key", None)
+        error: str | None = None
+        key: str | None = request.get("key", None)
         if type(key) is not str:
             return {"success": False, "error": "missing key"}
 
@@ -555,8 +554,8 @@ class WebSocketServer:
         request: dict[str, Any],
     ) -> dict[str, Any]:
         success: bool = False
-        error: Optional[str] = None
-        key: Optional[str] = request.get("key", None)
+        error: str | None = None
+        key: str | None = request.get("key", None)
         if type(key) is not str:
             return {"success": False, "error": "missing key"}
 
@@ -572,10 +571,10 @@ class WebSocketServer:
 
     async def set_keyring_passphrase(self, websocket: WebSocketResponse, request: dict[str, Any]) -> dict[str, Any]:
         success: bool = False
-        error: Optional[str] = None
-        current_passphrase: Optional[str] = None
-        new_passphrase: Optional[str] = None
-        passphrase_hint: Optional[str] = request.get("passphrase_hint", None)
+        error: str | None = None
+        current_passphrase: str | None = None
+        new_passphrase: str | None = None
+        passphrase_hint: str | None = request.get("passphrase_hint", None)
         save_passphrase: bool = request.get("save_passphrase", False)
 
         if using_default_passphrase():
@@ -616,8 +615,8 @@ class WebSocketServer:
 
     async def remove_keyring_passphrase(self, websocket: WebSocketResponse, request: dict[str, Any]) -> dict[str, Any]:
         success: bool = False
-        error: Optional[str] = None
-        current_passphrase: Optional[str] = None
+        error: str | None = None
+        current_passphrase: str | None = None
 
         if not Keychain.has_master_passphrase():
             return {"success": False, "error": "passphrase not set"}
@@ -722,7 +721,7 @@ class WebSocketServer:
         }
         return response
 
-    def plot_queue_to_payload(self, plot_queue_item, send_full_log: bool) -> dict[str, Any]:
+    def plot_queue_to_payload(self, plot_queue_item: dict[str, Any], send_full_log: bool) -> dict[str, Any]:
         error = plot_queue_item.get("error")
         has_error = error is not None
 
@@ -742,14 +741,14 @@ class WebSocketServer:
             item["log"] = plot_queue_item.get("log")
         return item
 
-    def prepare_plot_state_message(self, state: PlotEvent, id):
+    def prepare_plot_state_message(self, state: PlotEvent, id: str | None) -> dict[str, Any]:
         message = {
             "state": state,
             "queue": self.extract_plot_queue(id),
         }
         return message
 
-    def extract_plot_queue(self, id=None) -> list[dict]:
+    def extract_plot_queue(self, id: str | None = None) -> list[dict[str, Any]]:
         send_full_log = id is None
         data = []
         for item in self.plots_queue:
@@ -808,7 +807,7 @@ class WebSocketServer:
             )
         )
 
-    async def _watch_file_changes(self, config, fp: TextIO, loop: asyncio.AbstractEventLoop):
+    async def _watch_file_changes(self, config: dict[str, Any], fp: TextIO, loop: asyncio.AbstractEventLoop) -> None:
         id: str = config["id"]
         plotter: str = config["plotter"]
         final_words: list[str] = []
@@ -848,7 +847,7 @@ class WebSocketServer:
             else:
                 await asyncio.sleep(0.5)
 
-    async def _track_plotting_progress(self, config, loop: asyncio.AbstractEventLoop):
+    async def _track_plotting_progress(self, config: dict[str, Any], loop: asyncio.AbstractEventLoop) -> None:
         file_path = config["out_file"]
         with open(file_path) as fp:
             await self._watch_file_changes(config, fp, loop)
@@ -1058,11 +1057,11 @@ class WebSocketServer:
                 response = True
         return response
 
-    def _get_plots_queue_item(self, id: str):
+    def _get_plots_queue_item(self, id: str) -> dict[str, Any]:
         config = next(item for item in self.plots_queue if item["id"] == id)
         return config
 
-    def _run_next_serial_plotting(self, loop: asyncio.AbstractEventLoop, queue: str = "default"):
+    def _run_next_serial_plotting(self, loop: asyncio.AbstractEventLoop, queue: str = "default") -> None:
         next_plot_id = None
 
         if self._is_serial_plotting_running(queue) is True:
@@ -1076,7 +1075,7 @@ class WebSocketServer:
         if next_plot_id is not None:
             create_referenced_task(self._start_plotting(next_plot_id, loop, queue))
 
-    def _post_process_plotting_job(self, job: dict[str, Any]):
+    def _post_process_plotting_job(self, job: dict[str, Any]) -> None:
         id: str = job["id"]
         final_dir: str = job["final_dir"]
         exclude_final_dir: bool = job["exclude_final_dir"]
@@ -1087,7 +1086,7 @@ class WebSocketServer:
             except ValueError as e:
                 log.warning(f"_post_process_plotting_job: {e}")
 
-    async def _start_plotting(self, id: str, loop: asyncio.AbstractEventLoop, queue: str = "default"):
+    async def _start_plotting(self, id: str, loop: asyncio.AbstractEventLoop, queue: str = "default") -> None:
         current_process = None
         try:
             log.info(f"Starting plotting with ID {id}")  # lgtm [py/clear-text-logging-sensitive-data]
@@ -1267,7 +1266,7 @@ class WebSocketServer:
             self.state_changed(service_plotter, self.prepare_plot_state_message(PlotEvent.STATE_CHANGED, id))
             return {"success": False}
 
-    async def start_service(self, websocket: WebSocketResponse, request: dict[str, Any]):
+    async def start_service(self, websocket: WebSocketResponse, request: dict[str, Any]) -> dict[str, Any]:
         service_command = request["service"]
 
         error = None
@@ -1318,7 +1317,7 @@ class WebSocketServer:
         return response
 
     def is_service_running(self, service_name: str) -> bool:
-        processes: list[subprocess.Popen]
+        processes: list[subprocess.Popen[Any]]
         if service_name == service_plotter:
             processes = self.services.get(service_name, [])
             is_running = len(processes) > 0
@@ -1373,9 +1372,8 @@ class WebSocketServer:
                 "service": service,
                 "queue": self.extract_plot_queue(),
             }
-        else:
-            if self.ping_job is None:
-                self.ping_job = create_referenced_task(self.ping_task())
+        elif self.ping_job is None:
+            self.ping_job = create_referenced_task(self.ping_task())
         self.log.info(f"registered for service {service}")
         log.info(f"{response}")
         return response
@@ -1405,13 +1403,13 @@ def pid_path_for_service(root_path: Path, service: str, id: str = "") -> Path:
     return root_path / "run" / f"{pid_name}{id}.pid"
 
 
-def plotter_log_path(root_path: Path, id: str):
+def plotter_log_path(root_path: Path, id: str) -> Path:
     return root_path / "plotter" / f"plotter_log_{id}.txt"
 
 
 def launch_plotter(
     root_path: Path, service_name: str, service_array: list[str], id: str
-) -> tuple[subprocess.Popen, Path]:
+) -> tuple[subprocess.Popen[Any], Path]:
     # we need to pass on the possibly altered CHIK_ROOT
     os.environ["CHIK_ROOT"] = str(root_path)
     service_executable = executable_for_service(service_array[0])
@@ -1433,16 +1431,17 @@ def launch_plotter(
             plotter_path.unlink()
     else:
         plotter_path.parent.mkdir(parents=True, exist_ok=True)
-    outfile = open(plotter_path.resolve(), "w")
-    log.info(f"Service array: {service_array}")  # lgtm [py/clear-text-logging-sensitive-data]
-    process = subprocess.Popen(
-        service_array,
-        shell=False,
-        stderr=outfile,
-        stdout=outfile,
-        startupinfo=startupinfo,
-        creationflags=creationflags,
-    )
+
+    with open(plotter_path.resolve(), "w") as outfile:
+        log.info(f"Service array: {service_array}")  # lgtm [py/clear-text-logging-sensitive-data]
+        process = subprocess.Popen(
+            service_array,
+            shell=False,
+            stderr=outfile,
+            stdout=outfile,
+            startupinfo=startupinfo,
+            creationflags=creationflags,
+        )
 
     pid_path = pid_path_for_service(root_path, service_name, id)
     try:
@@ -1454,7 +1453,7 @@ def launch_plotter(
     return process, pid_path
 
 
-def launch_service(root_path: Path, service_command) -> tuple[subprocess.Popen, Path]:
+def launch_service(root_path: Path, service_command: str) -> tuple[subprocess.Popen[Any], Path]:
     """
     Launch a child process.
     """
@@ -1498,7 +1497,7 @@ def launch_service(root_path: Path, service_command) -> tuple[subprocess.Popen, 
 
 
 async def kill_processes(
-    processes: list[subprocess.Popen],
+    processes: list[subprocess.Popen[Any]],
     root_path: Path,
     service_name: str,
     id: str,
@@ -1542,7 +1541,7 @@ async def kill_processes(
 
 
 async def kill_service(
-    root_path: Path, services: dict[str, list[subprocess.Popen]], service_name: str, delay_before_kill: int = 15
+    root_path: Path, services: dict[str, list[subprocess.Popen[Any]]], service_name: str, delay_before_kill: int = 15
 ) -> bool:
     processes = services.get(service_name)
     if processes is None:
@@ -1552,7 +1551,7 @@ async def kill_service(
     return result
 
 
-def is_running(services: dict[str, subprocess.Popen], service_name: str) -> bool:
+def is_running(services: dict[str, subprocess.Popen[Any]], service_name: str) -> bool:
     process = services.get(service_name)
     return process is not None and process.poll() is None
 

@@ -26,7 +26,7 @@ cache_path = root.joinpath(".chik_cache", "manage_klvm.json")
 # accessible via entry points.
 sys.path = [path for path in sys.path if path != os.fspath(here)]
 
-from klvm_tools_rs import compile_klvm  # noqa: E402
+from chiklisp import compile_klvm  # noqa: E402
 
 from chik.types.blockchain_format.serialized_program import SerializedProgram  # noqa: E402
 

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from chik_rs import CoinRecord
+
 from chik.consensus.coin_store_protocol import CoinStoreProtocol
-from chik.types.coin_record import CoinRecord
 from chik.util.db_wrapper import DBWrapper2
 
 

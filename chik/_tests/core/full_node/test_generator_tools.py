@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import pytest
+from chik_rs import (
+    CoinSpend,
+    SpendBundleConditions,
+    SpendConditions,
+    get_spends_for_trusted_block,
+    get_spends_for_trusted_block_with_conditions,
+)
 from chik_rs import Program as SerializedProgram
-from chik_rs import SpendBundleConditions, SpendConditions
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
 from chik.consensus.generator_tools import tx_removals_and_additions
-from chik.full_node.mempool_check_conditions import get_spends_for_block, get_spends_for_block_with_conditions
 from chik.simulator.block_tools import test_constants
 from chik.types.blockchain_format.coin import Coin
 from chik.types.generator_types import BlockGenerator
@@ -43,6 +48,7 @@ spends: list[SpendConditions] = [
         0,
         execution_cost=0,
         condition_cost=0,
+        fingerprint=b"",
     ),
     SpendConditions(
         coin_ids[1],
@@ -70,19 +76,20 @@ spends: list[SpendConditions] = [
         0,
         execution_cost=0,
         condition_cost=0,
+        fingerprint=b"",
     ),
 ]
 
 
 def test_tx_removals_and_additions() -> None:
     conditions = SpendBundleConditions(
-        spends, uint64(0), uint32(0), uint64(0), None, None, [], uint64(0), 0, 0, False, 0, 0
+        spends, uint64(0), uint32(0), uint64(0), None, None, [], uint64(0), 0, 0, False, 0, 0, 0, 0, 0
     )
     expected_rems = [coin_ids[0], coin_ids[1]]
     expected_additions = []
     for spend in spends:
         for puzzle_hash, am, _ in spend.create_coin:
-            expected_additions.append(Coin(bytes32(spend.coin_id), bytes32(puzzle_hash), uint64(am)))
+            expected_additions.append(Coin(spend.coin_id, puzzle_hash, uint64(am)))
     rems, adds = tx_removals_and_additions(conditions)
     assert rems == expected_rems
     assert adds == expected_additions
@@ -102,12 +109,34 @@ TEST_GENERATOR = BlockGenerator(
 
 
 def test_get_spends_for_block(caplog: pytest.LogCaptureFixture) -> None:
-    conditions = get_spends_for_block(TEST_GENERATOR, 100, test_constants)
-    assert conditions == []
-    assert "get_spends_for_block() encountered a puzzle we couldn't serialize: " in caplog.text
+    conditions = get_spends_for_trusted_block(
+        test_constants, TEST_GENERATOR.program, TEST_GENERATOR.generator_refs, 100
+    )
+    assert conditions["block_spends"] == [
+        CoinSpend(
+            Coin(
+                bytes32.fromhex("0101010101010101010101010101010101010101010101010101010101010101"),
+                bytes32.fromhex("6c04a09251046f8dd47efe681af7e47f6e61e68fb2f9ad47c5031ec3e36c5564"),
+                uint64(123),
+            ),
+            SerializedProgram.fromhex("80"),
+            SerializedProgram.fromhex("ff80ffff018080"),
+        )
+    ]
 
 
 def test_get_spends_for_block_with_conditions(caplog: pytest.LogCaptureFixture) -> None:
-    conditions = get_spends_for_block_with_conditions(TEST_GENERATOR, 100, test_constants)
-    assert conditions == []
-    assert "get_spends_for_block_with_conditions() encountered a puzzle we couldn't serialize: " in caplog.text
+    conditions = get_spends_for_trusted_block_with_conditions(
+        test_constants, TEST_GENERATOR.program, TEST_GENERATOR.generator_refs, 100
+    )
+    assert len(conditions) == 1
+    assert conditions[0]["coin_spend"] == CoinSpend(
+        Coin(
+            bytes32.fromhex("0101010101010101010101010101010101010101010101010101010101010101"),
+            bytes32.fromhex("6c04a09251046f8dd47efe681af7e47f6e61e68fb2f9ad47c5031ec3e36c5564"),
+            uint64(123),
+        ),
+        SerializedProgram.fromhex("80"),
+        SerializedProgram.fromhex("ff80ffff018080"),
+    )
+    assert len(conditions[0]["conditions"]) == 1024

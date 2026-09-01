@@ -8,7 +8,7 @@ have to worry about blowing out the python stack.
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Union
+from collections.abc import Callable
 
 from chik_rs.sized_bytes import bytes32
 from klvm.KLVMObject import KLVMStorage
@@ -16,13 +16,13 @@ from klvm.SExp import SExp
 
 from chik.util.hash import std_hash
 
-ValueType = Union[bytes, KLVMStorage]
+ValueType = bytes | KLVMStorage
 ValueStackType = list[ValueType]
 Op = Callable[[ValueStackType, "OpStackType", set[bytes32]], None]
 OpStackType = list[Op]
 
 
-def sha256_treehash(sexp: KLVMStorage, precalculated: Optional[set[bytes32]] = None) -> bytes32:
+def sha256_treehash(sexp: KLVMStorage, precalculated: set[bytes32] | None = None) -> bytes32:
     """
     Hash values in `precalculated` are presumed to have been hashed already.
     """

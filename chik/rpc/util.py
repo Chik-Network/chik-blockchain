@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import logging
 import traceback
-from collections.abc import Awaitable
-from typing import TYPE_CHECKING, Any, Callable, get_type_hints
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any, get_type_hints
 
 import aiohttp
 
+from chik.rpc.rpc_errors import structured_error_from_exception
 from chik.util.json_util import obj_to_response
 from chik.util.streamable import Streamable
 from chik.wallet.util.blind_signer_tl import BLIND_SIGNER_TRANSLATION
@@ -85,10 +86,13 @@ def wrap_http_handler(
         except Exception as e:
             tb = traceback.format_exc()
             log.warning(f"Error while handling message for {route}: {tb}")
-            if len(e.args) > 0:
-                res_object = {"success": False, "error": f"{e.args[0]}", "traceback": f"{tb}"}
-            else:
-                res_object = {"success": False, "error": f"{e}"}
+            error_message, structured = structured_error_from_exception(e)
+            res_object = {
+                "success": False,
+                "error": error_message,
+                "traceback": tb,
+                "structuredError": structured,
+            }
 
         return obj_to_response(res_object)
 

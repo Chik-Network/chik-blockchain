@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import enum
 import logging
 import time
-from typing import Optional
 
 from chik_rs import BlockRecord, ConsensusConstants, EndOfSubSlotBundle, FullBlock, UnfinishedBlock
 from chik_rs.sized_bytes import bytes32
@@ -12,24 +12,47 @@ from chik_rs.sized_ints import uint8, uint32, uint64, uint128
 
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
 from chik.consensus.difficulty_adjustment import can_finish_sub_and_full_epoch
+from chik.consensus.get_block_challenge import post_hard_fork2
 from chik.consensus.make_sub_epoch_summary import make_sub_epoch_summary
 from chik.consensus.multiprocess_validation import PreValidationResult
 from chik.consensus.pot_iterations import calculate_sp_interval_iters
 from chik.consensus.signage_point import SignagePoint
+from chik.full_node.tx_processing_queue import PeerWithTx
 from chik.protocols import timelord_protocol
 from chik.protocols.outbound_message import Message
 from chik.types.blockchain_format.classgroup import ClassgroupElement
 from chik.types.blockchain_format.vdf import VDFInfo, validate_vdf
-from chik.util.lru_cache import LRUCache
+from chik.util.lru_cache import LRUCache, LRUKeyedListCache, LRUSet
 from chik.util.streamable import Streamable, streamable
 
 log = logging.getLogger(__name__)
+
+MAX_UNFINISHED_BLOCKS_PER_REWARD_HASH = 20
+
+# Future caches store untrusted timelord/full-node gossip and must stay small
+# even when peers send max-size protocol messages with unique challenges.
+FUTURE_CACHE_ENTRY_TTL_SECONDS = 300
+
+FUTURE_SP_CACHE_MAX_KEYS = 128
+FUTURE_SP_CACHE_MAX_ENTRIES_PER_KEY = 64
+
+FUTURE_EOS_CACHE_MAX_KEYS = 128
+FUTURE_EOS_CACHE_MAX_ENTRIES_PER_KEY = 4
+
+FUTURE_IP_CACHE_MAX_KEYS = 128
+FUTURE_IP_CACHE_MAX_ENTRIES_PER_KEY = 8
+
+
+class SignagePointAddResult(enum.Enum):
+    ADDED = "added"
+    NOT_ADDED = "not_added"
+    INVALID_VDF = "invalid_vdf"
 
 
 @streamable
 @dataclasses.dataclass(frozen=True)
 class FullNodeStorePeakResult(Streamable):
-    added_eos: Optional[EndOfSubSlotBundle]
+    added_eos: EndOfSubSlotBundle | None
     new_signage_points: list[tuple[uint8, SignagePoint]]
     new_infusion_points: list[timelord_protocol.NewInfusionPointVDF]
 
@@ -38,16 +61,16 @@ class FullNodeStorePeakResult(Streamable):
 class UnfinishedBlockEntry:
     # if this is None, it means we've requested this block but not yet received
     # it
-    unfinished_block: Optional[UnfinishedBlock]
+    unfinished_block: UnfinishedBlock | None
     # If this is None, it means we've initiated validation of this block, but it
     # hasn't completed yet
-    result: Optional[PreValidationResult]
+    result: PreValidationResult | None
     height: uint32
 
 
 def find_best_block(
-    result: dict[Optional[bytes32], UnfinishedBlockEntry],
-) -> tuple[Optional[bytes32], Optional[UnfinishedBlock]]:
+    result: dict[bytes32 | None, UnfinishedBlockEntry],
+) -> tuple[bytes32 | None, UnfinishedBlock | None]:
     """
     Given a collection of UnfinishedBlocks (all with the same reward block
     hash), return the "best" one. i.e. the one with the smallest foliage hash.
@@ -64,7 +87,7 @@ def find_best_block(
         else:
             return foliage_hash, entry.unfinished_block
 
-    def include_block(item: tuple[Optional[bytes32], UnfinishedBlockEntry]) -> bool:
+    def include_block(item: tuple[bytes32 | None, UnfinishedBlockEntry]) -> bool:
         foliage_hash, entry = item
         return foliage_hash is not None and entry.unfinished_block is not None
 
@@ -81,6 +104,19 @@ def find_best_block(
     return all_blocks[0][0], all_blocks[0][1].unfinished_block
 
 
+def _maybe_evict_worst_unfinished_block(inner: dict[bytes32 | None, UnfinishedBlockEntry]) -> None:
+    if len(inner) <= MAX_UNFINISHED_BLOCKS_PER_REWARD_HASH:
+        return
+    # None foliage hash is considered worst since the block quality is unknown
+    if None in inner:
+        del inner[None]
+        return
+    # we've already checked for None keys. At this point we know there won't be
+    # any, but max() doesn't like that the type is still Optional[Bytes32]
+    worst_key = max(inner.keys())  # type: ignore[type-var]
+    del inner[worst_key]
+
+
 class FullNodeStore:
     constants: ConsensusConstants
 
@@ -92,7 +128,7 @@ class FullNodeStore:
     # effectively a set[bytes32] but in order to evict the oldest items first,
     # we use a Dict that preserves insertion order, and remove from the
     # beginning
-    seen_unfinished_blocks: dict[bytes32, None]
+    seen_unfinished_blocks: LRUSet[bytes32]
 
     # Unfinished blocks, keyed from reward hash
     # There may be multiple different unfinished blocks with the same partial
@@ -104,53 +140,55 @@ class FullNodeStore:
     # The inner key (the foliage hash) is Optional, where None either means
     # it's not a transaction block, or it's a block we learned about via the old
     # protocol, where all we get is the reward block hash.
-    _unfinished_blocks: dict[bytes32, dict[Optional[bytes32], UnfinishedBlockEntry]]
+    _unfinished_blocks: dict[bytes32, dict[bytes32 | None, UnfinishedBlockEntry]]
 
     # Finished slots and sps from the peak's slot onwards
     # We store all 32 SPs for each slot, starting as 32 Nones and filling them as we go
     # Also stores the total iters at the end of slot
     # For the first sub-slot, EndOfSlotBundle is None
-    finished_sub_slots: list[tuple[Optional[EndOfSubSlotBundle], list[Optional[SignagePoint]], uint128]]
+    finished_sub_slots: list[tuple[EndOfSubSlotBundle | None, list[SignagePoint | None], uint128]]
 
     # These caches maintain objects which depend on infused blocks in the reward chain, that we
     # might receive before the blocks themselves. The dict keys are the reward chain challenge hashes.
 
     # End of slots which depend on infusions that we don't have
-    future_eos_cache: dict[bytes32, list[EndOfSubSlotBundle]]
+    future_eos_cache: LRUKeyedListCache[bytes32, EndOfSubSlotBundle]
 
     # Signage points which depend on infusions that we don't have
-    future_sp_cache: dict[bytes32, list[tuple[uint8, SignagePoint]]]
+    future_sp_cache: LRUKeyedListCache[bytes32, tuple[uint8, SignagePoint]]
 
     # Infusion point VDFs which depend on infusions that we don't have
-    future_ip_cache: dict[bytes32, list[timelord_protocol.NewInfusionPointVDF]]
-
-    # This stores the time that each key was added to the future cache, so we can clear old keys
-    future_cache_key_times: dict[bytes32, int]
+    future_ip_cache: LRUKeyedListCache[bytes32, timelord_protocol.NewInfusionPointVDF]
 
     # These recent caches are for pooling support
     recent_signage_points: LRUCache[bytes32, tuple[SignagePoint, float]]
     recent_eos: LRUCache[bytes32, tuple[EndOfSubSlotBundle, float]]
 
     pending_tx_request: dict[bytes32, bytes32]  # tx_id: peer_id
-    peers_with_tx: dict[bytes32, set[bytes32]]  # tx_id: set[peer_ids}
+    # Map of transaction ID to the map of peer ID to its hostname, fee and cost
+    # it advertised for that transaction.
+    peers_with_tx: dict[bytes32, dict[bytes32, PeerWithTx]]
     tx_fetch_tasks: dict[bytes32, asyncio.Task[None]]  # Task id: task
-    serialized_wp_message: Optional[Message]
-    serialized_wp_message_tip: Optional[bytes32]
-
-    max_seen_unfinished_blocks: int
+    serialized_wp_message: Message | None
+    serialized_wp_message_tip: bytes32 | None
 
     def __init__(self, constants: ConsensusConstants):
         self.candidate_blocks = {}
         self.candidate_backup_blocks = {}
-        self.seen_unfinished_blocks = {}
+        self.seen_unfinished_blocks = LRUSet(1000)
         self._unfinished_blocks = {}
         self.finished_sub_slots = []
-        self.future_eos_cache = {}
-        self.future_sp_cache = {}
-        self.future_ip_cache = {}
+        self.future_eos_cache = LRUKeyedListCache(
+            FUTURE_EOS_CACHE_MAX_KEYS, FUTURE_EOS_CACHE_MAX_ENTRIES_PER_KEY, ttl_seconds=FUTURE_CACHE_ENTRY_TTL_SECONDS
+        )
+        self.future_sp_cache = LRUKeyedListCache(
+            FUTURE_SP_CACHE_MAX_KEYS, FUTURE_SP_CACHE_MAX_ENTRIES_PER_KEY, ttl_seconds=FUTURE_CACHE_ENTRY_TTL_SECONDS
+        )
+        self.future_ip_cache = LRUKeyedListCache(
+            FUTURE_IP_CACHE_MAX_KEYS, FUTURE_IP_CACHE_MAX_ENTRIES_PER_KEY, ttl_seconds=FUTURE_CACHE_ENTRY_TTL_SECONDS
+        )
         self.recent_signage_points = LRUCache(500)
         self.recent_eos = LRUCache(50)
-        self.future_cache_key_times = {}
         self.constants = constants
         self.clear_slots()
         self.initialize_genesis_sub_slot()
@@ -159,10 +197,9 @@ class FullNodeStore:
         self.tx_fetch_tasks = {}
         self.serialized_wp_message = None
         self.serialized_wp_message_tip = None
-        self.max_seen_unfinished_blocks = 1000
 
     def is_requesting_unfinished_block(
-        self, reward_block_hash: bytes32, foliage_hash: Optional[bytes32]
+        self, reward_block_hash: bytes32, foliage_hash: bytes32 | None
     ) -> tuple[bool, int]:
         """
         Asks if we are already requesting this specific unfinished block (given
@@ -180,11 +217,12 @@ class FullNodeStore:
         else:
             return (foliage_hash in ents, len(ents))
 
-    def mark_requesting_unfinished_block(self, reward_block_hash: bytes32, foliage_hash: Optional[bytes32]) -> None:
+    def mark_requesting_unfinished_block(self, reward_block_hash: bytes32, foliage_hash: bytes32 | None) -> None:
         ents = self._unfinished_blocks.setdefault(reward_block_hash, {})
         ents.setdefault(foliage_hash, UnfinishedBlockEntry(None, None, uint32(0)))
+        _maybe_evict_worst_unfinished_block(ents)
 
-    def remove_requesting_unfinished_block(self, reward_block_hash: bytes32, foliage_hash: Optional[bytes32]) -> None:
+    def remove_requesting_unfinished_block(self, reward_block_hash: bytes32, foliage_hash: bytes32 | None) -> None:
         reward_ents = self._unfinished_blocks.get(reward_block_hash)
         if reward_ents is None:
             return
@@ -209,7 +247,7 @@ class FullNodeStore:
 
     def get_candidate_block(
         self, quality_string: bytes32, backup: bool = False
-    ) -> Optional[tuple[uint32, UnfinishedBlock]]:
+    ) -> tuple[uint32, UnfinishedBlock] | None:
         if backup:
             return self.candidate_backup_blocks.get(quality_string, None)
         else:
@@ -238,11 +276,7 @@ class FullNodeStore:
     def seen_unfinished_block(self, object_hash: bytes32) -> bool:
         if object_hash in self.seen_unfinished_blocks:
             return True
-        self.seen_unfinished_blocks[object_hash] = None
-        if len(self.seen_unfinished_blocks) > self.max_seen_unfinished_blocks:
-            # remove the least recently added hash
-            to_remove = next(iter(self.seen_unfinished_blocks))
-            del self.seen_unfinished_blocks[to_remove]
+        self.seen_unfinished_blocks.put(object_hash)
         return False
 
     def add_unfinished_block(
@@ -253,8 +287,9 @@ class FullNodeStore:
         entry[unfinished_block.foliage.foliage_transaction_block_hash] = UnfinishedBlockEntry(
             unfinished_block, result, height
         )
+        _maybe_evict_worst_unfinished_block(entry)
 
-    def get_unfinished_block(self, unfinished_reward_hash: bytes32) -> Optional[UnfinishedBlock]:
+    def get_unfinished_block(self, unfinished_reward_hash: bytes32) -> UnfinishedBlock | None:
         result = self._unfinished_blocks.get(unfinished_reward_hash, None)
         if result is None:
             return None
@@ -269,8 +304,8 @@ class FullNodeStore:
         return block
 
     def get_unfinished_block2(
-        self, unfinished_reward_hash: bytes32, unfinished_foliage_hash: Optional[bytes32]
-    ) -> tuple[Optional[UnfinishedBlock], int, bool]:
+        self, unfinished_reward_hash: bytes32, unfinished_foliage_hash: bytes32 | None
+    ) -> tuple[UnfinishedBlock | None, int, bool]:
         """
         Looks up an UnfinishedBlock by its reward block hash and foliage hash.
         If the foliage hash is None (e.g. it's not a transaction block), we fall
@@ -304,7 +339,7 @@ class FullNodeStore:
     # have a foliage hash. That's why unfinished_foliage_hash is not Optional.
     def get_unfinished_block_result(
         self, unfinished_reward_hash: bytes32, unfinished_foliage_hash: bytes32
-    ) -> Optional[UnfinishedBlockEntry]:
+    ) -> UnfinishedBlockEntry | None:
         result = self._unfinished_blocks.get(unfinished_reward_hash, None)
         if result is None:
             return None
@@ -323,7 +358,7 @@ class FullNodeStore:
     def clear_unfinished_blocks_below(self, height: uint32) -> None:
         del_partial: list[bytes32] = []
         for partial_hash, entry in self._unfinished_blocks.items():
-            del_foliage: list[Optional[bytes32]] = []
+            del_foliage: list[bytes32 | None] = []
             for foliage_hash, ube in entry.items():
                 if ube.height < height:
                     del_foliage.append(foliage_hash)
@@ -341,9 +376,7 @@ class FullNodeStore:
 
     def add_to_future_ip(self, infusion_point: timelord_protocol.NewInfusionPointVDF) -> None:
         ch: bytes32 = infusion_point.reward_chain_ip_vdf.challenge
-        if ch not in self.future_ip_cache:
-            self.future_ip_cache[ch] = []
-        self.future_ip_cache[ch].append(infusion_point)
+        self.future_ip_cache.append(ch, infusion_point)
 
     def in_future_sp_cache(self, signage_point: SignagePoint, index: uint8) -> bool:
         if signage_point.rc_vdf is None:
@@ -357,7 +390,6 @@ class FullNodeStore:
         return False
 
     def add_to_future_sp(self, signage_point: SignagePoint, index: uint8) -> None:
-        # We are missing a block here
         if (
             signage_point.cc_vdf is None
             or signage_point.rc_vdf is None
@@ -365,34 +397,25 @@ class FullNodeStore:
             or signage_point.rc_proof is None
         ):
             return None
-        if signage_point.rc_vdf.challenge not in self.future_sp_cache:
-            self.future_sp_cache[signage_point.rc_vdf.challenge] = []
+        challenge = signage_point.rc_vdf.challenge
         if self.in_future_sp_cache(signage_point, index):
             return None
-
-        self.future_cache_key_times[signage_point.rc_vdf.challenge] = int(time.time())
-        self.future_sp_cache[signage_point.rc_vdf.challenge].append((index, signage_point))
-        log.info(f"Don't have rc hash {signage_point.rc_vdf.challenge.hex()}. caching signage point {index}.")
+        if not self.future_sp_cache.append(challenge, (index, signage_point)):
+            return None
+        log.info(f"Don't have rc hash {challenge.hex()}. caching signage point {index}.")
 
     def get_future_ip(self, rc_challenge_hash: bytes32) -> list[timelord_protocol.NewInfusionPointVDF]:
         return self.future_ip_cache.get(rc_challenge_hash, [])
 
     def clear_old_cache_entries(self) -> None:
-        current_time: int = int(time.time())
-        remove_keys: list[bytes32] = []
-        for rc_hash, time_added in self.future_cache_key_times.items():
-            if current_time - time_added > 3600:
-                remove_keys.append(rc_hash)
-        for k in remove_keys:
-            self.future_cache_key_times.pop(k, None)
-            self.future_ip_cache.pop(k, [])
-            self.future_eos_cache.pop(k, [])
-            self.future_sp_cache.pop(k, [])
+        self.future_ip_cache.evict_expired()
+        self.future_eos_cache.evict_expired()
+        self.future_sp_cache.evict_expired()
 
     def clear_slots(self) -> None:
         self.finished_sub_slots.clear()
 
-    def get_sub_slot(self, challenge_hash: bytes32) -> Optional[tuple[EndOfSubSlotBundle, int, uint128]]:
+    def get_sub_slot(self, challenge_hash: bytes32) -> tuple[EndOfSubSlotBundle, int, uint128] | None:
         assert len(self.finished_sub_slots) >= 1
         for index, (sub_slot, _, total_iters) in enumerate(self.finished_sub_slots):
             if sub_slot is not None and sub_slot.challenge_chain.get_hash() == challenge_hash:
@@ -407,11 +430,11 @@ class FullNodeStore:
         self,
         eos: EndOfSubSlotBundle,
         blocks: BlockRecordsProtocol,
-        peak: Optional[BlockRecord],
+        peak: BlockRecord | None,
         next_sub_slot_iters: uint64,
         next_difficulty: uint64,
-        peak_full_block: Optional[FullBlock],
-    ) -> Optional[list[timelord_protocol.NewInfusionPointVDF]]:
+        peak_full_block: FullBlock | None,
+    ) -> list[timelord_protocol.NewInfusionPointVDF] | None:
         """
         Returns false if not added. Returns a list if added. The list contains all infusion points that depended
         on this sub slot
@@ -427,8 +450,8 @@ class FullNodeStore:
         rc_challenge: bytes32 = (
             last_slot.reward_chain.get_hash() if last_slot is not None else self.constants.GENESIS_CHALLENGE
         )
-        icc_challenge: Optional[bytes32] = None
-        icc_iters: Optional[uint64] = None
+        icc_challenge: bytes32 | None = None
+        icc_iters: uint64 | None = None
 
         # Skip if already present
         for slot, _, _ in self.finished_sub_slots:
@@ -467,11 +490,8 @@ class FullNodeStore:
             cc_start_element = peak.challenge_vdf_output
             iters = uint64(total_iters - peak.total_iters)
             if peak.reward_infusion_new_challenge != rc_challenge:
-                # We don't have this challenge hash yet
-                if rc_challenge not in self.future_eos_cache:
-                    self.future_eos_cache[rc_challenge] = []
-                self.future_eos_cache[rc_challenge].append(eos)
-                self.future_cache_key_times[rc_challenge] = int(time.time())
+                if not self.future_eos_cache.append(rc_challenge, eos):
+                    return None
                 log.info(f"Don't have challenge hash {rc_challenge}, caching EOS")
                 return None
 
@@ -516,6 +536,17 @@ class FullNodeStore:
             )
             if finish_se:
                 # this is the first slot in a new sub epoch, should include SES
+                post_hard_fork = post_hard_fork2(
+                    constants=self.constants,
+                    blocks=blocks,
+                    prev_b_hash=peak.prev_hash,
+                    sp_index=peak.signage_point_index,
+                    finished_sub_slots=(
+                        len(peak.finished_challenge_slot_hashes)
+                        if peak.finished_challenge_slot_hashes is not None
+                        else 0
+                    ),
+                )
                 expected_sub_epoch_summary = make_sub_epoch_summary(
                     self.constants,
                     blocks,
@@ -523,6 +554,7 @@ class FullNodeStore:
                     blocks.block_record(blocks.block_record(peak.prev_hash).prev_hash),
                     next_difficulty if finish_epoch else None,
                     next_sub_slot_iters if finish_epoch else None,
+                    make_challenge_root=post_hard_fork,
                 )
 
                 if eos.challenge_chain.subepoch_summary_hash is None:
@@ -678,13 +710,18 @@ class FullNodeStore:
         self,
         index: uint8,
         blocks: BlockRecordsProtocol,
-        peak: Optional[BlockRecord],
+        peak: BlockRecord | None,
         next_sub_slot_iters: uint64,
         signage_point: SignagePoint,
         skip_vdf_validation: bool = False,
-    ) -> bool:
+    ) -> SignagePointAddResult:
         """
-        Returns true if sp successfully added
+        Returns:
+            ADDED: SP was stored successfully.
+            NOT_ADDED: SP was rejected for structural reasons (wrong sub-slot, future SP,
+                info mismatch). May be cached for later retry via add_to_future_sp.
+            INVALID_VDF: Challenge hash and VDF info matched expectations but the
+                cryptographic proof failed verification. Caller should ban the peer.
         """
         assert len(self.finished_sub_slots) >= 1
 
@@ -693,9 +730,8 @@ class FullNodeStore:
         else:
             sub_slot_iters = peak.sub_slot_iters
 
-        # If we don't have this slot, return False
         if index == 0 or index >= self.constants.NUM_SPS_SUB_SLOT:
-            return False
+            return SignagePointAddResult.NOT_ADDED
         assert (
             signage_point.cc_vdf is not None
             and signage_point.cc_proof is not None
@@ -768,13 +804,15 @@ class FullNodeStore:
                     )
                 if not signage_point.cc_vdf == cc_vdf_info_expected.replace(number_of_iterations=delta_iters):
                     self.add_to_future_sp(signage_point, index)
-                    return False
+                    return SignagePointAddResult.NOT_ADDED
                 if check_from_start_of_ss:
                     start_ele = ClassgroupElement.get_default_element()
                 else:
                     assert curr is not None
                     start_ele = curr.challenge_vdf_output
                 if not skip_vdf_validation:
+                    # Non-normalized CC proofs are for a VDF segment. The SP's CC challenge/output can match while
+                    # an honest peer proves from a different previous in-slot block than our current start element.
                     if not signage_point.cc_proof.normalized_to_identity and not validate_vdf(
                         signage_point.cc_proof,
                         self.constants,
@@ -782,20 +820,18 @@ class FullNodeStore:
                         cc_vdf_info_expected,
                     ):
                         self.add_to_future_sp(signage_point, index)
-                        return False
+                        return SignagePointAddResult.NOT_ADDED
                     if signage_point.cc_proof.normalized_to_identity and not validate_vdf(
                         signage_point.cc_proof,
                         self.constants,
                         ClassgroupElement.get_default_element(),
                         signage_point.cc_vdf,
                     ):
-                        self.add_to_future_sp(signage_point, index)
-                        return False
+                        return SignagePointAddResult.INVALID_VDF
 
-                if rc_vdf_info_expected.challenge != signage_point.rc_vdf.challenge:
-                    # This signage point is probably outdated
+                if rc_vdf_info_expected != signage_point.rc_vdf:
                     self.add_to_future_sp(signage_point, index)
-                    return False
+                    return SignagePointAddResult.NOT_ADDED
 
                 if not skip_vdf_validation:
                     if not validate_vdf(
@@ -805,16 +841,15 @@ class FullNodeStore:
                         signage_point.rc_vdf,
                         rc_vdf_info_expected,
                     ):
-                        self.add_to_future_sp(signage_point, index)
-                        return False
+                        return SignagePointAddResult.INVALID_VDF
 
                 sp_arr[index] = signage_point
                 self.recent_signage_points.put(signage_point.cc_vdf.output.get_hash(), (signage_point, time.time()))
-                return True
+                return SignagePointAddResult.ADDED
         self.add_to_future_sp(signage_point, index)
-        return False
+        return SignagePointAddResult.NOT_ADDED
 
-    def get_signage_point(self, cc_signage_point: bytes32) -> Optional[SignagePoint]:
+    def get_signage_point(self, cc_signage_point: bytes32) -> SignagePoint | None:
         assert len(self.finished_sub_slots) >= 1
         if cc_signage_point == self.constants.GENESIS_CHALLENGE:
             return SignagePoint(None, None, None, None)
@@ -831,16 +866,18 @@ class FullNodeStore:
 
     def get_signage_point_by_index_and_cc_output(
         self, cc_signage_point: bytes32, challenge: bytes32, index: uint8
-    ) -> Optional[SignagePoint]:
+    ) -> SignagePoint | None:
         assert len(self.finished_sub_slots) >= 1
-        if cc_signage_point == self.constants.GENESIS_CHALLENGE:
-            return SignagePoint(None, None, None, None)
         for sub_slot, sps, _ in self.finished_sub_slots:
-            if sub_slot is not None and sub_slot.challenge_chain.get_hash() == challenge:
+            if sub_slot is not None:
+                cc_hash = sub_slot.challenge_chain.get_hash()
+            else:
+                cc_hash = self.constants.GENESIS_CHALLENGE
+            if cc_hash == challenge:
                 if index == 0:
                     # first SP in the sub slot
                     return SignagePoint(None, None, None, None)
-                sp: Optional[SignagePoint] = sps[index]
+                sp: SignagePoint | None = sps[index]
                 if sp is None:
                     return None
                 assert sp.cc_vdf is not None
@@ -850,7 +887,7 @@ class FullNodeStore:
 
     def get_signage_point_by_index(
         self, challenge_hash: bytes32, index: uint8, last_rc_infusion: bytes32
-    ) -> Optional[SignagePoint]:
+    ) -> SignagePoint | None:
         assert len(self.finished_sub_slots) >= 1
         for sub_slot, sps, _ in self.finished_sub_slots:
             if sub_slot is not None:
@@ -861,7 +898,7 @@ class FullNodeStore:
             if cc_hash == challenge_hash:
                 if index == 0:
                     return SignagePoint(None, None, None, None)
-                sp: Optional[SignagePoint] = sps[index]
+                sp: SignagePoint | None = sps[index]
                 if sp is not None:
                     assert sp.rc_vdf is not None
                     if sp.rc_vdf.challenge == last_rc_infusion:
@@ -883,7 +920,7 @@ class FullNodeStore:
             if cc_hash == challenge_hash:
                 found_rc_hash = False
                 for i in range(index):
-                    sp: Optional[SignagePoint] = sps[i]
+                    sp: SignagePoint | None = sps[i]
                     if sp is not None and sp.rc_vdf is not None and sp.rc_vdf.challenge == last_rc_infusion:
                         found_rc_hash = True
                 sp = sps[index]
@@ -900,9 +937,9 @@ class FullNodeStore:
         self,
         peak: BlockRecord,
         peak_full_block: FullBlock,
-        sp_sub_slot: Optional[EndOfSubSlotBundle],  # None if not overflow, or in first/second slot
-        ip_sub_slot: Optional[EndOfSubSlotBundle],  # None if in first slot
-        fork_block: Optional[BlockRecord],
+        sp_sub_slot: EndOfSubSlotBundle | None,  # None if not overflow, or in first/second slot
+        ip_sub_slot: EndOfSubSlotBundle | None,  # None if in first slot
+        fork_block: BlockRecord | None,
         blocks: BlockRecordsProtocol,
         next_sub_slot_iters: uint64,
         next_difficulty: uint64,
@@ -920,8 +957,8 @@ class FullNodeStore:
             self.initialize_genesis_sub_slot()
         else:
             # This is not the first sub-slot in the chain
-            sp_sub_slot_sps: list[Optional[SignagePoint]] = [None] * self.constants.NUM_SPS_SUB_SLOT
-            ip_sub_slot_sps: list[Optional[SignagePoint]] = [None] * self.constants.NUM_SPS_SUB_SLOT
+            sp_sub_slot_sps: list[SignagePoint | None] = [None] * self.constants.NUM_SPS_SUB_SLOT
+            ip_sub_slot_sps: list[SignagePoint | None] = [None] * self.constants.NUM_SPS_SUB_SLOT
 
             if fork_block is not None and fork_block.sub_slot_iters != peak.sub_slot_iters:
                 # If there was a reorg and a difficulty adjustment, just clear all the slots
@@ -937,7 +974,7 @@ class FullNodeStore:
                     if fork_block is None:
                         # If this is not a reorg, we still want to remove signage points after the new peak
                         fork_block = peak
-                    replaced_sps: list[Optional[SignagePoint]] = []  # index 0 is the end of sub slot
+                    replaced_sps: list[SignagePoint | None] = []  # index 0 is the end of sub slot
                     for i, sp in enumerate(sps):
                         if (total_iters + i * interval_iters) < fork_block.total_iters:
                             # Sps before the fork point as still valid
@@ -966,7 +1003,7 @@ class FullNodeStore:
             ip_sub_slot_total_iters = peak.ip_sub_slot_total_iters(self.constants)
             self.finished_sub_slots.append((ip_sub_slot, ip_sub_slot_sps, ip_sub_slot_total_iters))
 
-        new_eos: Optional[EndOfSubSlotBundle] = None
+        new_eos: EndOfSubSlotBundle | None = None
         new_sps: list[tuple[uint8, SignagePoint]] = []
         new_ips: list[timelord_protocol.NewInfusionPointVDF] = []
 
@@ -984,15 +1021,15 @@ class FullNodeStore:
         ).copy()
         for index, sp in future_sps:
             assert sp.cc_vdf is not None
-            if self.new_signage_point(index, blocks, peak, peak.sub_slot_iters, sp):
+            if self.new_signage_point(index, blocks, peak, peak.sub_slot_iters, sp) == SignagePointAddResult.ADDED:
                 new_sps.append((index, sp))
 
         for ip in self.future_ip_cache.get(peak.reward_infusion_new_challenge, []):
             new_ips.append(ip)
 
-        self.future_eos_cache.pop(peak.reward_infusion_new_challenge, [])
-        self.future_sp_cache.pop(peak.reward_infusion_new_challenge, [])
-        self.future_ip_cache.pop(peak.reward_infusion_new_challenge, [])
+        self.future_eos_cache.pop(peak.reward_infusion_new_challenge)
+        self.future_sp_cache.pop(peak.reward_infusion_new_challenge)
+        self.future_ip_cache.pop(peak.reward_infusion_new_challenge)
 
         for eos_op, _, _ in self.finished_sub_slots:
             if eos_op is not None:
@@ -1004,9 +1041,9 @@ class FullNodeStore:
     def get_finished_sub_slots(
         self,
         block_records: BlockRecordsProtocol,
-        prev_b: Optional[BlockRecord],
+        prev_b: BlockRecord | None,
         last_challenge_to_add: bytes32,
-    ) -> Optional[list[EndOfSubSlotBundle]]:
+    ) -> list[EndOfSubSlotBundle] | None:
         """
         Retrieves the EndOfSubSlotBundles that are in the store either:
         1. From the starting challenge if prev_b is None

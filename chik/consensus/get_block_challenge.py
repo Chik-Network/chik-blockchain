@@ -1,20 +1,20 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Union
 
 from chik_rs import BlockRecord, ConsensusConstants, FullBlock, HeaderBlock, UnfinishedBlock
 from chik_rs.sized_bytes import bytes32
-from chik_rs.sized_ints import uint32, uint64
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
+from chik.consensus.pot_iterations import is_overflow_block
 from chik.types.unfinished_header_block import UnfinishedHeaderBlock
 
 log = logging.getLogger(__name__)
 
 
 def final_eos_is_already_included(
-    header_block: Union[UnfinishedHeaderBlock, UnfinishedBlock, HeaderBlock, FullBlock],
+    header_block: UnfinishedHeaderBlock | UnfinishedBlock | HeaderBlock | FullBlock,
     blocks: BlockRecordsProtocol,
     sub_slot_iters: uint64,
 ) -> bool:
@@ -52,7 +52,7 @@ def final_eos_is_already_included(
 
 def get_block_challenge(
     constants: ConsensusConstants,
-    header_block: Union[UnfinishedHeaderBlock, UnfinishedBlock, HeaderBlock, FullBlock],
+    header_block: UnfinishedHeaderBlock | UnfinishedBlock | HeaderBlock | FullBlock,
     blocks: BlockRecordsProtocol,
     genesis_block: bool,
     overflow: bool,
@@ -72,59 +72,113 @@ def get_block_challenge(
         else:
             # No overflow, new slot with a new challenge
             challenge = header_block.finished_sub_slots[-1].challenge_chain.get_hash()
+    elif genesis_block:
+        challenge = constants.GENESIS_CHALLENGE
     else:
-        if genesis_block:
-            challenge = constants.GENESIS_CHALLENGE
-        else:
-            if overflow:
-                if skip_overflow_last_ss_validation:
-                    # Overflow infusion without the new slot, so get the last challenge
-                    challenges_to_look_for = 1
-                else:
-                    # Overflow infusion, so get the second to last challenge. skip_overflow_last_ss_validation is False,
-                    # Which means no sub slots are omitted
-                    challenges_to_look_for = 2
-            else:
+        if overflow:
+            if skip_overflow_last_ss_validation:
+                # Overflow infusion without the new slot, so get the last challenge
                 challenges_to_look_for = 1
-            reversed_challenge_hashes: list[bytes32] = []
-            curr: BlockRecord = blocks.block_record(header_block.prev_header_hash)
-            while len(reversed_challenge_hashes) < challenges_to_look_for:
-                if curr.first_in_sub_slot:
-                    assert curr.finished_challenge_slot_hashes is not None
-                    reversed_challenge_hashes += reversed(curr.finished_challenge_slot_hashes)
-                    if len(reversed_challenge_hashes) >= challenges_to_look_for:
-                        break
-                if curr.height == 0:
-                    assert curr.finished_challenge_slot_hashes is not None
-                    assert len(curr.finished_challenge_slot_hashes) > 0
+            else:
+                # Overflow infusion, so get the second to last challenge. skip_overflow_last_ss_validation is False,
+                # Which means no sub slots are omitted
+                challenges_to_look_for = 2
+        else:
+            challenges_to_look_for = 1
+        reversed_challenge_hashes: list[bytes32] = []
+        curr: BlockRecord = blocks.block_record(header_block.prev_header_hash)
+        while len(reversed_challenge_hashes) < challenges_to_look_for:
+            if curr.first_in_sub_slot:
+                assert curr.finished_challenge_slot_hashes is not None
+                reversed_challenge_hashes += reversed(curr.finished_challenge_slot_hashes)
+                if len(reversed_challenge_hashes) >= challenges_to_look_for:
                     break
-                curr = blocks.block_record(curr.prev_hash)
-            challenge = reversed_challenge_hashes[challenges_to_look_for - 1]
+            if curr.height == 0:
+                assert curr.finished_challenge_slot_hashes is not None
+                assert len(curr.finished_challenge_slot_hashes) > 0
+                break
+            curr = blocks.block_record(curr.prev_hash)
+        challenge = reversed_challenge_hashes[challenges_to_look_for - 1]
     return challenge
 
 
-def prev_tx_block(
+# Returns the previous transaction block up to the blocks signage point
+# we use this for block validation since when the block is farmed we do not know the latest transaction block
+# since a new one might be infused by the time the block is infused
+def pre_sp_tx_block(
+    constants: ConsensusConstants,
     blocks: BlockRecordsProtocol,
-    prev_b: Optional[Union[BlockRecord, FullBlock, HeaderBlock]],
-) -> uint32:
-    # todo add check to make sure we dont return tx block from same sp as block we are validating
-    if prev_b is None:
-        return uint32(0)
-    if isinstance(prev_b, BlockRecord):
-        if prev_b.prev_transaction_block_hash is not None:
-            return prev_b.height
+    *,
+    prev_b_hash: bytes32,
+    sp_index: uint8,
+    finished_sub_slots: int,
+) -> BlockRecord | None:
+    if prev_b_hash == constants.GENESIS_CHALLENGE:
+        return None
+    curr = blocks.block_record(prev_b_hash)
+    # For overflow blocks, the SP is in the previous sub-slot, so we need to cross
+    # one extra slot boundary before we're past the SP's slot
+    overflow = is_overflow_block(constants, sp_index)
+    slots_crossed = finished_sub_slots
+    while curr.height > 0:
+        if not overflow:
+            before_sp = curr.signage_point_index < sp_index or slots_crossed > 0
         else:
-            curr = prev_b
-    elif isinstance(prev_b, FullBlock):
-        if prev_b.foliage_transaction_block is not None:
-            return prev_b.height
-        else:
-            curr = blocks.block_record(prev_b.header_hash)
-    elif isinstance(prev_b, HeaderBlock):
-        if prev_b.foliage_transaction_block is not None:
-            return prev_b.height
-        else:
-            curr = blocks.block_record(prev_b.header_hash)
-    while curr.is_transaction_block is False and curr.height > 0:
+            before_sp = slots_crossed >= 2 or (slots_crossed == 1 and curr.signage_point_index < sp_index)
+        if curr.is_transaction_block and before_sp:
+            break
+        if curr.first_in_sub_slot:
+            slots_crossed += 1
         curr = blocks.block_record(curr.prev_hash)
-    return curr.height
+    return curr
+
+
+def pre_sp_tx_block_height(
+    constants: ConsensusConstants,
+    blocks: BlockRecordsProtocol,
+    *,
+    prev_b_hash: bytes32,
+    sp_index: uint8,
+    finished_sub_slots: int,
+) -> uint32:
+    latest_tx_block = pre_sp_tx_block(
+        constants=constants,
+        blocks=blocks,
+        prev_b_hash=prev_b_hash,
+        sp_index=sp_index,
+        finished_sub_slots=finished_sub_slots,
+    )
+    if latest_tx_block is None:
+        return uint32(0)
+    return latest_tx_block.height
+
+
+def post_hard_fork2(
+    constants: ConsensusConstants,
+    blocks: BlockRecordsProtocol,
+    *,
+    prev_b_hash: bytes32,
+    sp_index: uint8,
+    finished_sub_slots: int,
+) -> bool:
+    prev_b = blocks.try_block_record(prev_b_hash)
+    if prev_b is None:
+        assert prev_b_hash == constants.GENESIS_CHALLENGE
+        return uint32(0) == constants.HARD_FORK2_HEIGHT
+
+    candidate_height = prev_b.height + 1
+    if candidate_height < constants.HARD_FORK2_HEIGHT:
+        return False
+    if candidate_height >= constants.HARD_FORK2_HEIGHT + constants.SUB_EPOCH_BLOCKS:
+        return True
+
+    return (
+        pre_sp_tx_block_height(
+            constants=constants,
+            blocks=blocks,
+            prev_b_hash=prev_b_hash,
+            sp_index=sp_index,
+            finished_sub_slots=finished_sub_slots,
+        )
+        >= constants.HARD_FORK2_HEIGHT
+    )

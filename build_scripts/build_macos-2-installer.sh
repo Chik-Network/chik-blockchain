@@ -12,7 +12,13 @@ if [ ! "$CHIK_INSTALLER_VERSION" ]; then
   echo "WARNING: No environment variable CHIK_INSTALLER_VERSION set. Using 0.0.0."
   CHIK_INSTALLER_VERSION="0.0.0"
 fi
+if [ ! "$CHIK_SEMVER_VERSION" ]; then
+  echo "WARNING: No environment variable CHIK_SEMVER_VERSION set. Using $CHIK_INSTALLER_VERSION."
+  CHIK_SEMVER_VERSION="$CHIK_INSTALLER_VERSION"
+fi
+
 echo "Chik Installer Version is: $CHIK_INSTALLER_VERSION"
+echo "Chik Semver Version is: $CHIK_SEMVER_VERSION"
 
 echo "Installing npm utilities"
 cd npm_macos || exit 1
@@ -42,41 +48,39 @@ bash ./build_license_directory.sh
 # appears sometimes m-series chips (prefer bundled from @loader_path/..)
 bash ./remove_brew_rpaths.sh
 
-cp -r dist/daemon ../chik-blockchain-gui/packages/gui
+cp -a dist/daemon ../chik-blockchain-gui/packages/gui
 # Change to the gui package
 cd ../chik-blockchain-gui/packages/gui || exit 1
 
 # sets the version for chik-blockchain in package.json
 brew install jq
 cp package.json package.json.orig
-jq --arg VER "$CHIK_INSTALLER_VERSION" '.version=$VER' package.json >temp.json && mv temp.json package.json
+jq --arg VER "$CHIK_SEMVER_VERSION" '.version=$VER' package.json >temp.json && mv temp.json package.json
 
 echo "Building macOS Electron app"
 OPT_ARCH="--x64"
 if [ "$(arch)" = "arm64" ]; then
   OPT_ARCH="--arm64"
 fi
-PRODUCT_NAME="Chik"
 if [ "$NOTARIZE" == true ]; then
   echo "Setting credentials for signing"
   export CSC_LINK=$APPLE_DEV_ID_APP
   export CSC_KEY_PASSWORD=$APPLE_DEV_ID_APP_PASS
-  export PUBLISH_FOR_PULL_REQUEST=true
   export CSC_FOR_PULL_REQUEST=true
 else
   echo "Not on ci or no secrets so not signing"
   export CSC_IDENTITY_AUTO_DISCOVERY=false
 fi
 echo "${NPM_PATH}/electron-builder" build --mac "${OPT_ARCH}" \
-  --config.productName="$PRODUCT_NAME" \
-  --config.mac.minimumSystemVersion="13" \
-  --config ../../../build_scripts/electron-builder.json
+  --config.productName="Chik" \
+  --config ../../../build_scripts/electron-builder.json \
+  --publish never
 "${NPM_PATH}/electron-builder" build --mac "${OPT_ARCH}" \
-  --config.productName="$PRODUCT_NAME" \
-  --config.mac.minimumSystemVersion="13" \
-  --config ../../../build_scripts/electron-builder.json
+  --config.productName="Chik" \
+  --config ../../../build_scripts/electron-builder.json \
+  --publish never
 LAST_EXIT_CODE=$?
-ls -l dist/mac*/chik.app/Contents/Resources/app.asar
+ls -l dist/mac*/Chik.app/Contents/Resources/app.asar
 
 # reset the package.json to the original
 mv package.json.orig package.json
@@ -90,11 +94,10 @@ mv dist/* ../../../build_scripts/dist/
 cd ../../../build_scripts || exit 1
 
 mkdir final_installer
-ORIGINAL_DMG_NAME="chik-${CHIK_INSTALLER_VERSION}.dmg"
+ORIGINAL_DMG_NAME="Chik-${CHIK_INSTALLER_VERSION}.dmg"
 if [ "$(arch)" = "arm64" ]; then
   DMG_NAME=Chik-${CHIK_INSTALLER_VERSION}-arm64.dmg
 else
-  # NOTE: when coded, this changes the case to Chik
   DMG_NAME=Chik-${CHIK_INSTALLER_VERSION}.dmg
 fi
 mv dist/"$ORIGINAL_DMG_NAME" final_installer/"$DMG_NAME"

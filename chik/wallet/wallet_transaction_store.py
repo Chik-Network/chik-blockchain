@@ -3,13 +3,14 @@ from __future__ import annotations
 import dataclasses
 import logging
 import time
-from typing import Optional
 
 import aiosqlite
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32
+from typing_extensions import Any
 
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
+from chik.util.bech32m import encode_puzzle_hash
 from chik.util.db_wrapper import DBWrapper2
 from chik.util.errors import Err
 from chik.wallet.conditions import ConditionValidTimes
@@ -20,13 +21,14 @@ from chik.wallet.transaction_record import (
     minimum_send_attempts,
 )
 from chik.wallet.transaction_sorting import SortKey
+from chik.wallet.util.address_type import AddressType
 from chik.wallet.util.query_filter import FilterMode, TransactionTypeFilter
 from chik.wallet.util.transaction_type import TransactionType
 
 log = logging.getLogger(__name__)
 
 
-def filter_ok_mempool_status(sent_to: list[tuple[str, uint8, Optional[str]]]) -> list[tuple[str, uint8, Optional[str]]]:
+def filter_ok_mempool_status(sent_to: list[tuple[str, uint8, str | None]]) -> list[tuple[str, uint8, str | None]]:
     """Remove SUCCESS and PENDING status records from a TransactionRecord sent_to field"""
     new_sent_to = []
     for peer, status, err in sent_to:
@@ -44,11 +46,13 @@ class WalletTransactionStore:
     tx_submitted: dict[bytes32, tuple[int, int]]  # tx_id: [time submitted: count]
     unconfirmed_txs: list[LightTransactionRecord]  # tx_id: [time submitted: count]
     last_wallet_tx_resend_time: int  # Epoch time in seconds
+    config: dict[str, Any]
 
     @classmethod
-    async def create(cls, db_wrapper: DBWrapper2):
+    async def create(cls, db_wrapper: DBWrapper2, config: dict[str, Any]):
         self = cls()
 
+        self.config = config
         self.db_wrapper = db_wrapper
         async with self.db_wrapper.writer_maybe_transaction() as conn:
             await conn.execute(
@@ -157,7 +161,7 @@ class WalletTransactionStore:
         """
         Updates transaction to be confirmed.
         """
-        current: Optional[TransactionRecord] = await self.get_transaction_record(tx_id)
+        current: TransactionRecord | None = await self.get_transaction_record(tx_id)
         if current is None:
             return None
         if current.confirmed_at_height == height:
@@ -171,13 +175,13 @@ class WalletTransactionStore:
         tx_id: bytes32,
         name: str,
         send_status: MempoolInclusionStatus,
-        err: Optional[Err],
+        err: Err | None,
     ) -> bool:
         """
         Updates transaction sent count (Full Node has received spend_bundle and sent ack).
         """
 
-        current: Optional[TransactionRecord] = await self.get_transaction_record(tx_id)
+        current: TransactionRecord | None = await self.get_transaction_record(tx_id)
         if current is None:
             return False
 
@@ -214,7 +218,7 @@ class WalletTransactionStore:
         )
         await self.add_transaction_record(tx)
 
-    async def get_transaction_record(self, tx_id: bytes32) -> Optional[TransactionRecord]:
+    async def get_transaction_record(self, tx_id: bytes32) -> TransactionRecord | None:
         """
         Checks DB and cache for TransactionRecord with id: id and returns it.
         """
@@ -257,10 +261,9 @@ class WalletTransactionStore:
                 if time_submitted < current_time - (60 * 10):
                     records.append(record)
                     self.tx_submitted[record.name] = current_time, 1
-                else:
-                    if count < minimum_send_attempts:
-                        records.append(record)
-                        self.tx_submitted[record.name] = time_submitted, (count + 1)
+                elif count < minimum_send_attempts:
+                    records.append(record)
+                    self.tx_submitted[record.name] = time_submitted, (count + 1)
             else:
                 records.append(record)
                 self.tx_submitted[record.name] = current_time, 1
@@ -312,9 +315,9 @@ class WalletTransactionStore:
         end,
         sort_key=None,
         reverse=False,
-        confirmed: Optional[bool] = None,
-        to_puzzle_hash: Optional[bytes32] = None,
-        type_filter: Optional[TransactionTypeFilter] = None,
+        confirmed: bool | None = None,
+        to_puzzle_hash: bytes32 | None = None,
+        type_filter: TransactionTypeFilter | None = None,
     ) -> list[TransactionRecord]:
         """Return a list of transaction between start and end index. List is in reverse chronological order.
         start = 0 is most recent transaction
@@ -361,8 +364,8 @@ class WalletTransactionStore:
     async def get_transaction_count_for_wallet(
         self,
         wallet_id: int,
-        confirmed: Optional[bool] = None,
-        type_filter: Optional[TransactionTypeFilter] = None,
+        confirmed: bool | None = None,
+        type_filter: TransactionTypeFilter | None = None,
     ) -> int:
         confirmed_str = ""
         if confirmed is not None:
@@ -384,9 +387,7 @@ class WalletTransactionStore:
             )
         return 0 if len(rows) == 0 else rows[0][0]
 
-    async def get_all_transactions_for_wallet(
-        self, wallet_id: int, type: Optional[int] = None
-    ) -> list[TransactionRecord]:
+    async def get_all_transactions_for_wallet(self, wallet_id: int, type: int | None = None) -> list[TransactionRecord]:
         """
         Returns all stored transactions.
         """
@@ -484,6 +485,10 @@ class WalletTransactionStore:
                 memos=record.memos,
                 valid_times=(
                     tx_id_to_valid_times[record.name] if record.name in tx_id_to_valid_times else empty_valid_times
+                ),
+                to_address=encode_puzzle_hash(
+                    record.to_puzzle_hash,
+                    AddressType.XCK.hrp(self.config),
                 ),
             )
             for record in old_records

@@ -4,18 +4,18 @@ import contextlib
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import Optional
 
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint16, uint64
 
 from chik._tests.util.split_managers import SplitAsyncManager, split_async_manager
 from chik._tests.util.time_out_assert import time_out_assert
+from chik.farmer.farmer_service import FarmerService
 from chik.harvester.harvester import Harvester
+from chik.harvester.harvester_service import HarvesterService
 from chik.plot_sync.sender import Sender
 from chik.protocols.harvester_protocol import PlotSyncIdentifier
 from chik.protocols.outbound_message import Message, NodeType
-from chik.server.aliases import FarmerService, HarvesterService
 from chik.types.peer_info import PeerInfo, UnresolvedPeerInfo
 
 
@@ -24,7 +24,7 @@ class WSChikConnectionDummy:
     connection_type: NodeType
     peer_node_id: bytes32
     peer_info: PeerInfo = PeerInfo("127.0.0.1", uint16(0))
-    last_sent_message: Optional[Message] = None
+    last_sent_message: Message | None = None
 
     async def send_message(self, message: Message) -> None:
         self.last_sent_message = message
@@ -38,7 +38,7 @@ def get_dummy_connection(node_type: NodeType, peer_id: bytes32) -> WSChikConnect
 
 
 def plot_sync_identifier(current_sync_id: uint64, message_id: uint64) -> PlotSyncIdentifier:
-    return PlotSyncIdentifier(uint64(int(time.time())), current_sync_id, message_id)
+    return PlotSyncIdentifier(uint64(time.time()), current_sync_id, message_id)
 
 
 @contextlib.asynccontextmanager

@@ -48,6 +48,7 @@ def test_list_parsing(id: ValueAndArgs, show_unconfirmed: ValueAndArgs, paginate
                 min_coin_amount=cli_amount_none,
                 max_coin_amount=cli_amount_none,
                 coins_to_exclude=(),
+                coins_to_include=(),
                 amounts_to_exclude=(),
             ),
             id=id.value,
@@ -66,8 +67,8 @@ def test_list_parsing(id: ValueAndArgs, show_unconfirmed: ValueAndArgs, paginate
         {
             "num_environments": 1,
             "blocks_needed": [3],  # 6 coins to test pagination
-            "reuse_puzhash": True,  # irrelevent
-            "trusted": True,  # irrelevent
+            "reuse_puzhash": True,  # irrelevant
+            "trusted": True,  # irrelevant
         }
     ],
     indirect=True,
@@ -95,6 +96,7 @@ async def test_list(wallet_environments: WalletTestFramework, capsys: pytest.Cap
             min_coin_amount=cli_amount_none,
             max_coin_amount=cli_amount_none,
             coins_to_exclude=(),
+            coins_to_include=(),
             amounts_to_exclude=(),
         ),
         id=env.wallet_aliases["xck"],
@@ -256,7 +258,7 @@ async def test_list(wallet_environments: WalletTestFramework, capsys: pytest.Cap
     assert base_command.rpc_info.client_info is not None
 
     async def not_synced() -> GetSyncStatusResponse:
-        return GetSyncStatusResponse(False, False)
+        return GetSyncStatusResponse(synced=False, syncing=False)
 
     base_command.rpc_info.client_info.client.get_sync_status = not_synced  # type: ignore[method-assign]
     await base_command.run()

@@ -6,6 +6,307 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project does not yet adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 for setuptools_scm/PEP 440 reasons.
 
+## 2.7.3 Chik blockchain 2026-07-16
+
+## What's Changed
+
+### Changed
+
+- Allow `chik_getHeightInfo` and `chik_getCoinRecordsByNames` WalletConnect commands to bypass confirmation prompts for read-only queries
+
+### Fixed
+
+- Fix confirmation dialogs not appearing on Linux (especially Wayland) when the `ready-to-show` event never fires
+- Fix Plot NFTs appearing assigned to the wrong key due to `launcherId` hex normalization
+- Fix log viewing in the reference wallet GUI by restoring missing Electron main-process imports
+- Fix "Asset type is not valid" error when confirming offers to sell NFTs
+
+## 2.7.2 Chik blockchain 2026-07-09
+
+## What's Changed
+
+### Added
+
+- Add Python 3.14 support
+- Add Weight Proof v2 (WPv2) with MMR-based block commitments and optimized sub-epoch challenge segment tracking
+- Add PlotNFT v2 drivers for pool launch, join/leave, and reward claim
+- Add `/get_constants` RPC to full node
+- Add `get_full_node_peer_count` RPC to wallet
+
+### Changed
+
+- Add `offer_only` option to `create_offer_for_ids`
+- Change how `offer_only` works on `create_offer_for_id`
+- Add `get_fee_estimate` wallet RPC that retrieves fee-per-cost estimates from a connected full node peer, allowing wallet clients to get fee guidance without calling the full node RPC directly
+- Use a separate config for pooling information
+- Use `SQLITE_MAX_VARIABLE_NUMBER` for chunking limit
+- Simplify `TransactionQueueEntry`
+- Speedup `test_ban_for_mismatched_tx_cost_fee`
+- Improve state block handling in `WalletNode`'s `validate_received_state_from_peer`
+- Annotate `timelord_api.py`
+- Annotate `timelord_launcher.py`
+- Annotate `test_transactions.py`
+- Support treating old consensus constant names as the new ones
+- Improve collection of valid coin states in `WalletNode`'s `add_states_from_peer`
+- Make it clear that `bytes100` is always exactly 100 bytes long
+- Annotate `server.py`
+- Avoid recomputing peak header block in `WalletNode`'s `wallet_short_sync_backtrack`
+- Improve `fetch_coin_spend`
+- Annotate `wallet_user_store.py`
+- Add explicit None check in `full_node`'s `short_sync_batch` instead of naked assert
+- Improve `validate_additions`
+- Use `bad_element` in `test_invalid_rc_sub_slot_vdf`
+- Do not require peer for some wallet node APIs
+- Improve macOS Intel CI timeout headroom
+- Add configuration option to advertise rate limits v3 support
+- Annotate `wallet_node_api.py`
+
+### Fixed
+
+- Pass unresolved name as server name in `ws_connect`
+- Remove duplicate code from DID wallet
+- Fix wallet sync wait after puzzle-hash derivation in `test_self_revoke`
+- Handle stale peers during connection garbage collection
+- Fix error handling in `chik plots check`
+- Fix stale overflow
+- Fix chik peer errors for invalid or missing services
+- Isolate per-subscription failures in the DataLayer management loop
+- Fix apparmor profile
+- Fix off by one in cleanup (Thanks roopd3v)
+- Skip DataLayer upload/cleanup for stores with no committed data
+- Fix 407 cases
+- Sanity check that PlotNFT memos match actual inner puzzle
+- Upgrade `aiohttp` to 3.14.0 to fix blockchain sync on slow connections (including Starlink Standby mode)
+- Fix Windows runner tag-lock failures with shallow checkout in `test-single`
+- Upgrade `chik_rs` to 0.45.0
+- Upgrade `chik_rs` to 0.45.1
+
+### Additional Notes
+
+When building the Electron GUI from source, if you use Node.js version 24.16 or greater, only the first file will be extracted. As a result, the GUI won't install correctly. This is an [issue with Node](https://github.com/electron/electron/issues/51623). We plan to fix this on our end in the next release. Meanwhile, for Chik 2.7.2, Node 24.15 is the newest supported version when installing the GUI from source.
+
+In 2.7.1, we fixed a bug that prevented the GUI from loading properly. However, the issue still exists for confirmation dialogs in the Linux GUI. As a result, when performing operations such as sending funds, creating offers, etc, a timeout will occur. This only affects Linux, and it affects both 2.7.1 and 2.7.2. As a workaround, Linux users can continue to use the CLI for the aforementioned operations.
+
+## 2.7.1 Chik blockchain 2026-05-19
+
+## What's Changed
+
+### Added
+
+- Add Cursor AI context rules for modules and testing
+- Introduce a new window based rate limits capability
+- Add ability to specify coins to include in `CoinSelectionConfig`
+
+### Changed
+
+- WalletConnect: Upgraded to WalletConnect v2
+- WalletConnect: unified commands, redesigned permissions, and added support for chik gaming
+- Remove several wallet modules from mypy strict exclusions
+- Improve requesting transactions advertised via `NewTransaction`
+- Give callers of `SingletonFastForward.process_fast_forward_spends` control over the state update
+- Update inbound timelord connection handling
+- Move `NPCResults` into tests
+- Improve compact VDF request handling
+- Replace multiple thread pool executors with a shared `PriorityThreadPoolExecutor` to improve CPU utilization
+- Optimize handling of unfinished blocks
+- Reject malformed weight proof segments with overflow block at index 0
+- Improve active requests tracking
+- Fix mypy 1.20.0 compatibility
+- Add outbound handshake timeout in `start_client`
+- Add more detailed information to `get_height_info()`
+- Improve proof of space unfinished block handling
+- Improve logging for unfinished blocks that overflow in the first sub-slot of a new epoch
+- Remove no longer needed tx peak computation in `declare_proof_of_space`
+- Various changes for chik gaming support
+- Avoid recomputing tx peak when creating a block generator in `declare_proof_of_space`
+- Improve logging for unsolicited transactions in `FullNodeAPI.respond_transaction`
+- Improve handling of nonced timed-out requests in `WSChikConnection`
+- Avoid redundant close handling on already-closed peers in `WalletNode.new_peak_wallet`
+- Add dynamic list-limited deserialization for Streamable types
+- Improve handling of additions/removals requests in `WalletNode.validate_received_state_from_peer`
+- Remove unused wallet outbound rate-limit config key
+- Bump `chik_rs` to 0.42.1
+- Update GUI pin to release/2.7.1
+
+### Fixed
+
+- Use read-only snapshots for block pre-validation to prevent concurrent mutation
+- Ensure malformed websocket frames trigger a proper disconnect
+- Fix `combine_coins` ignoring `--max-coin-amount` and including spent coins
+- Fix wallet transaction inflight tracking
+- Restore DL wallet launcher entry after rollback
+- Fix invalid third-party harvester signage point fixture data
+- Fix `SyncStore` handling of stale peaks and empty peer entries
+- Replace assert with explicit check for unknown parent block
+- Replace assert with explicit None check in `get_heaviest_peak()`
+- Prevent unnecessary farming delays of height-asserted spends at exact match height
+- Widen wallet request protocol fields from `uint16` to `uint32` (fixes #20255)
+
+## 2.7.0 Chik blockchain 2026-3-26
+
+## What's Changed
+
+### Added
+
+- Remote Wallet and new RPC calls
+
+### Changed
+
+- Numerous hardening measures and soft fork: Please read our blog post for more information
+  https://www.chiknetwork.com/2026/03/26/chik-2-7-0-combatting-the-ai-siege/
+- Make the mempool a bit more defensive on slow machines
+- Harden connection handling and message validation in `WSChikConnection`
+- Improve `register_for_coin_updates`
+- Early check of proof of space in a few places
+- Ignore unsolicited `RespondTransaction`
+- Mempool spend limit
+- Harden `Streamable.from_bytes()` to raise `ValueError` on unconsumed trailing bytes
+- Bump `chik_rs` to `0.41.1`
+
+### Fixed
+
+- Fix timelord to skip processing after failed VDF proof validation
+- Apply `client_timeout` to all DataLayer plugin HTTP calls
+- DataLayer hardening related to DAT file downloading
+
+## 2.6.1 Chik blockchain 2026-3-18
+
+## What's Changed
+
+### Added
+
+- Add BYC and CRT to default CAT list
+- New inner puzzle meta-standard that has instructions for how a wallet can handle arbitrary authorization trees
+- Work in Progress - PoS2 integration
+- Use structured RPC errors in `full_node_rpc_api`
+
+### Changed
+
+- Simplify and optimize `TransactionQueue`
+- Use an adapted version of deficit round robin algorithm in `TransactionQueue`
+- Forward `send_transaction` and `cat_spend` to `create_signed_transaction`
+- Prioritize trusted peers in FullNodeAPI's `send_transaction`
+- Add `kw_only` to all wallet RPC types
+- Miscellaneous wallet RPC cleanups
+- Tolerate quote related cost mismatch for older nodes
+- Skip fetching additions and removals for non transaction blocks in FullNodeAPI's `request_header_blocks`
+- Refactor connection handshake
+- Reject unsolicited `RespondCompactVDF` messages
+- Made log less chatty for compact proofs
+- Harden full node store
+- Validate QR bit in DNS seeder to only process queries
+- Add missing request decorator to `reject_removals_request`
+- Correct accounting of cost limits in offer summary computation
+- Harden nodes message typechecking
+- Harden the full node’s incoming connection logic
+- Default to block creation 1
+- Only update the fast forward state on successful validation in `process_fast_forward_spends`
+- Bump `chik_rs` to `0.38.2`
+
+### Fixed
+
+- Revert accidental RPC parameter name change
+- Augmented usage fix
+- Blocktools double sub epoch summary hash bug
+- Fix reorg edge case handling in the wallet protocol
+- Prevent dangling SAVEPOINTs by shielding against cancellation
+- Return RejectAdditionsRequest to wallets instead of raising an exception
+- Close VDF client TCP connections properly
+- Fix PendingTxCache eviction when encountering empty height buckets
+
+### Removed
+
+- Drop support for macOS 13 (Ventura) and macOS 14 (Sonoma)
+
+## 2.6.0 Chik blockchain 2026-2-11
+
+As this is a soft fork release, upgrading is strongly recommended before height 8,655,000.
+
+## What's Changed
+
+### Added
+
+- Update error message for invalid IP and port format to clarify ipv6
+- Work in Progress - increased preliminary support for V2 plot format
+- Python 3.13 support
+- Do not advertise a new transaction with zero cost
+
+### Changed
+
+- Bump chik_rs to 0.35.2
+- Bump chikvdf from 1.1.13 to 1.1.14
+- Bump chikbip158 from 1.5.3 to 1.5.4
+- Bump chikpos from 2.0.11 to 2.0.12
+- Skip fetching additions and removals for non transaction blocks in FullNodeAPI's request_header_blocks
+- Tolerate quote related cost mismatch for older nodes
+- Use an adapted version of deficit round robin algorithm in TransactionQueue's pop
+- Prioritize trusted peers in FullNodeAPI's send_transaction
+- Make sure the costs and fees match when a peer notifies us of a new transaction that we saw already
+- Remove unnecessary private key access from `get_public_keys`
+- Set minimum to TLSv1.3
+- Make sure the fee and cost specified in a NewTransaction match the ones from validating its spend bundle
+- Change v1 plot phase-out
+- Simplify tx_request_and_timeout and make it iterate over a dynamic list of peers with transactions
+- Improve v2-plot support in plot-sync
+- Don't allow, or harvest, v2 plots before hard fork activation
+- Change Chik Root CA to expire 31 Dec 2037
+- Default to single solver thread
+- Relax PoS validation in weight proofs
+- Advertise requested mempool transactions instead of sending them
+- In TransactionQueue, prioritize peer queue transactions by fee per cost
+- Eliminate rate limits and bans for exempt peer networks
+- Updated GUI translations
+
+### Fixed
+
+- Fix RPC key deletion endpoints to actually delete intended DBs
+- Fix some typos in comments by @rocksload
+- Some minor issues in comment by @deepdring
+- Fix a large number of spelling issues in comments by @joemicky
+- Fix typo for Timelord.\_check_for_new_sp comments by @wanziforever
+- Change GetTransactions to use uint32 to support wallets with very large numbers of transactions
+- Fix measurement of harvester lookup times for logging
+- Fixed NFT minting RPC parameter (fixes #20360)
+- Fixed CAT names on overview (fixes #20297)
+
+## 2.5.7 Chik blockchain 2025-11-12
+
+## What's Changed
+
+### Added
+
+- New Datalayer delta file format for improved performance
+- New Datalayer delta file migration and increased logging
+- New Datalayer config option `merkle_blobs_cache_size`
+- Work in Progress - preliminary support for V2 plot format (eg: `chik plots check`)
+- Add Enum support to `streamable` framework
+- New option `-i/--include-pool-rewards` for `chik farm summary` (thanks @wallentx)
+
+### Changed
+
+- Improved Datalayer performance significantly with migration to Rust (via `chik_rs`)
+- Improved Mempool performance and fast forward support
+- Modified wallet RPC `add_key` to support providing a key label
+- Integrated `PLOT_V1_PHASE_OUT` constant
+- Optimixed code related to node handling of new peaks
+- Simplified `install-gui.sh` script to remove code that attempts to find and install NodeJS
+- Bump `chik_rs` to `0.30`
+- Bump `chikvdf` to `1.1.13`
+- Bump `cryptography` to `45.0.5`
+- Bump `cffi` to `1.17.1`
+- Bump `markupsafe` to `3.0.2`
+
+### Fixed
+
+- Changed logging of `NO_OVERFLOWS_IN_FIRST_SUB_SLOT_NEW_EPOCH` from `error` to `info` as this is expected in certain situations
+- Fixed signage point lookup edge case at genesis in the first slot
+- Change default limit for `get_transactions` to 65536 (uint16)
+
+### Removed
+
+- Removed the following unsupported Wallet RPC APIs: `did_update_recovery_ids`, `did_recovery_spend`, `did_get_recovery_list`, `did_create_attest`, `did_get_information_needed_for_recovery`
+- Python 3.9 is no longer supported
+
 ## 2.5.6 Chik blockchain 2025-9-24
 
 ## What's Changed

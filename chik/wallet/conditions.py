@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass, fields, replace
-from typing import Any, ClassVar, Optional, TypeVar, Union, final, get_type_hints
+from typing import Any, ClassVar, TypeVar, final, get_type_hints
 
 from chik_rs import Coin, G1Element
 from chik_rs.sized_bytes import bytes32
@@ -14,7 +14,7 @@ from chik.types.blockchain_format.program import Program
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.util.casts import int_from_bytes, int_to_bytes
 from chik.util.hash import std_hash
-from chik.util.streamable import Streamable, streamable
+from chik.util.streamable import Streamable, StreamableFields, streamable
 
 _T_Condition = TypeVar("_T_Condition", bound="Condition")
 
@@ -34,14 +34,14 @@ class Condition(Streamable, ABC):
 class AggSigParent(Condition):
     pubkey: G1Element
     msg: bytes
-    parent_id: Optional[bytes32] = None
+    parent_id: bytes32 | None = None
 
     def to_program(self) -> Program:
         condition: Program = Program.to([ConditionOpcode.AGG_SIG_PARENT, self.pubkey.to_bytes(), self.msg])
         return condition
 
     @classmethod
-    def from_program(cls, program: Program, parent_id: Optional[bytes32] = None) -> AggSigParent:
+    def from_program(cls, program: Program, parent_id: bytes32 | None = None) -> AggSigParent:
         return cls(
             G1Element.from_bytes(program.at("rf").as_atom()),
             program.at("rrf").as_atom(),
@@ -55,14 +55,14 @@ class AggSigParent(Condition):
 class AggSigPuzzle(Condition):
     pubkey: G1Element
     msg: bytes
-    puzzle_hash: Optional[bytes32] = None
+    puzzle_hash: bytes32 | None = None
 
     def to_program(self) -> Program:
         condition: Program = Program.to([ConditionOpcode.AGG_SIG_PUZZLE, self.pubkey.to_bytes(), self.msg])
         return condition
 
     @classmethod
-    def from_program(cls, program: Program, puzzle_hash: Optional[bytes32] = None) -> AggSigPuzzle:
+    def from_program(cls, program: Program, puzzle_hash: bytes32 | None = None) -> AggSigPuzzle:
         return cls(
             G1Element.from_bytes(program.at("rf").as_atom()),
             program.at("rrf").as_atom(),
@@ -76,14 +76,14 @@ class AggSigPuzzle(Condition):
 class AggSigAmount(Condition):
     pubkey: G1Element
     msg: bytes
-    amount: Optional[uint64] = None
+    amount: uint64 | None = None
 
     def to_program(self) -> Program:
         condition: Program = Program.to([ConditionOpcode.AGG_SIG_AMOUNT, self.pubkey.to_bytes(), self.msg])
         return condition
 
     @classmethod
-    def from_program(cls, program: Program, amount: Optional[uint64] = None) -> AggSigAmount:
+    def from_program(cls, program: Program, amount: uint64 | None = None) -> AggSigAmount:
         return cls(
             G1Element.from_bytes(program.at("rf").as_atom()),
             program.at("rrf").as_atom(),
@@ -97,8 +97,8 @@ class AggSigAmount(Condition):
 class AggSigPuzzleAmount(Condition):
     pubkey: G1Element
     msg: bytes
-    puzzle_hash: Optional[bytes32] = None
-    amount: Optional[uint64] = None
+    puzzle_hash: bytes32 | None = None
+    amount: uint64 | None = None
 
     def to_program(self) -> Program:
         condition: Program = Program.to([ConditionOpcode.AGG_SIG_PUZZLE_AMOUNT, self.pubkey.to_bytes(), self.msg])
@@ -108,8 +108,8 @@ class AggSigPuzzleAmount(Condition):
     def from_program(
         cls,
         program: Program,
-        puzzle_hash: Optional[bytes32] = None,
-        amount: Optional[uint64] = None,
+        puzzle_hash: bytes32 | None = None,
+        amount: uint64 | None = None,
     ) -> AggSigPuzzleAmount:
         return cls(
             G1Element.from_bytes(program.at("rf").as_atom()),
@@ -125,8 +125,8 @@ class AggSigPuzzleAmount(Condition):
 class AggSigParentAmount(Condition):
     pubkey: G1Element
     msg: bytes
-    parent_id: Optional[bytes32] = None
-    amount: Optional[uint64] = None
+    parent_id: bytes32 | None = None
+    amount: uint64 | None = None
 
     def to_program(self) -> Program:
         condition: Program = Program.to([ConditionOpcode.AGG_SIG_PARENT_AMOUNT, self.pubkey.to_bytes(), self.msg])
@@ -136,8 +136,8 @@ class AggSigParentAmount(Condition):
     def from_program(
         cls,
         program: Program,
-        parent_id: Optional[bytes32] = None,
-        amount: Optional[uint64] = None,
+        parent_id: bytes32 | None = None,
+        amount: uint64 | None = None,
     ) -> AggSigParentAmount:
         return cls(
             G1Element.from_bytes(program.at("rf").as_atom()),
@@ -153,8 +153,8 @@ class AggSigParentAmount(Condition):
 class AggSigParentPuzzle(Condition):
     pubkey: G1Element
     msg: bytes
-    parent_id: Optional[bytes32] = None
-    puzzle_hash: Optional[bytes32] = None
+    parent_id: bytes32 | None = None
+    puzzle_hash: bytes32 | None = None
 
     def to_program(self) -> Program:
         condition: Program = Program.to([ConditionOpcode.AGG_SIG_PARENT_PUZZLE, self.pubkey.to_bytes(), self.msg])
@@ -164,8 +164,8 @@ class AggSigParentPuzzle(Condition):
     def from_program(
         cls,
         program: Program,
-        parent_id: Optional[bytes32] = None,
-        puzzle_hash: Optional[bytes32] = None,
+        parent_id: bytes32 | None = None,
+        puzzle_hash: bytes32 | None = None,
     ) -> AggSigParentPuzzle:
         return cls(
             G1Element.from_bytes(program.at("rf").as_atom()),
@@ -200,8 +200,8 @@ class AggSigUnsafe(Condition):
 class AggSigMe(Condition):
     pubkey: G1Element
     msg: bytes
-    coin_id: Optional[bytes32] = None
-    additional_data: Optional[bytes32] = None
+    coin_id: bytes32 | None = None
+    additional_data: bytes32 | None = None
 
     def to_program(self) -> Program:
         condition: Program = Program.to([ConditionOpcode.AGG_SIG_ME, self.pubkey.to_bytes(), self.msg])
@@ -211,8 +211,8 @@ class AggSigMe(Condition):
     def from_program(
         cls,
         program: Program,
-        coin_id: Optional[bytes32] = None,
-        additional_data: Optional[bytes32] = None,
+        coin_id: bytes32 | None = None,
+        additional_data: bytes32 | None = None,
     ) -> AggSigMe:
         return cls(
             G1Element.from_bytes(program.at("rf").as_atom()),
@@ -228,30 +228,45 @@ class AggSigMe(Condition):
 class CreateCoin(Condition):
     puzzle_hash: bytes32
     amount: uint64
-    memos: Optional[list[bytes]] = None
+    memos: list[bytes] | None = None
+    memo_blob: Program | None = None
+
+    def __post_init__(self) -> None:
+        if self.memos is not None and self.memo_blob is not None:
+            raise ValueError("Cannot have both memos and memo_blob")
+        return super().__post_init__()
 
     def to_program(self) -> Program:
         condition_args = [ConditionOpcode.CREATE_COIN, self.puzzle_hash, self.amount]
         if self.memos is not None:
             condition_args.append(self.memos)
+        elif self.memo_blob is not None:
+            condition_args.append(self.memo_blob)
         condition: Program = Program.to(condition_args)
         return condition
 
     @classmethod
     def from_program(cls, program: Program) -> Self:
         potential_memos: Program = program.at("rrr")
-        return cls(
-            bytes32(program.at("rf").as_atom()),
-            uint64(program.at("rrf").as_int()),
-            (
-                None
-                if potential_memos == Program.to(None)
-                else [memo.as_atom() for memo in potential_memos.at("f").as_iter()]
-            ),
-        )
+        try:
+            return cls(
+                bytes32(program.at("rf").as_atom()),
+                uint64(program.at("rrf").as_int()),
+                (
+                    None
+                    if potential_memos == Program.NIL
+                    else [memo.as_atom() for memo in potential_memos.at("f").as_iter()]
+                ),
+            )
+        except ValueError:  # a bit of a hack to avoid doing the heavy lifting of switching the memo usage everywhere
+            return cls(
+                bytes32(program.at("rf").as_atom()),
+                uint64(program.at("rrf").as_int()),
+                memo_blob=potential_memos.at("f"),
+            )
 
-    def as_condition_args(self) -> list[Union[bytes32, uint64, Optional[list[bytes]]]]:
-        return [self.puzzle_hash, self.amount, self.memos]
+    def as_condition_args(self) -> list[bytes32 | uint64 | list[bytes] | Program | None]:
+        return [self.puzzle_hash, self.amount, self.memos if self.memos is not None else self.memo_blob]
 
 
 @final
@@ -275,9 +290,9 @@ class ReserveFee(Condition):
 @streamable
 @dataclass(frozen=True)
 class AssertCoinAnnouncement(Condition):
-    msg: Optional[bytes32] = None
-    asserted_id: Optional[bytes32] = None
-    asserted_msg: Optional[bytes] = None
+    msg: bytes32 | None = None
+    asserted_id: bytes32 | None = None
+    asserted_msg: bytes | None = None
 
     def __post_init__(self) -> None:
         if self.msg is None and (self.asserted_id is None or self.asserted_msg is None):
@@ -305,8 +320,8 @@ class AssertCoinAnnouncement(Condition):
     def from_program(
         cls,
         program: Program,
-        asserted_id: Optional[bytes32] = None,
-        asserted_msg: Optional[bytes] = None,
+        asserted_id: bytes32 | None = None,
+        asserted_msg: bytes | None = None,
     ) -> AssertCoinAnnouncement:
         return cls(
             bytes32(program.at("rf").as_atom()),
@@ -320,7 +335,7 @@ class AssertCoinAnnouncement(Condition):
 @dataclass(frozen=True)
 class CreateCoinAnnouncement(Condition):
     msg: bytes
-    coin_id: Optional[bytes32] = None
+    coin_id: bytes32 | None = None
 
     def corresponding_assertion(self) -> AssertCoinAnnouncement:
         if self.coin_id is None:
@@ -333,7 +348,7 @@ class CreateCoinAnnouncement(Condition):
         return condition
 
     @classmethod
-    def from_program(cls, program: Program, coin_id: Optional[bytes32] = None) -> CreateCoinAnnouncement:
+    def from_program(cls, program: Program, coin_id: bytes32 | None = None) -> CreateCoinAnnouncement:
         return cls(
             program.at("rf").as_atom(),
             coin_id,
@@ -344,9 +359,9 @@ class CreateCoinAnnouncement(Condition):
 @streamable
 @dataclass(frozen=True)
 class AssertPuzzleAnnouncement(Condition):
-    msg: Optional[bytes32] = None
-    asserted_ph: Optional[bytes32] = None
-    asserted_msg: Optional[bytes] = None
+    msg: bytes32 | None = None
+    asserted_ph: bytes32 | None = None
+    asserted_msg: bytes | None = None
 
     def __post_init__(self) -> None:
         if self.msg is None and (self.asserted_ph is None or self.asserted_msg is None):
@@ -374,8 +389,8 @@ class AssertPuzzleAnnouncement(Condition):
     def from_program(
         cls,
         program: Program,
-        asserted_ph: Optional[bytes32] = None,
-        asserted_msg: Optional[bytes] = None,
+        asserted_ph: bytes32 | None = None,
+        asserted_msg: bytes | None = None,
     ) -> AssertPuzzleAnnouncement:
         return cls(
             bytes32(program.at("rf").as_atom()),
@@ -389,7 +404,7 @@ class AssertPuzzleAnnouncement(Condition):
 @dataclass(frozen=True)
 class CreatePuzzleAnnouncement(Condition):
     msg: bytes
-    puzzle_hash: Optional[bytes32] = None
+    puzzle_hash: bytes32 | None = None
 
     def corresponding_assertion(self) -> AssertPuzzleAnnouncement:
         if self.puzzle_hash is None:
@@ -402,7 +417,7 @@ class CreatePuzzleAnnouncement(Condition):
         return condition
 
     @classmethod
-    def from_program(cls, program: Program, puzzle_hash: Optional[bytes32] = None) -> CreatePuzzleAnnouncement:
+    def from_program(cls, program: Program, puzzle_hash: bytes32 | None = None) -> CreatePuzzleAnnouncement:
         return cls(
             program.at("rf").as_atom(),
             puzzle_hash,
@@ -413,11 +428,11 @@ class CreatePuzzleAnnouncement(Condition):
 @streamable
 @dataclass(frozen=True)
 class MessageParticipant(Streamable):
-    mode_integer: Optional[uint8] = None
-    parent_id_committed: Optional[bytes32] = None
-    puzzle_hash_committed: Optional[bytes32] = None
-    amount_committed: Optional[uint64] = None
-    coin_id_committed: Optional[bytes32] = None
+    mode_integer: uint8 | None = None
+    parent_id_committed: bytes32 | None = None
+    puzzle_hash_committed: bytes32 | None = None
+    amount_committed: uint64 | None = None
+    coin_id_committed: bytes32 | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -470,7 +485,7 @@ class MessageParticipant(Streamable):
         if self.coin_id_committed is not None:
             return uint8(0b111)
 
-        def convert_noneness_to_bit(maybe_none: Optional[Any]) -> int:
+        def convert_noneness_to_bit(maybe_none: Any | None) -> int:
             return 1 if maybe_none is not None else 0
 
         return uint8(
@@ -498,7 +513,7 @@ class MessageParticipant(Streamable):
 
     @classmethod
     def from_mode_and_maybe_args(
-        cls, sender: bool, full_mode: uint8, args: Optional[Iterable[Program]] = None
+        cls, sender: bool, full_mode: uint8, args: Iterable[Program] | None = None
     ) -> MessageParticipant:
         if sender:
             mode = full_mode >> 3
@@ -511,12 +526,12 @@ class MessageParticipant(Streamable):
         if mode == 0b111:
             return cls(mode_integer=uint8(mode), coin_id_committed=next(bytes32(arg.as_atom()) for arg in args))
 
-        parent_id_committed: Optional[bytes32] = None
-        puzzle_hash_committed: Optional[bytes32] = None
-        amount_committed: Optional[uint64] = None
+        parent_id_committed: bytes32 | None = None
+        puzzle_hash_committed: bytes32 | None = None
+        amount_committed: uint64 | None = None
         # This loop probably looks a little strange
         # It's trying to account for the fact that the arguments may be any 1 or 2 of these arguments in this order
-        # Not sure of a more elgant way to do it
+        # Not sure of a more elegant way to do it
         original_mode = mode
         for arg in args:
             if mode & 0b100:
@@ -543,14 +558,14 @@ class MessageParticipant(Streamable):
 @dataclass(frozen=True)
 class SendMessage(Condition):
     msg: bytes
-    var_args: Optional[list[Program]] = None
-    mode_integer: Optional[uint8] = None
-    sender: Optional[MessageParticipant] = None
-    receiver: Optional[MessageParticipant] = None
+    var_args: list[Program] | None = None
+    mode_integer: uint8 | None = None
+    sender: MessageParticipant | None = None
+    receiver: MessageParticipant | None = None
     _other_party_is_receiver: ClassVar[bool] = True
 
     @property
-    def _other_party(self) -> Optional[MessageParticipant]:
+    def _other_party(self) -> MessageParticipant | None:
         return self.receiver
 
     @property
@@ -625,7 +640,7 @@ class ReceiveMessage(SendMessage):
     _other_party_is_receiver: ClassVar[bool] = False
 
     @property
-    def _other_party(self) -> Optional[MessageParticipant]:
+    def _other_party(self) -> MessageParticipant | None:
         return self.sender
 
     @property
@@ -966,9 +981,7 @@ class UnknownCondition(Condition):
 
     @classmethod
     def from_program(cls, program: Program) -> UnknownCondition:
-        return cls(
-            program.at("f"), [] if program.at("r") == Program.to(None) else [p for p in program.at("r").as_iter()]
-        )
+        return cls(program.at("f"), [] if program.at("r") == Program.NIL else [p for p in program.at("r").as_iter()])
 
 
 # Abstractions
@@ -979,18 +992,18 @@ class AggSig(Condition):
     pubkey: G1Element
     msg: bytes
     opcode: bytes = ConditionOpcode.AGG_SIG_ME.value
-    coin_id: Optional[bytes32] = None
-    parent_id: Optional[bytes32] = None
-    puzzle_hash: Optional[bytes32] = None
-    amount: Optional[uint64] = None
-    additional_data: Optional[bytes32] = None
+    coin_id: bytes32 | None = None
+    parent_id: bytes32 | None = None
+    puzzle_hash: bytes32 | None = None
+    amount: uint64 | None = None
+    additional_data: bytes32 | None = None
 
     def to_program(self) -> Program:
         # We know we are an agg sig or we want to error
         return CONDITION_DRIVERS[self.opcode](self.pubkey.to_bytes(), self.msg).to_program()  # type: ignore[call-arg]
 
     @classmethod
-    def from_program(cls, program: Program, **kwargs: Optional[Union[uint64, bytes32]]) -> AggSig:
+    def from_program(cls, program: Program, **kwargs: uint64 | bytes32 | None) -> AggSig:
         opcode: bytes = program.at("f").as_atom()
         condition_driver: Condition = CONDITION_DRIVERS[opcode].from_program(program, **kwargs)
         return cls(
@@ -1008,7 +1021,7 @@ class AggSig(Condition):
 class CreateAnnouncement(Condition):
     msg: bytes
     coin_not_puzzle: bool
-    origin_id: Optional[bytes32] = None
+    origin_id: bytes32 | None = None
 
     def corresponding_assertion(self) -> AssertAnnouncement:
         if self.origin_id is None:
@@ -1023,14 +1036,14 @@ class CreateAnnouncement(Condition):
             return CreatePuzzleAnnouncement(self.msg, self.origin_id).to_program()
 
     @classmethod
-    def from_program(cls, program: Program, **kwargs: Optional[bytes32]) -> CreateAnnouncement:
+    def from_program(cls, program: Program, **kwargs: bytes32 | None) -> CreateAnnouncement:
         if program.at("f").as_atom() == ConditionOpcode.CREATE_COIN_ANNOUNCEMENT:
             coin_not_puzzle: bool = True
-            condition: Union[CreateCoinAnnouncement, CreatePuzzleAnnouncement] = CreateCoinAnnouncement.from_program(
+            condition: CreateCoinAnnouncement | CreatePuzzleAnnouncement = CreateCoinAnnouncement.from_program(
                 program, **kwargs
             )
             assert isinstance(condition, CreateCoinAnnouncement)
-            origin_id: Optional[bytes32] = condition.coin_id
+            origin_id: bytes32 | None = condition.coin_id
         else:
             coin_not_puzzle = False
             condition = CreatePuzzleAnnouncement.from_program(program, **kwargs)
@@ -1048,9 +1061,9 @@ class CreateAnnouncement(Condition):
 @dataclass(frozen=True)
 class AssertAnnouncement(Condition):
     coin_not_puzzle: bool
-    msg: Optional[bytes32] = None
-    asserted_origin_id: Optional[bytes32] = None
-    asserted_msg: Optional[bytes] = None
+    msg: bytes32 | None = None
+    asserted_origin_id: bytes32 | None = None
+    asserted_msg: bytes | None = None
 
     def __post_init__(self) -> None:
         if self.msg is None and (self.asserted_origin_id is None or self.asserted_msg is None):
@@ -1077,14 +1090,14 @@ class AssertAnnouncement(Condition):
             return CreateAnnouncement(self.asserted_msg, self.coin_not_puzzle, self.asserted_origin_id)
 
     @classmethod
-    def from_program(cls, program: Program, **kwargs: Optional[bytes32]) -> AssertAnnouncement:
+    def from_program(cls, program: Program, **kwargs: bytes32 | None) -> AssertAnnouncement:
         if program.at("f").as_atom() == ConditionOpcode.ASSERT_COIN_ANNOUNCEMENT:
             coin_not_puzzle: bool = True
-            condition: Union[AssertCoinAnnouncement, AssertPuzzleAnnouncement] = AssertCoinAnnouncement.from_program(
+            condition: AssertCoinAnnouncement | AssertPuzzleAnnouncement = AssertCoinAnnouncement.from_program(
                 program, **kwargs
             )
             assert isinstance(condition, AssertCoinAnnouncement)
-            asserted_origin_id: Optional[bytes32] = condition.asserted_id
+            asserted_origin_id: bytes32 | None = condition.asserted_id
         else:
             coin_not_puzzle = False
             condition = AssertPuzzleAnnouncement.from_program(program, **kwargs)
@@ -1098,16 +1111,16 @@ class AssertAnnouncement(Condition):
         )
 
 
-TIMELOCK_TYPES = Union[
-    AssertSecondsRelative,
-    AssertHeightRelative,
-    AssertSecondsAbsolute,
-    AssertHeightAbsolute,
-    AssertBeforeSecondsRelative,
-    AssertBeforeHeightRelative,
-    AssertBeforeSecondsAbsolute,
-    AssertBeforeHeightAbsolute,
-]
+TIMELOCK_TYPES = (
+    AssertSecondsRelative
+    | AssertHeightRelative
+    | AssertSecondsAbsolute
+    | AssertHeightAbsolute
+    | AssertBeforeSecondsRelative
+    | AssertBeforeHeightRelative
+    | AssertBeforeSecondsAbsolute
+    | AssertBeforeHeightAbsolute
+)
 
 
 TIMELOCK_DRIVERS: tuple[
@@ -1375,7 +1388,7 @@ def parse_conditions_non_consensus(
 def conditions_from_json_dicts(conditions: Iterable[dict[str, Any]]) -> list[Condition]:
     final_condition_list: list[Condition] = []
     for condition in conditions:
-        opcode_specified: Union[str, int] = condition["opcode"]
+        opcode_specified: str | int = condition["opcode"]
         if isinstance(opcode_specified, str):
             try:
                 opcode: bytes = ConditionOpcode[opcode_specified]
@@ -1408,36 +1421,74 @@ def conditions_to_json_dicts(conditions: Iterable[Condition]) -> list[dict[str, 
 
 @streamable
 @dataclass(frozen=True)
-class ConditionValidTimes(Streamable):
-    min_secs_since_created: Optional[uint64] = None  # ASSERT_SECONDS_RELATIVE
-    min_time: Optional[uint64] = None  # ASSERT_SECONDS_ABSOLUTE
-    min_blocks_since_created: Optional[uint32] = None  # ASSERT_HEIGHT_RELATIVE
-    min_height: Optional[uint32] = None  # ASSERT_HEIGHT_ABSOLUTE
-    max_secs_after_created: Optional[uint64] = None  # ASSERT_BEFORE_SECONDS_RELATIVE
-    max_time: Optional[uint64] = None  # ASSERT_BEFORE_SECONDS_ABSOLUTE
-    max_blocks_after_created: Optional[uint32] = None  # ASSERT_BEFORE_HEIGHT_RELATIVE
-    max_height: Optional[uint32] = None  # ASSERT_BEFORE_HEIGHT_ABSOLUTE
+class ConditionValidTimesAbsolute(Streamable):
+    min_time: uint64 | None = None  # ASSERT_SECONDS_ABSOLUTE
+    min_height: uint32 | None = None  # ASSERT_HEIGHT_ABSOLUTE
+    max_time: uint64 | None = None  # ASSERT_BEFORE_SECONDS_ABSOLUTE
+    max_height: uint32 | None = None  # ASSERT_BEFORE_HEIGHT_ABSOLUTE
 
     def to_conditions(self) -> list[Condition]:
         final_condition_list: list[Condition] = []
-        if self.min_secs_since_created is not None:
-            final_condition_list.append(AssertSecondsRelative(self.min_secs_since_created))
         if self.min_time is not None:
             final_condition_list.append(AssertSecondsAbsolute(self.min_time))
-        if self.min_blocks_since_created is not None:
-            final_condition_list.append(AssertHeightRelative(self.min_blocks_since_created))
         if self.min_height is not None:
             final_condition_list.append(AssertHeightAbsolute(self.min_height))
-        if self.max_secs_after_created is not None:
-            final_condition_list.append(AssertBeforeSecondsRelative(self.max_secs_after_created))
         if self.max_time is not None:
             final_condition_list.append(AssertBeforeSecondsAbsolute(self.max_time))
-        if self.max_blocks_after_created is not None:
-            final_condition_list.append(AssertBeforeHeightRelative(self.max_blocks_after_created))
         if self.max_height is not None:
             final_condition_list.append(AssertBeforeHeightAbsolute(self.max_height))
+        return final_condition_list
+
+
+@streamable
+@dataclass(frozen=True)
+class ConditionValidTimes(ConditionValidTimesAbsolute):
+    min_secs_since_created: uint64 | None = None  # ASSERT_SECONDS_RELATIVE
+    min_blocks_since_created: uint32 | None = None  # ASSERT_HEIGHT_RELATIVE
+    max_secs_after_created: uint64 | None = None  # ASSERT_BEFORE_SECONDS_RELATIVE
+    max_blocks_after_created: uint32 | None = None  # ASSERT_BEFORE_HEIGHT_RELATIVE
+
+    @classmethod
+    def streamable_fields(cls) -> StreamableFields:
+        # A hack to serialize the fields in the order before this was inherited
+        order_map = {
+            name: i
+            for i, name in enumerate(
+                [
+                    "min_secs_since_created",
+                    "min_time",
+                    "min_blocks_since_created",
+                    "min_height",
+                    "max_secs_after_created",
+                    "max_time",
+                    "max_blocks_after_created",
+                    "max_height",
+                ]
+            )
+        }
+
+        return tuple(sorted(cls._streamable_fields, key=lambda item: order_map[item.name]))
+
+    def to_conditions(self) -> list[Condition]:
+        final_condition_list = super().to_conditions()
+        if self.min_secs_since_created is not None:
+            final_condition_list.append(AssertSecondsRelative(self.min_secs_since_created))
+        if self.min_blocks_since_created is not None:
+            final_condition_list.append(AssertHeightRelative(self.min_blocks_since_created))
+        if self.max_secs_after_created is not None:
+            final_condition_list.append(AssertBeforeSecondsRelative(self.max_secs_after_created))
+        if self.max_blocks_after_created is not None:
+            final_condition_list.append(AssertBeforeHeightRelative(self.max_blocks_after_created))
 
         return final_condition_list
+
+    def only_absolutes(self) -> ConditionValidTimesAbsolute:
+        return ConditionValidTimesAbsolute(
+            min_time=self.min_time,
+            min_height=self.min_height,
+            max_time=self.max_time,
+            max_height=self.max_height,
+        )
 
 
 condition_valid_times_hints = get_type_hints(ConditionValidTimes)
@@ -1472,9 +1523,7 @@ def parse_timelock_info(conditions: Iterable[Condition]) -> ConditionValidTimes:
         elif isinstance(condition, Timelock):
             timelock = condition
         else:
-            # Something about python 3.9 makes this be not covered but on 3.10+ it is covered
-            # https://github.com/nedbat/coveragepy/issues/1530
-            continue  # pragma: no cover
+            continue
 
         properties_left = properties.copy()
         min_not_max: bool = True
@@ -1496,7 +1545,7 @@ def parse_timelock_info(conditions: Iterable[Condition]) -> ConditionValidTimes:
 
         assert len(properties_left) == 1
         final_property: str = next(iter(properties_left))
-        current_value: Optional[int] = getattr(valid_times, final_property)
+        current_value: int | None = getattr(valid_times, final_property)
         if current_value is not None:
             if min_not_max:
                 new_value: int = min(current_value, timelock.timestamp)

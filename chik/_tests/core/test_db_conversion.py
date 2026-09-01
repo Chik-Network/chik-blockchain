@@ -4,52 +4,47 @@ import random
 from pathlib import Path
 
 import pytest
+from chik_rs import FullBlock
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.util.temp_file import TempFile
 from chik.cmds.db_upgrade_func import convert_v1_to_v2
 from chik.consensus.block_body_validation import ForkInfo
+from chik.consensus.block_height_map import BlockHeightMap
 from chik.consensus.blockchain import Blockchain
 from chik.consensus.multiprocess_validation import PreValidationResult
-from chik.full_node.block_height_map import BlockHeightMap
 from chik.full_node.block_store import BlockStore
 from chik.full_node.coin_store import CoinStore
 from chik.full_node.hint_store import HintStore
 from chik.simulator.block_tools import test_constants
 from chik.util.db_wrapper import DBWrapper2
-
-
-def rand_bytes(num) -> bytes:
-    ret = bytearray(num)
-    for i in range(num):
-        ret[i] = random.getrandbits(8)
-    return bytes(ret)
+from chik.util.inline_executor import InlineExecutor
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("with_hints", [True, False])
 @pytest.mark.skip("we no longer support DB v1")
-async def test_blocks(default_1000_blocks, with_hints: bool):
+async def test_blocks(default_1000_blocks: list[FullBlock], with_hints: bool) -> None:
     blocks = default_1000_blocks
 
     hints: list[tuple[bytes32, bytes]] = []
     for i in range(351):
-        hints.append((bytes32(rand_bytes(32)), rand_bytes(20)))
+        hints.append((bytes32.random(), random.randbytes(20)))
 
     # the v1 schema allows duplicates in the hints table
     for i in range(10):
-        coin_id = bytes32(rand_bytes(32))
-        hint = rand_bytes(20)
+        coin_id = bytes32.random()
+        hint = random.randbytes(20)
         hints.append((coin_id, hint))
         hints.append((coin_id, hint))
 
     for i in range(2000):
-        hints.append((bytes32(rand_bytes(32)), rand_bytes(20)))
+        hints.append((bytes32.random(), random.randbytes(20)))
 
     for i in range(5):
-        coin_id = bytes32(rand_bytes(32))
-        hint = rand_bytes(20)
+        coin_id = bytes32.random()
+        hint = random.randbytes(20)
         hints.append((coin_id, hint))
         hints.append((coin_id, hint))
 
@@ -69,14 +64,14 @@ async def test_blocks(default_1000_blocks, with_hints: bool):
                     await hint_store1.add_hints([(h[0], h[1])])
 
             height_map = await BlockHeightMap.create(Path("."), db_wrapper1)
-            bc = await Blockchain.create(coin_store1, block_store1, height_map, test_constants, reserved_cores=0)
+            bc = await Blockchain.create(coin_store1, block_store1, height_map, test_constants, InlineExecutor())
             sub_slot_iters = test_constants.SUB_SLOT_ITERS_STARTING
             for block in blocks:
                 if block.height != 0 and len(block.finished_sub_slots) > 0:
                     if block.finished_sub_slots[0].challenge_chain.new_sub_slot_iters is not None:
                         sub_slot_iters = block.finished_sub_slots[0].challenge_chain.new_sub_slot_iters
                 # await _validate_and_add_block(bc, block)
-                results = PreValidationResult(None, uint64(1), None, uint32(0))
+                results = PreValidationResult(None, None, uint64(1), None, uint32(0))
                 fork_info = ForkInfo(block.height - 1, block.height - 1, block.prev_header_hash)
                 _, err, _ = await bc.add_block(block, results, sub_slot_iters=sub_slot_iters, fork_info=fork_info)
                 assert err is None

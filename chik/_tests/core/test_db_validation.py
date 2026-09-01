@@ -1,34 +1,30 @@
 from __future__ import annotations
 
-import random
 import sqlite3
 from contextlib import closing
 from pathlib import Path
 from typing import Any
 
 import pytest
-from chik_rs import FullBlock
+from chik_rs import ConsensusConstants, FullBlock
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
 from chik._tests.util.temp_file import TempFile
 from chik.cmds.db_validate_func import validate_v2
 from chik.consensus.block_body_validation import ForkInfo
+from chik.consensus.block_height_map import BlockHeightMap
 from chik.consensus.blockchain import Blockchain
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.consensus.multiprocess_validation import PreValidationResult
-from chik.full_node.block_height_map import BlockHeightMap
 from chik.full_node.block_store import BlockStore
 from chik.full_node.coin_store import CoinStore
-from chik.simulator.block_tools import test_constants
 from chik.util.db_wrapper import DBWrapper2
+from chik.util.inline_executor import InlineExecutor
 
 
 def rand_hash() -> bytes32:
-    ret = bytearray(32)
-    for i in range(32):
-        ret[i] = random.getrandbits(8)
-    return bytes32(ret)
+    return bytes32.random()
 
 
 def make_version(conn: sqlite3.Connection, version: int) -> None:
@@ -135,7 +131,7 @@ def test_db_validate_in_main_chain(invalid_in_chain: bool, default_config: dict[
             validate_v2(db_file, config=default_config, validate_blocks=False)
 
 
-async def make_db(db_file: Path, blocks: list[FullBlock]) -> None:
+async def make_db(db_file: Path, blocks: list[FullBlock], constants: ConsensusConstants) -> None:
     async with DBWrapper2.managed(database=db_file, reader_count=1, db_version=2) as db_wrapper:
         async with db_wrapper.writer_maybe_transaction() as conn:
             # this is done by chik init normally
@@ -146,13 +142,13 @@ async def make_db(db_file: Path, blocks: list[FullBlock]) -> None:
         coin_store = await CoinStore.create(db_wrapper)
         height_map = await BlockHeightMap.create(Path("."), db_wrapper)
 
-        bc = await Blockchain.create(coin_store, block_store, height_map, test_constants, reserved_cores=0)
-        sub_slot_iters = test_constants.SUB_SLOT_ITERS_STARTING
+        bc = await Blockchain.create(coin_store, block_store, height_map, constants, InlineExecutor())
+        sub_slot_iters = constants.SUB_SLOT_ITERS_STARTING
         for block in blocks:
             if block.height != 0 and len(block.finished_sub_slots) > 0:
                 if block.finished_sub_slots[0].challenge_chain.new_sub_slot_iters is not None:
                     sub_slot_iters = block.finished_sub_slots[0].challenge_chain.new_sub_slot_iters
-            results = PreValidationResult(None, uint64(1), None, uint32(0))
+            results = PreValidationResult(None, None, uint64(1), None, uint32(0))
             fork_info = ForkInfo(block.height - 1, block.height - 1, block.prev_header_hash)
             _, err, _ = await bc.add_block(block, results, sub_slot_iters=sub_slot_iters, fork_info=fork_info)
             assert err is None
@@ -160,10 +156,12 @@ async def make_db(db_file: Path, blocks: list[FullBlock]) -> None:
 
 @pytest.mark.anyio
 async def test_db_validate_default_1000_blocks(
-    default_1000_blocks: list[FullBlock], default_config: dict[str, Any]
+    default_1000_blocks: list[FullBlock],
+    default_config: dict[str, Any],
+    blockchain_constants: ConsensusConstants,
 ) -> None:
     with TempFile() as db_file:
-        await make_db(db_file, default_1000_blocks)
+        await make_db(db_file, default_1000_blocks, blockchain_constants)
 
         # we expect everything to be valid except this is a test chain, so it
         # doesn't have the correct genesis challenge

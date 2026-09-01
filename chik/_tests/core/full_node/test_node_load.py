@@ -5,11 +5,18 @@ import pytest
 from chik._tests.core.node_height import node_height_at_least
 from chik._tests.util.misc import BenchmarkRunner
 from chik._tests.util.time_out_assert import time_out_assert
+from chik.full_node.full_node_api import FullNodeAPI
+from chik.server.server import ChikServer
+from chik.simulator.block_tools import BlockTools
 from chik.types.peer_info import PeerInfo
 
 
 @pytest.mark.anyio
-async def test_blocks_load(two_nodes, self_hostname, benchmark_runner: BenchmarkRunner):
+async def test_blocks_load(
+    two_nodes: tuple[FullNodeAPI, FullNodeAPI, ChikServer, ChikServer, BlockTools],
+    self_hostname: str,
+    benchmark_runner: BenchmarkRunner,
+) -> None:
     num_blocks = 50
     full_node_1, full_node_2, server_1, server_2, bt = two_nodes
     blocks = bt.get_consecutive_blocks(num_blocks)
@@ -19,7 +26,7 @@ async def test_blocks_load(two_nodes, self_hostname, benchmark_runner: Benchmark
         PeerInfo(self_hostname, server_1.get_port()), on_connect=full_node_2.full_node.on_connect
     )
 
-    async def num_connections():
+    async def num_connections() -> int:
         return len(server_2.get_connections())
 
     await time_out_assert(10, num_connections, 1)

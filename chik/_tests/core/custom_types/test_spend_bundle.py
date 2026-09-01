@@ -18,7 +18,7 @@ NULL_SIGNATURE = "0xc" + "0" * 191
 
 
 class TestStructStream(unittest.TestCase):
-    def test_round_trip(self):
+    def test_round_trip(self) -> None:
         spend_bundle = BLANK_SPEND_BUNDLE
         json_dict = spend_bundle.to_json_dict()
 
@@ -28,10 +28,7 @@ class TestStructStream(unittest.TestCase):
 
 
 def rand_hash(rng: random.Random) -> bytes32:
-    ret = bytearray(32)
-    for i in range(32):
-        ret[i] = rng.getrandbits(8)
-    return bytes32(ret)
+    return bytes32.random(r=rng)
 
 
 def create_spends(num: int) -> tuple[list[CoinSpend], list[Coin]]:
@@ -63,7 +60,7 @@ def test_compute_additions_create_coin() -> None:
 
 def test_compute_additions_create_coin_max_cost() -> None:
     # make a large number of CoinSpends
-    spends, _ = create_spends(6111)
+    spends, _ = create_spends(8148)
     sb = SpendBundle(spends, G2Element())
     with pytest.raises(ValueError, match="cost exceeded"):
         sb.additions()

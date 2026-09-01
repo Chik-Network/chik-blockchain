@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Union
 
 import pytest
 from chik_rs import G2Element
@@ -10,15 +9,16 @@ from chik_rs.sized_ints import uint16, uint32, uint64
 
 from chik._tests.cmds.cmd_test_utils import TestRpcClients, TestWalletRpcClient, logType, run_cli_command_and_assert
 from chik._tests.cmds.wallet.test_consts import FINGERPRINT_ARG, STD_TX, STD_UTX, get_bytes32
-from chik.types.blockchain_format.program import NIL, Program
+from chik.types.blockchain_format.program import Program
 from chik.types.signing_mode import SigningMode
 from chik.util.bech32m import encode_puzzle_hash
-from chik.util.config import load_config
 from chik.wallet.conditions import Condition, ConditionValidTimes, CreateCoinAnnouncement, CreatePuzzleAnnouncement
 from chik.wallet.did_wallet.did_info import did_recovery_is_nil
 from chik.wallet.util.curry_and_treehash import NIL_TREEHASH
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG, TXConfig
 from chik.wallet.wallet_request_types import (
+    CreateNewWallet,
+    CreateNewWalletType,
     DIDFindLostDID,
     DIDFindLostDIDResponse,
     DIDGetDID,
@@ -31,6 +31,7 @@ from chik.wallet.wallet_request_types import (
     DIDSetWalletNameResponse,
     DIDTransferDID,
     DIDTransferDIDResponse,
+    DIDType,
     DIDUpdateMetadata,
     DIDUpdateMetadataResponse,
 )
@@ -43,7 +44,7 @@ test_condition_valid_times: ConditionValidTimes = ConditionValidTimes(min_time=u
     argnames=["program", "result"],
     argvalues=[
         (Program.to(NIL_TREEHASH), True),
-        (NIL, True),
+        (Program.NIL, True),
         (Program.to(bytes32([1] * 32)), False),
     ],
 )
@@ -56,27 +57,7 @@ def test_did_recovery_is_nil(program: Program, result: bool) -> None:
 def test_did_create(capsys: object, get_test_cli_clients: tuple[TestRpcClients, Path]) -> None:
     test_rpc_clients, root_dir = get_test_cli_clients
 
-    # set RPC Client
-    class DidCreateRpcClient(TestWalletRpcClient):
-        async def create_new_did_wallet(
-            self,
-            amount: int,
-            tx_config: TXConfig,
-            fee: int = 0,
-            name: Optional[str] = "DID Wallet",
-            backup_ids: Optional[list[str]] = None,
-            required_num: int = 0,
-            push: bool = True,
-            timelock_info: ConditionValidTimes = ConditionValidTimes(),
-        ) -> dict[str, Union[str, int]]:
-            if backup_ids is None:
-                backup_ids = []
-            self.add_to_log(
-                "create_new_did_wallet", (amount, tx_config, fee, name, backup_ids, required_num, push, timelock_info)
-            )
-            return {"wallet_id": 3, "my_did": "did:chik:testdid123456"}
-
-    inst_rpc_client = DidCreateRpcClient()
+    inst_rpc_client = TestWalletRpcClient()
     test_rpc_clients.wallet_rpc_client = inst_rpc_client
     command_args = [
         "wallet",
@@ -94,12 +75,27 @@ def test_did_create(capsys: object, get_test_cli_clients: tuple[TestRpcClients, 
     # these are various things that should be in the output
     assert_list = [
         "Successfully created a DID wallet with name test and id 3 on key 123456",
-        "Successfully created a DID did:chik:testdid123456 in the newly created DID wallet",
+        (
+            "Successfully created a DID did:chik:1qgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpq4msw0c"
+            " in the newly created DID wallet"
+        ),
     ]
     run_cli_command_and_assert(capsys, root_dir, command_args, assert_list)
     expected_calls: logType = {
-        "create_new_did_wallet": [
-            (3, DEFAULT_TX_CONFIG, 100000000000, "test", [], 0, True, test_condition_valid_times)
+        "create_new_wallet": [
+            (
+                CreateNewWallet(
+                    wallet_type=CreateNewWalletType.DID_WALLET,
+                    did_type=DIDType.NEW,
+                    amount=uint64(3),
+                    wallet_name="test",
+                    fee=uint64(100_000_000_000),
+                    push=True,
+                ),
+                DEFAULT_TX_CONFIG,
+                tuple(),
+                test_condition_valid_times,
+            )
         ],
     }
     test_rpc_clients.wallet_rpc_client.check_log(expected_calls)
@@ -117,8 +113,8 @@ def test_did_sign_message(capsys: object, get_test_cli_clients: tuple[TestRpcCli
     # these are various things that should be in the output
     assert_list = [
         f"Message: {message.hex()}",
-        f"Public Key: {bytes([4] * 48).hex()}",
-        f"Signature: {bytes([7] * 576).hex()}",
+        "Public Key: a9e652cb551d5978a9ee4b7aa52a4e826078a54b08a3d903c38611cb8a804a9a29c926e4f8549314a079e04ecde10cc1",
+        "Signature: c0" + "00" * (42 - 1),
         f"Signing Mode: {SigningMode.CHIP_0002.value}",
     ]
     run_cli_command_and_assert(capsys, root_dir, [*command_args, f"-i{did_id}"], assert_list)
@@ -135,7 +131,7 @@ def test_did_set_name(capsys: object, get_test_cli_clients: tuple[TestRpcClients
     class DidSetNameRpcClient(TestWalletRpcClient):
         async def did_set_wallet_name(self, request: DIDSetWalletName) -> DIDSetWalletNameResponse:
             self.add_to_log("did_set_wallet_name", (request.wallet_id, request.name))
-            return DIDSetWalletNameResponse(request.wallet_id)
+            return DIDSetWalletNameResponse(wallet_id=request.wallet_id)
 
     inst_rpc_client = DidSetNameRpcClient()
     test_rpc_clients.wallet_rpc_client = inst_rpc_client
@@ -216,8 +212,10 @@ def test_did_get_details(capsys: object, get_test_cli_clients: tuple[TestRpcClie
         "Recovery Required Verifications: 8",
         "Last Spend Puzzle:      09",
         "Last Spend Solution:    0a",
-        "Last Spend Hints:       ['0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b', "
-        "'0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c']",
+        (
+            "Last Spend Hints:       ['0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b', "
+            "'0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c']"
+        ),
     ]
     run_cli_command_and_assert(capsys, root_dir, command_args, assert_list)
     expected_calls: logType = {
@@ -243,7 +241,10 @@ def test_did_update_metadata(capsys: object, get_test_cli_clients: tuple[TestRpc
                 (request.wallet_id, request.metadata, tx_config, request.push, extra_conditions, timelock_info),
             )
             return DIDUpdateMetadataResponse(
-                [STD_UTX], [STD_TX], WalletSpendBundle([], G2Element()), uint32(request.wallet_id)
+                unsigned_transactions=[STD_UTX],
+                transactions=[STD_TX],
+                spend_bundle=WalletSpendBundle([], G2Element()),
+                wallet_id=uint32(request.wallet_id),
             )
 
     inst_rpc_client = DidUpdateMetadataRpcClient()
@@ -286,7 +287,7 @@ def test_did_find_lost(capsys: object, get_test_cli_clients: tuple[TestRpcClient
                 "find_lost_did",
                 (request.coin_id, request.recovery_list_hash, request.metadata, request.num_verification),
             )
-            return DIDFindLostDIDResponse(get_bytes32(2))
+            return DIDFindLostDIDResponse(latest_coin_id=get_bytes32(2))
 
     inst_rpc_client = DidFindLostRpcClient()
     test_rpc_clients.wallet_rpc_client = inst_rpc_client
@@ -326,7 +327,9 @@ def test_did_message_spend(capsys: object, get_test_cli_clients: tuple[TestRpcCl
             self.add_to_log(
                 "did_message_spend", (request.wallet_id, tx_config, extra_conditions, request.push, timelock_info)
             )
-            return DIDMessageSpendResponse([STD_UTX], [STD_TX], WalletSpendBundle([], G2Element()))
+            return DIDMessageSpendResponse(
+                unsigned_transactions=[STD_UTX], transactions=[STD_TX], spend_bundle=WalletSpendBundle([], G2Element())
+            )
 
     inst_rpc_client = DidMessageSpendRpcClient()
     test_rpc_clients.wallet_rpc_client = inst_rpc_client
@@ -395,10 +398,10 @@ def test_did_transfer(capsys: object, get_test_cli_clients: tuple[TestRpcClients
                 ),
             )
             return DIDTransferDIDResponse(
-                [STD_UTX],
-                [STD_TX],
-                STD_TX,
-                STD_TX.name,
+                unsigned_transactions=[STD_UTX],
+                transactions=[STD_TX],
+                transaction=STD_TX,
+                transaction_id=STD_TX.name,
             )
 
     inst_rpc_client = DidTransferRpcClient()
@@ -421,14 +424,10 @@ def test_did_transfer(capsys: object, get_test_cli_clients: tuple[TestRpcClients
         "150",
     ]
     # these are various things that should be in the output
-    config = load_config(
-        root_dir,
-        "config.yaml",
-    )
     assert_list = [
         f"Successfully transferred DID to {t_address}",
         f"Transaction ID: {get_bytes32(2).hex()}",
-        f"Transaction: {STD_TX.to_json_dict_convenience(config)}",
+        f"Transaction: {STD_TX.to_json_dict()}",
     ]
     run_cli_command_and_assert(capsys, root_dir, command_args, assert_list)
     expected_calls: logType = {

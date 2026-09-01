@@ -26,7 +26,11 @@ declare_proof_of_space_json: dict[str, Any] = {
         "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
         "pool_contract_puzzle_hash": None,
         "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-        "size": 204,
+        "version": 1,
+        "plot_index": 3145,
+        "meta_group": 5,
+        "strength": 3,
+        "size": 0,
         "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
     },
     "challenge_chain_sp_signature": "0xc00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
@@ -63,6 +67,25 @@ signed_values_json: dict[str, Any] = {
     "quality_string": "0x915de5949724e1fc92d334e589c26ddbcd67415cbbdbbfc5e6de93b3b33bb267",
     "foliage_block_data_signature": "0xc00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
     "foliage_transaction_block_signature": "0xc00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+}
+
+partial_proof_json: dict[str, Any] = {
+    "challenge_hash": "0x42743566108589c11bb3811b347900b6351fd3e25bad6c956c0bf1c05a4d93fb",
+    "sp_hash": "0x8a346e8dc02e9b44c0571caa74fd99f163d4c5d7deaedac87125528721493f7a",
+    "plot_identifier": "plot-filename",
+    "partial_proofs": [
+        {"fragments": [256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256]},
+        {"fragments": [257, 257, 257, 257, 257, 257, 257, 257, 257, 257, 257, 257, 257, 257, 257, 257]},
+    ],
+    "signage_point_index": 4,
+    "plot_size": 32,
+    "plot_index": 3145,
+    "meta_group": 5,
+    "strength": 3,
+    "plot_id": "0x346e8dc02e9b44c0571caa74fd99f163d4c5d7deaedac87125528721493f7a8a",
+    "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
+    "pool_contract_puzzle_hash": "0x91240fbacdf93b44c0571caa74fd99f163d4c5d7deaedac87125528721493f7a",
+    "plot_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
 }
 
 new_peak_json: dict[str, Any] = {
@@ -113,6 +136,7 @@ respond_proof_of_weight_json: dict[str, Any] = {
                 "num_blocks_overflow": 190,
                 "new_sub_slot_iters": 10527522631566046685,
                 "new_difficulty": 989988965238543242,
+                "challenge_merkle_root": None,
             }
         ],
         "sub_epoch_segments": [
@@ -125,7 +149,11 @@ respond_proof_of_weight_json: dict[str, Any] = {
                             "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
                             "pool_contract_puzzle_hash": None,
                             "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-                            "size": 204,
+                            "version": 1,
+                            "plot_index": 3145,
+                            "meta_group": 5,
+                            "strength": 3,
+                            "size": 0,
                             "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
                         },
                         "cc_signage_point": {
@@ -269,7 +297,11 @@ respond_proof_of_weight_json: dict[str, Any] = {
                         "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
                         "pool_contract_puzzle_hash": None,
                         "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-                        "size": 204,
+                        "version": 1,
+                        "plot_index": 3145,
+                        "meta_group": 5,
+                        "strength": 3,
+                        "size": 0,
                         "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
                     },
                     "challenge_chain_sp_vdf": {
@@ -309,6 +341,7 @@ respond_proof_of_weight_json: dict[str, Any] = {
                             "data": "0x08000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
                         },
                     },
+                    "header_mmr_root": None,
                     "is_transaction_block": False,
                 },
                 "challenge_chain_sp_proof": {
@@ -463,7 +496,11 @@ respond_blocks_json: dict[str, Any] = {
                     "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
                     "pool_contract_puzzle_hash": None,
                     "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-                    "size": 204,
+                    "version": 1,
+                    "plot_index": 3145,
+                    "meta_group": 5,
+                    "strength": 3,
+                    "size": 0,
                     "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
                 },
                 "challenge_chain_sp_vdf": {
@@ -503,6 +540,7 @@ respond_blocks_json: dict[str, Any] = {
                         "data": "0x08000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
                     },
                 },
+                "header_mmr_root": None,
                 "is_transaction_block": False,
             },
             "challenge_chain_sp_proof": {
@@ -639,7 +677,11 @@ respond_blocks_json: dict[str, Any] = {
                     "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
                     "pool_contract_puzzle_hash": None,
                     "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-                    "size": 204,
+                    "version": 1,
+                    "plot_index": 3145,
+                    "meta_group": 5,
+                    "strength": 3,
+                    "size": 0,
                     "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
                 },
                 "challenge_chain_sp_vdf": {
@@ -679,6 +721,7 @@ respond_blocks_json: dict[str, Any] = {
                         "data": "0x08000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
                     },
                 },
+                "header_mmr_root": None,
                 "is_transaction_block": False,
             },
             "challenge_chain_sp_proof": {
@@ -821,7 +864,11 @@ respond_block_json: dict[str, Any] = {
                 "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
                 "pool_contract_puzzle_hash": None,
                 "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-                "size": 204,
+                "version": 1,
+                "plot_index": 3145,
+                "meta_group": 5,
+                "strength": 3,
+                "size": 0,
                 "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
             },
             "challenge_chain_sp_vdf": {
@@ -861,6 +908,7 @@ respond_block_json: dict[str, Any] = {
                     "data": "0x08000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
                 },
             },
+            "header_mmr_root": None,
             "is_transaction_block": False,
         },
         "challenge_chain_sp_proof": {
@@ -1006,7 +1054,11 @@ respond_unfinished_block_json: dict[str, Any] = {
                 "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
                 "pool_contract_puzzle_hash": None,
                 "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-                "size": 204,
+                "version": 1,
+                "plot_index": 3145,
+                "meta_group": 5,
+                "strength": 3,
+                "size": 0,
                 "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
             },
             "challenge_chain_sp_vdf": {
@@ -1371,7 +1423,11 @@ respond_header_block_json: dict[str, Any] = {
                 "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
                 "pool_contract_puzzle_hash": None,
                 "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-                "size": 204,
+                "version": 1,
+                "plot_index": 3145,
+                "meta_group": 5,
+                "strength": 3,
+                "size": 0,
                 "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
             },
             "challenge_chain_sp_vdf": {
@@ -1411,6 +1467,7 @@ respond_header_block_json: dict[str, Any] = {
                     "data": "0x08000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
                 },
             },
+            "header_mmr_root": None,
             "is_transaction_block": False,
         },
         "challenge_chain_sp_proof": {
@@ -1552,7 +1609,11 @@ respond_block_headers_json: dict[str, Any] = {
                     "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
                     "pool_contract_puzzle_hash": None,
                     "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-                    "size": 204,
+                    "version": 1,
+                    "plot_index": 3145,
+                    "meta_group": 5,
+                    "strength": 3,
+                    "size": 0,
                     "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
                 },
                 "challenge_chain_sp_vdf": {
@@ -1592,6 +1653,7 @@ respond_block_headers_json: dict[str, Any] = {
                         "data": "0x08000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
                     },
                 },
+                "header_mmr_root": None,
                 "is_transaction_block": False,
             },
             "challenge_chain_sp_proof": {
@@ -1807,7 +1869,11 @@ respond_header_blocks_json: dict[str, Any] = {
                     "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
                     "pool_contract_puzzle_hash": None,
                     "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-                    "size": 204,
+                    "version": 1,
+                    "plot_index": 3145,
+                    "meta_group": 5,
+                    "strength": 3,
+                    "size": 0,
                     "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
                 },
                 "challenge_chain_sp_vdf": {
@@ -1847,6 +1913,7 @@ respond_header_blocks_json: dict[str, Any] = {
                         "data": "0x08000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
                     },
                 },
+                "header_mmr_root": None,
                 "is_transaction_block": False,
             },
             "challenge_chain_sp_proof": {
@@ -2189,7 +2256,11 @@ new_proof_of_space_json: dict[str, Any] = {
         "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
         "pool_contract_puzzle_hash": None,
         "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-        "size": 204,
+        "version": 1,
+        "plot_index": 3145,
+        "meta_group": 5,
+        "strength": 3,
+        "size": 0,
         "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
     },
     "signage_point_index": 160,
@@ -2230,7 +2301,7 @@ request_signatures_json: dict[str, Any] = {
         },
         {
             "kind": 7,
-            "data": "0xdada61e179e67e5e8bc7aaab16e192facf0f15871f0c479d2a96ac5f85721a1a2293a92f557d08441fb331df88bc142e70c110e21620374118fb220ccc3ef621378197e850882ec901a04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c00b6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0cc000000b0a67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f929287fab514e2204808821e2afe8c4d84f0093c75554b067fe4fca272890c9d00f98dff6bdcc3926b33cb8ab22e11bd15c13d6a9b6832ac948b3273f5ccd8e7ec",
+            "data": "0xdada61e179e67e5e8bc7aaab16e192facf0f15871f0c479d2a96ac5f85721a1a2293a92f557d08441fb331df88bc142e70c110e21620374118fb220ccc3ef621378197e850882ec901a04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c02b6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d00c490503000000b0a67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f929287fab514e2204808821e2afe8c4d84f0093c75554b067fe4fca272890c9d00f98dff6bdcc3926b33cb8ab22e11bd15c13d6a9b6832ac948b3273f5ccd8e7ec",
         },
     ],
     "rc_block_unfinished": {
@@ -2242,6 +2313,10 @@ request_signatures_json: dict[str, Any] = {
             "pool_public_key": None,
             "pool_contract_puzzle_hash": "0x1b9d1eaa3c6a9b27cd90ad9070eb012794a74b277446417bc7b904145010c087",
             "plot_public_key": "0x8fde05dff50c7409c6ac3c5c42d7cdf596e6232bdfa833e715dbd19cfec3e9d08a407b11288a0a6fd25a932ebd0d6a3f",
+            "version": 0,
+            "plot_index": 0,
+            "meta_group": 0,
+            "strength": 0,
             "size": 20,
             "proof": "0x6b99913f88112ab38726b8119e7f7006b24274f1a8c4c552c2a23c8076bdf0d4e8546c4a47fb5b82041e429a3fd44936ce5e9d811a4996a6f0d2896805b6ae018430d944db57080b1abb5863cb48c6deeaf86e93e6c2f0f8f88f527aa4966d88e1e607dadb45869f18225ef1b987d2b43a08a8defff0b0320106fdaad531edfca2b7b78d873d3f20a3780b2baaea3caafb8ad47f43e649872d16e69afd06527d",
         },
@@ -2345,7 +2420,11 @@ post_partial_payload_json: dict[str, Any] = {
         "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
         "pool_contract_puzzle_hash": None,
         "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-        "size": 204,
+        "version": 1,
+        "plot_index": 3145,
+        "meta_group": 5,
+        "strength": 3,
+        "size": 0,
         "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
     },
     "sp_hash": "0x929287fab514e2204808821e2afe8c4d84f0093c75554b067fe4fca272890c9d",
@@ -2362,7 +2441,11 @@ post_partial_request_json: dict[str, Any] = {
             "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
             "pool_contract_puzzle_hash": None,
             "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-            "size": 204,
+            "version": 1,
+            "plot_index": 3145,
+            "meta_group": 5,
+            "strength": 3,
+            "size": 0,
             "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
         },
         "sp_hash": "0x929287fab514e2204808821e2afe8c4d84f0093c75554b067fe4fca272890c9d",
@@ -2441,7 +2524,11 @@ new_peak_timelord_json: dict[str, Any] = {
             "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
             "pool_contract_puzzle_hash": None,
             "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-            "size": 204,
+            "version": 1,
+            "plot_index": 3145,
+            "meta_group": 5,
+            "strength": 3,
+            "size": 0,
             "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
         },
         "challenge_chain_sp_vdf": {
@@ -2481,6 +2568,7 @@ new_peak_timelord_json: dict[str, Any] = {
                 "data": "0x08000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
             },
         },
+        "header_mmr_root": None,
         "is_transaction_block": False,
     },
     "difficulty": 7661623532867338566,
@@ -2492,6 +2580,7 @@ new_peak_timelord_json: dict[str, Any] = {
         "num_blocks_overflow": 4,
         "new_difficulty": 14666749803532899046,
         "new_sub_slot_iters": 10901191956946573440,
+        "challenge_merkle_root": None,
     },
     "previous_reward_challenges": [
         ["0x5bb65d8662d561ed2fc17e4177ba61c43017ee7e5418091d38968e36ce380d11", 134240022887890669757150210097251845335]
@@ -2510,7 +2599,11 @@ new_unfinished_block_timelord_json: dict[str, Any] = {
             "pool_public_key": "0xa04c6b5ac7dfb935f6feecfdd72348ccf1d4be4fe7e26acf271ea3b7d308da61e0a308f7a62495328a81f5147b66634c",
             "pool_contract_puzzle_hash": None,
             "plot_public_key": "0xb6449c2c68df97c19e884427e42ee7350982d4020571ead08732615ff39bd216bfd630b6460784982bec98b49fea79d0",
-            "size": 204,
+            "version": 1,
+            "plot_index": 3145,
+            "meta_group": 5,
+            "strength": 3,
+            "size": 0,
             "proof": "0xa67188ae0c02c49b0e821a9773033a3fbd338030c383080dbb8b1d63f07af427d8075e59d911f85ea562fd967823588f9a405a4464fdf5dc0866ee15bebd6b94cb147e28aa9cf96da930611486b779737ed721ea376b9939ba05357141223d75d21b21f310ec32d85ed3b98cf301494ea91b8501138481f3bfa1c384fd998b1fdd2855ac6f0c8554c520fb0bfa3663f238124035e14682bc11eaf7c372b6af4ed7f59a406810c71711906f8c91f94b1f",
         },
         "challenge_chain_sp_vdf": {
@@ -2555,8 +2648,10 @@ new_unfinished_block_timelord_json: dict[str, Any] = {
         "num_blocks_overflow": 4,
         "new_difficulty": 14666749803532899046,
         "new_sub_slot_iters": 10901191956946573440,
+        "challenge_merkle_root": None,
     },
     "rc_prev": "0x0f90296b605904a794e4e98852e3b22e0d9bee2fa07abb12df6cecbdb778e1e5",
+    "header_mmr_root": None,
 }
 
 new_infusion_point_vdf_json: dict[str, Any] = {
@@ -2717,3 +2812,15 @@ respond_compact_proof_of_time_json: dict[str, Any] = {
 error_without_data_json: dict[str, Any] = {"code": 1, "message": "Unknown", "data": None}
 
 error_with_data_json: dict[str, Any] = {"code": 1, "message": "Unknown", "data": "0x65787472612064617461"}
+
+solver_info_json: dict[str, Any] = {
+    "partial_proof": {"fragments": [256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256]},
+    "plot_id": "0x071bef40d098cfadc2614d8b57db924788f7f2ea0fde8cf4bfaeae2894caa442",
+    "strength": 5,
+    "size": 28,
+}
+
+solver_response_json: dict[str, Any] = {
+    "partial_proof": {"fragments": [256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256, 256]},
+    "proof": "0x66756c6c2d70726f6f66",
+}

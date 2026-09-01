@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Optional
 
 from chik_rs import CoinSpend, ConsensusConstants, SpendBundle, fast_forward_singleton, get_conditions_from_spendbundle
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
-from chik.consensus.condition_costs import ConditionCost
 from chik.types.blockchain_format.coin import Coin
-from chik.types.blockchain_format.program import run_mempool_with_cost
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.internal_mempool_item import InternalMempoolItem
 from chik.types.mempool_item import BundleCoinSpend, UnspentLineageInfo
@@ -17,28 +14,9 @@ from chik.util.errors import Err
 
 
 @dataclasses.dataclass(frozen=True)
-class EligibilityAndAdditions:
-    is_eligible_for_dedup: bool
-    spend_additions: list[Coin]
-    # This is the spend puzzle hash. It's set to `None` if the spend is not
-    # eligible for fast forward. When the spend is eligible, we use its puzzle
-    # hash to check if the singleton has an unspent coin or not.
-    ff_puzzle_hash: Optional[bytes32] = None
-
-
-def run_for_cost(
-    puzzle_reveal: SerializedProgram, solution: SerializedProgram, additions_count: int, max_cost: int
-) -> uint64:
-    create_coins_cost = additions_count * ConditionCost.CREATE_COIN.value
-    klvm_cost, _ = run_mempool_with_cost(puzzle_reveal, max_cost, solution)
-    saved_cost = uint64(klvm_cost + create_coins_cost)
-    return saved_cost
-
-
-@dataclasses.dataclass(frozen=True)
 class DedupCoinSpend:
     solution: SerializedProgram
-    cost: Optional[uint64]
+    cost: uint64
 
 
 def set_next_singleton_version(
@@ -138,7 +116,7 @@ class IdenticalSpendDedup:
     deduplication_spends: dict[bytes32, DedupCoinSpend] = dataclasses.field(default_factory=dict)
 
     def get_deduplication_info(
-        self, *, bundle_coin_spends: dict[bytes32, BundleCoinSpend], max_cost: int
+        self, *, bundle_coin_spends: dict[bytes32, BundleCoinSpend]
     ) -> tuple[list[CoinSpend], uint64, list[Coin]]:
         """
         Checks all coin spends of a mempool item for deduplication eligibility and
@@ -147,7 +125,6 @@ class IdenticalSpendDedup:
 
         Args:
             bundle_coin_spends: the mempool item's coin spends data
-            max_cost: the maximum limit when running for cost
 
         Returns:
             list[CoinSpend]: list of unique coin spends in this mempool item
@@ -156,7 +133,7 @@ class IdenticalSpendDedup:
 
         Raises:
             ValueError to skip the mempool item we're currently in, if it's
-            attempting to spend an eligible coin with a different solution than the
+            attempting to spend an dedup coin with a different solution than the
             one we're already deduplicating on.
         """
         cost_saving = 0
@@ -175,45 +152,16 @@ class IdenticalSpendDedup:
             if dedup_coin_spend is None:
                 # We didn't process an item with this coin before. If we end up including
                 # this item, add this pair to deduplication_spends
-                new_dedup_spends[coin_id] = DedupCoinSpend(spend_data.coin_spend.solution, None)
+                new_dedup_spends[coin_id] = DedupCoinSpend(spend_data.coin_spend.solution, spend_data.cost)
                 unique_coin_spends.append(spend_data.coin_spend)
                 unique_additions.extend(spend_data.additions)
                 continue
             # See if the solution was identical
-            current_solution, duplicate_cost = dataclasses.astuple(dedup_coin_spend)
-            if current_solution != spend_data.coin_spend.solution:
-                # It wasn't, so let's skip this whole item because it's relying on
-                # spending this coin with a different solution and that would
-                # conflict with the coin spends that we're deduplicating already
-                # NOTE: We can miss an opportunity to deduplicate on other solutions
-                # even if they end up saving more cost, as we're going for the first
-                # solution we see from the relatively highest FPC item, to avoid
-                # severe performance and/or time-complexity impact
+            if dedup_coin_spend.solution != spend_data.coin_spend.solution:
+                # This should not happen. DEDUP spends of the same coin with
+                # different solutions are rejected in check_removals().
                 raise SkipDedup("Solution is different from what we're deduplicating on")
-            # Let's calculate the saved cost if we never did that before
-            if duplicate_cost is None:
-                # See first if this mempool item had this cost computed before
-                # This can happen if this item didn't get included in the previous block
-                spend_cost = spend_data.cost
-                if spend_cost is None:
-                    spend_cost = run_for_cost(
-                        puzzle_reveal=spend_data.coin_spend.puzzle_reveal,
-                        solution=spend_data.coin_spend.solution,
-                        additions_count=len(spend_data.additions),
-                        max_cost=max_cost,
-                    )
-                    # Update this mempool item's coin spends map
-                    bundle_coin_spends[coin_id] = BundleCoinSpend(
-                        coin_spend=spend_data.coin_spend,
-                        eligible_for_dedup=spend_data.eligible_for_dedup,
-                        eligible_for_fast_forward=spend_data.eligible_for_fast_forward,
-                        additions=spend_data.additions,
-                        cost=spend_cost,
-                    )
-                duplicate_cost = spend_cost
-                # If we end up including this item, update this entry's cost
-                new_dedup_spends[coin_id] = DedupCoinSpend(current_solution, duplicate_cost)
-            cost_saving += duplicate_cost
+            cost_saving += dedup_coin_spend.cost
         # Update the eligible coin spends data
         self.deduplication_spends.update(new_dedup_spends)
         return unique_coin_spends, uint64(cost_saving), unique_additions
@@ -224,21 +172,25 @@ class SingletonFastForward:
     fast_forward_spends: dict[bytes32, UnspentLineageInfo] = dataclasses.field(default_factory=dict)
 
     def process_fast_forward_spends(
-        self, *, mempool_item: InternalMempoolItem, height: uint32, constants: ConsensusConstants
-    ) -> dict[bytes32, BundleCoinSpend]:
+        self, *, mempool_item: InternalMempoolItem, prev_tx_height: uint32, constants: ConsensusConstants
+    ) -> tuple[dict[bytes32, BundleCoinSpend], dict[bytes32, UnspentLineageInfo]]:
         """
-        Provides the caller with a `bundle_coin_spends` map that has a proper
-        state of fast forwarded coin spends and additions starting from
-        the most recent unspent versions of the related singleton spends.
+        Provides the caller with a map that has a proper state of fast
+        forwarded coin spends and additions starting from the most recent
+        unspent versions of the related singleton spends, along with fast
+        forward state update that must be explicitly committed by the caller
+        via `commit_fast_forward_state` after confirming the item will be
+        included.
 
         Args:
             mempool_item: The internal mempool item to process
             constants: needed in order to refresh the mempool item if needed
-            height: needed in order to refresh the mempool item if needed
+            prev_tx_height: needed in order to refresh the mempool item if needed
 
         Returns:
-            The resulting `bundle_coin_spends` map of coin IDs to coin spends
-            and metadata, after fast forwarding
+            A tuple of: map of coin IDs to coin spends and metadata after fast
+            forwarding, and the the fast forward state update to commit if the
+            item end up included.
 
         Raises:
             If a fast forward cannot proceed, to prevent potential double spends
@@ -247,8 +199,9 @@ class SingletonFastForward:
         new_coin_spends = []
         new_bundle_coin_spends = {}
         fast_forwarded_spends = 0
+        ff_state_update: dict[bytes32, UnspentLineageInfo] = {}
         for coin_id, spend_data in mempool_item.bundle_coin_spends.items():
-            if not spend_data.eligible_for_fast_forward:
+            if not spend_data.supports_fast_forward:
                 # Nothing to do for this spend, moving on
                 new_coin_spends.append(spend_data.coin_spend)
                 new_bundle_coin_spends[coin_id] = spend_data
@@ -262,8 +215,7 @@ class SingletonFastForward:
             unspent_lineage_info = self.fast_forward_spends.get(spend_data.coin_spend.coin.puzzle_hash)
             if unspent_lineage_info is None:
                 # We didn't, so let's check the item's latest lineage info
-                if spend_data.latest_singleton_lineage is None:
-                    raise ValueError("Cannot proceed with singleton spend fast forward.")
+                assert spend_data.latest_singleton_lineage is not None
                 unspent_lineage_info = spend_data.latest_singleton_lineage
                 # See if we're the most recent version
                 if unspent_lineage_info.coin_id == coin_id:
@@ -272,7 +224,7 @@ class SingletonFastForward:
                     set_next_singleton_version(
                         current_singleton=spend_data.coin_spend.coin,
                         singleton_additions=spend_data.additions,
-                        fast_forward_spends=self.fast_forward_spends,
+                        fast_forward_spends=ff_state_update,
                     )
                     # Nothing more to do for this spend, moving on
                     new_coin_spends.append(spend_data.coin_spend)
@@ -282,14 +234,14 @@ class SingletonFastForward:
                 new_coin_spend, patched_additions = perform_the_fast_forward(
                     unspent_lineage_info=unspent_lineage_info,
                     spend_data=spend_data,
-                    fast_forward_spends=self.fast_forward_spends,
+                    fast_forward_spends=ff_state_update,
                 )
                 new_bundle_coin_spends[new_coin_spend.coin.name()] = BundleCoinSpend(
                     coin_spend=new_coin_spend,
                     eligible_for_dedup=spend_data.eligible_for_dedup,
-                    eligible_for_fast_forward=spend_data.eligible_for_fast_forward,
                     additions=patched_additions,
                     cost=spend_data.cost,
+                    latest_singleton_lineage=ff_state_update.get(spend_data.coin_spend.coin.puzzle_hash),
                 )
                 # Update the list of coins spends that will make the new fast
                 # forward spend bundle
@@ -305,38 +257,41 @@ class SingletonFastForward:
             new_coin_spend, patched_additions = perform_the_fast_forward(
                 unspent_lineage_info=unspent_lineage_info,
                 spend_data=spend_data,
-                fast_forward_spends=self.fast_forward_spends,
+                fast_forward_spends=ff_state_update,
             )
             new_bundle_coin_spends[new_coin_spend.coin.name()] = BundleCoinSpend(
                 coin_spend=new_coin_spend,
                 eligible_for_dedup=spend_data.eligible_for_dedup,
-                eligible_for_fast_forward=spend_data.eligible_for_fast_forward,
                 additions=patched_additions,
                 cost=spend_data.cost,
+                latest_singleton_lineage=ff_state_update.get(spend_data.coin_spend.coin.puzzle_hash),
             )
             # Update the list of coins spends that make the new fast forward bundle
             new_coin_spends.append(new_coin_spend)
             fast_forwarded_spends += 1
         if fast_forwarded_spends == 0:
-            # This item doesn't have any fast forward coins, nothing to do here
-            return new_bundle_coin_spends
+            return new_bundle_coin_spends, ff_state_update
         # Update the mempool item after validating the new spend bundle
-        new_sb = SpendBundle(
-            coin_spends=new_coin_spends, aggregated_signature=mempool_item.spend_bundle.aggregated_signature
-        )
+        new_sb = SpendBundle(coin_spends=new_coin_spends, aggregated_signature=mempool_item.aggregated_signature)
         assert mempool_item.conds is not None
         try:
             # Run the new spend bundle to make sure it remains valid. What we
             # care about here is whether this call throws or not.
-            get_conditions_from_spendbundle(new_sb, mempool_item.conds.cost, constants, height)
-        # get_conditions_from_spendbundle raises a TypeError with an error code
-        except TypeError as e:
+            get_conditions_from_spendbundle(new_sb, mempool_item.conds.cost, constants, prev_tx_height)
+        # get_conditions_from_spendbundle raises a ValueError with an error code
+        except ValueError as e:
             # Convert that to a ValidationError
-            if len(e.args) > 0:
-                error = Err(e.args[0])
+            if len(e.args) > 1:
+                error = Err(e.args[1])
                 raise ValueError(f"Mempool item became invalid after singleton fast forward with error {error}.")
             else:
                 raise ValueError(
                     "Mempool item became invalid after singleton fast forward with an unspecified error."
                 )  # pragma: no cover
-        return new_bundle_coin_spends
+        return new_bundle_coin_spends, ff_state_update
+
+    def update_fast_forward_spends(self, ff_state_update: dict[bytes32, UnspentLineageInfo]) -> None:
+        self.fast_forward_spends.update(ff_state_update)
+
+    def copy(self) -> SingletonFastForward:
+        return SingletonFastForward(fast_forward_spends=dict(self.fast_forward_spends))

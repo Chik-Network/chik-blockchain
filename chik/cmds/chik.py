@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from io import TextIOWrapper
-from typing import Optional
 
 import click
 
@@ -24,6 +23,7 @@ from chik.cmds.plots import plots_cmd
 from chik.cmds.plotters import plotters_cmd
 from chik.cmds.rpc import rpc_cmd
 from chik.cmds.show import show_cmd
+from chik.cmds.solver import solver_cmd
 from chik.cmds.start import start_cmd
 from chik.cmds.stop import stop_cmd
 from chik.cmds.wallet import wallet_cmd
@@ -59,7 +59,7 @@ def cli(
     ctx: click.Context,
     root_path: str,
     keys_root_path: str,
-    passphrase_file: Optional[TextIOWrapper] = None,
+    passphrase_file: TextIOWrapper | None = None,
 ) -> None:
     from pathlib import Path
 
@@ -127,6 +127,7 @@ cli.add_command(configure_cmd)
 cli.add_command(init_cmd)
 cli.add_command(rpc_cmd)
 cli.add_command(show_cmd)
+cli.add_command(solver_cmd)
 cli.add_command(start_cmd)
 cli.add_command(stop_cmd)
 cli.add_command(netspace_cmd)

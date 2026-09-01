@@ -4,7 +4,8 @@ import dataclasses
 import logging
 import random
 import time
-from typing import Any, Callable, Union
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 from chik_rs import G1Element
@@ -12,6 +13,7 @@ from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik._tests.plot_sync.util import get_dummy_connection
+from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.consensus.pos_quality import UI_ACTUAL_SPACE_CONSTANT_FACTOR, _expected_plot_size
 from chik.plot_sync.delta import Delta
 from chik.plot_sync.receiver import Receiver, Sync, get_list_or_len
@@ -89,7 +91,7 @@ def assert_error_response(plot_sync: Receiver, error_code: ErrorCodes) -> None:
     assert response.error.code == error_code.value
 
 
-def pre_function_validate(receiver: Receiver, data: Union[list[Plot], list[str]], expected_state: State) -> None:
+def pre_function_validate(receiver: Receiver, data: list[Plot] | list[str], expected_state: State) -> None:
     if expected_state == State.loaded:
         for plot_info in data:
             assert type(plot_info) is Plot
@@ -108,7 +110,7 @@ def pre_function_validate(receiver: Receiver, data: Union[list[Plot], list[str]]
             assert path not in receiver.duplicates()
 
 
-def post_function_validate(receiver: Receiver, data: Union[list[Plot], list[str]], expected_state: State) -> None:
+def post_function_validate(receiver: Receiver, data: list[Plot] | list[str], expected_state: State) -> None:
     if expected_state == State.loaded:
         for plot_info in data:
             assert type(plot_info) is Plot
@@ -163,7 +165,7 @@ async def run_sync_step(receiver: Receiver, sync_step: SyncStepData) -> None:
 
 def plot_sync_setup(seeded_random: random.Random) -> tuple[Receiver, list[SyncStepData]]:
     harvester_connection = get_dummy_connection(NodeType.HARVESTER, bytes32.random(seeded_random))
-    receiver = Receiver(harvester_connection, dummy_callback)  # type:ignore[arg-type]
+    receiver = Receiver(harvester_connection, dummy_callback, DEFAULT_CONSTANTS)  # type:ignore[arg-type]
 
     # Create example plot data
     path_list = [str(x) for x in range(40)]
@@ -185,8 +187,12 @@ def plot_sync_setup(seeded_random: random.Random) -> tuple[Receiver, list[SyncSt
     # Manually add the plots we want to remove in tests
     receiver._plots = {plot_info.filename: plot_info for plot_info in plot_info_list[0:10]}
     receiver._total_plot_size = sum(plot.file_size for plot in receiver.plots().values())
+    # TODO: todo_v2_plots support v2 plots
     receiver._total_effective_plot_size = int(
-        sum(UI_ACTUAL_SPACE_CONSTANT_FACTOR * int(_expected_plot_size(plot.size)) for plot in receiver.plots().values())
+        sum(
+            UI_ACTUAL_SPACE_CONSTANT_FACTOR * int(_expected_plot_size(plot.param(), DEFAULT_CONSTANTS))
+            for plot in receiver.plots().values()
+        )
     )
     sync_steps: list[SyncStepData] = [
         SyncStepData(
@@ -217,6 +223,7 @@ def test_default_values(seeded_random: random.Random) -> None:
                 bytes32.random(seeded_random),
             ),  # type:ignore[arg-type]
             dummy_callback,  # type:ignore[arg-type]
+            DEFAULT_CONSTANTS,
         )
     )
 
@@ -266,7 +273,10 @@ async def test_to_dict(counts_only: bool, seeded_random: random.Random) -> None:
     assert get_list_or_len(plot_sync_dict_1["duplicates"], not counts_only) == 0
     assert plot_sync_dict_1["total_plot_size"] == sum(plot.file_size for plot in receiver.plots().values())
     assert plot_sync_dict_1["total_effective_plot_size"] == int(
-        sum(UI_ACTUAL_SPACE_CONSTANT_FACTOR * int(_expected_plot_size(plot.size)) for plot in receiver.plots().values())
+        sum(
+            UI_ACTUAL_SPACE_CONSTANT_FACTOR * int(_expected_plot_size(plot.param(), DEFAULT_CONSTANTS))
+            for plot in receiver.plots().values()
+        )
     )
     assert plot_sync_dict_1["syncing"] is None
     assert plot_sync_dict_1["last_sync_time"] is None
@@ -313,7 +323,10 @@ async def test_to_dict(counts_only: bool, seeded_random: random.Random) -> None:
 
     assert plot_sync_dict_3["total_plot_size"] == sum(plot.file_size for plot in receiver.plots().values())
     assert plot_sync_dict_3["total_effective_plot_size"] == int(
-        sum(UI_ACTUAL_SPACE_CONSTANT_FACTOR * int(_expected_plot_size(plot.size)) for plot in receiver.plots().values())
+        sum(
+            UI_ACTUAL_SPACE_CONSTANT_FACTOR * int(_expected_plot_size(plot.param(), DEFAULT_CONSTANTS))
+            for plot in receiver.plots().values()
+        )
     )
     assert plot_sync_dict_3["last_sync_time"] > 0
     assert plot_sync_dict_3["syncing"] is None

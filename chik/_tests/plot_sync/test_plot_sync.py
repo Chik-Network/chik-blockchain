@@ -3,14 +3,14 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import functools
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from shutil import copy
-from typing import Any, Callable, Optional
+from typing import Any
 
 import pytest
-from chik_rs import G1Element
+from chik_rs import G1Element, PlotParam
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64
 
@@ -20,18 +20,19 @@ from chik._tests.plotting.util import get_test_plots
 from chik._tests.util.split_managers import SplitAsyncManager, split_async_manager
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.farmer.farmer import Farmer
+from chik.farmer.farmer_service import FarmerService
 from chik.harvester.harvester import Harvester
+from chik.harvester.harvester_service import HarvesterService
 from chik.plot_sync.delta import Delta, PathListDelta, PlotListDelta
 from chik.plot_sync.receiver import Receiver
 from chik.plot_sync.sender import Sender
 from chik.plot_sync.util import Constants, State
 from chik.plotting.manager import PlotManager
-from chik.plotting.util import add_plot_directory, remove_plot_directory
 from chik.protocols.harvester_protocol import Plot
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
-from chik.server.aliases import FarmerService, HarvesterService
 from chik.simulator.block_tools import BlockTools
 from chik.util.config import create_default_chik_config, lock_and_load_config, save_config
+from chik.util.harvester_config import add_plot_directory, remove_plot_directory
 from chik.util.streamable import _T_Streamable
 
 
@@ -108,6 +109,10 @@ class ExpectedResult:
         self.duplicates_delta.removals += [str(x) for x in list_paths]
 
 
+def equal_param(a: PlotParam, b: PlotParam) -> bool:
+    return a.size_v1 == b.size_v1 and a.strength_v2 == b.strength_v2
+
+
 @dataclass
 class Environment:
     root_path: Path
@@ -126,7 +131,7 @@ class Environment:
     split_farmer_service_manager: SplitAsyncManager[FarmerService]
     split_harvester_managers: list[SplitAsyncManager[Harvester]]
 
-    def get_harvester(self, peer_id: bytes32) -> Optional[Harvester]:
+    def get_harvester(self, peer_id: bytes32) -> Harvester | None:
         for harvester in self.harvesters:
             assert harvester.server is not None
             if harvester.server.node_id == peer_id:
@@ -182,10 +187,10 @@ class Environment:
         self.remove_directory(harvester_index, self.dir_invalid, State.invalid)
         self.remove_directory(harvester_index, self.dir_duplicates, State.duplicates)
 
-    async def plot_sync_callback(self, peer_id: bytes32, delta: Optional[Delta]) -> None:
+    async def plot_sync_callback(self, peer_id: bytes32, delta: Delta | None) -> None:
         if delta is None:
             return
-        harvester: Optional[Harvester] = self.get_harvester(peer_id)
+        harvester: Harvester | None = self.get_harvester(peer_id)
         assert harvester is not None
         expected = self.expected[self.harvesters.index(harvester)]
         assert len(expected.valid_delta.additions) == len(delta.valid.additions)
@@ -194,7 +199,7 @@ class Environment:
             plot = harvester.plot_manager.plots.get(Path(path), None)
             assert plot is not None
             assert plot.prover.get_filename() == delta.valid.additions[path].filename
-            assert plot.prover.get_size() == delta.valid.additions[path].size
+            assert equal_param(plot.prover.get_param(), delta.valid.additions[path].param())
             assert plot.prover.get_id() == delta.valid.additions[path].plot_id
             assert plot.prover.get_compression_level() == delta.valid.additions[path].compression_level
             assert plot.pool_public_key == delta.valid.additions[path].pool_public_key
@@ -255,7 +260,7 @@ class Environment:
             for path, plot_info in plot_manager.plots.items():
                 assert str(path) in receiver.plots()
                 assert plot_info.prover.get_filename() == receiver.plots()[str(path)].filename
-                assert plot_info.prover.get_size() == receiver.plots()[str(path)].size
+                assert equal_param(plot_info.prover.get_param(), receiver.plots()[str(path)].param())
                 assert plot_info.prover.get_id() == receiver.plots()[str(path)].plot_id
                 assert plot_info.prover.get_compression_level() == receiver.plots()[str(path)].compression_level
                 assert plot_info.pool_public_key == receiver.plots()[str(path)].pool_public_key
@@ -428,7 +433,7 @@ async def test_sync_keys_missing(environment: Environment) -> None:
     # Run again two times to make sure we still get the same results in repeated refresh intervals
     await env.run_sync_test()
     await env.run_sync_test()
-    # Drop all but 2 plots with missing keys and test sync inbetween
+    # Drop all but 2 plots with missing keys and test sync in between
     assert len(env.dir_keys_missing) > 2
     for _ in range(len(env.dir_keys_missing) - 2):
         drop_plot = env.dir_keys_missing.path_list()[0]
@@ -511,9 +516,9 @@ async def test_harvester_restart(environment: Environment) -> None:
     env: Environment = environment
     # Load all directories for both harvesters
     await add_and_validate_all_directories(env)
-    # Stop the harvester and make sure the receiver gets dropped on the farmer and refreshing gets stopped
+    # Stop the harvester and wait for the receiver to be dropped on the farmer (async via on_disconnect)
     await env.split_harvester_managers[0].exit()
-    assert len(env.farmer.plot_sync_receivers) == 1
+    await time_out_assert(5, lambda: len(env.farmer.plot_sync_receivers), 1)
     assert not env.harvesters[0].plot_manager._refreshing_enabled
     assert not env.harvesters[0].plot_manager.needs_refresh()
     # Start the harvester, wait for the handshake and make sure the receiver comes back

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
-from typing import Optional
 
 from chik_puzzles_py.programs import (
     P2_SINGLETON,
@@ -238,7 +237,7 @@ def launch_conditions_and_coinsol(
 def lineage_proof_for_coinsol(coin_spend: CoinSpend) -> LineageProof:
     parent_name: bytes32 = coin_spend.coin.parent_coin_info
 
-    inner_puzzle_hash: Optional[bytes32] = None
+    inner_puzzle_hash: bytes32 | None = None
     if coin_spend.coin.puzzle_hash != SINGLETON_LAUNCHER_HASH:
         full_puzzle = Program.from_bytes(bytes(coin_spend.puzzle_reveal))
         r = full_puzzle.uncurry()
@@ -258,10 +257,14 @@ def lineage_proof_for_coinsol(coin_spend: CoinSpend) -> LineageProof:
 
 # Return the puzzle reveal of a singleton with specific ID and innerpuz
 def puzzle_for_singleton(
-    launcher_id: bytes32, inner_puz: Program, launcher_hash: bytes32 = SINGLETON_LAUNCHER_HASH
+    launcher_id: bytes32,
+    inner_puz: Program,
+    launcher_hash: bytes32 = SINGLETON_LAUNCHER_HASH,
+    singleton_mod: Program = SINGLETON_MOD,
+    singleton_mod_hash: bytes32 = SINGLETON_MOD_HASH,
 ) -> Program:
-    return SINGLETON_MOD.curry(
-        (SINGLETON_MOD_HASH, (launcher_id, launcher_hash)),
+    return singleton_mod.curry(
+        (singleton_mod_hash, (launcher_id, launcher_hash)),
         inner_puz,
     )
 
@@ -321,8 +324,8 @@ def claim_p2_singleton(
     p2_singleton_coin: Coin,
     singleton_inner_puzhash: bytes32,
     launcher_id: bytes32,
-    delay_time: Optional[uint64] = None,
-    delay_ph: Optional[bytes32] = None,
+    delay_time: uint64 | None = None,
+    delay_ph: bytes32 | None = None,
 ) -> tuple[Program, Program, CoinSpend]:
     assertion = Program.to([ConditionOpcode.ASSERT_COIN_ANNOUNCEMENT, std_hash(p2_singleton_coin.name() + b"$")])
     announcement = Program.to([ConditionOpcode.CREATE_PUZZLE_ANNOUNCEMENT, p2_singleton_coin.name()])

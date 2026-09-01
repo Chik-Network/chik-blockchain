@@ -10,7 +10,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import pytest
 from chik_rs import G1Element
@@ -20,16 +20,18 @@ from chik_rs.sized_ints import int16, uint8, uint64
 from chik._tests.plot_sync.util import start_harvester_service
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.farmer.farmer import Farmer
+from chik.farmer.farmer_service import FarmerService
 from chik.harvester.harvester import Harvester
+from chik.harvester.harvester_service import HarvesterService
 from chik.plot_sync.receiver import Receiver
 from chik.plot_sync.sender import Sender
 from chik.plot_sync.util import Constants
 from chik.plotting.manager import PlotManager
+from chik.plotting.prover import V1Prover
 from chik.plotting.util import PlotInfo
 from chik.protocols.harvester_protocol import PlotSyncError, PlotSyncResponse
 from chik.protocols.outbound_message import make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
-from chik.server.aliases import FarmerService, HarvesterService
 from chik.server.ws_connection import WSChikConnection
 from chik.simulator.block_tools import BlockTools
 from chik.util.batches import to_batches
@@ -68,17 +70,17 @@ class TestData:
         initial: bool,
     ) -> None:
         for plot_info in loaded:
-            assert plot_info.prover.get_filename() not in self.plots
+            assert Path(plot_info.prover.get_filename()) not in self.plots
         for plot_info in removed:
-            assert plot_info.prover.get_filename() in self.plots
+            assert Path(plot_info.prover.get_filename()) in self.plots
 
         self.invalid = invalid
         self.keys_missing = keys_missing
         self.duplicates = duplicates
 
-        removed_paths: list[Path] = [p.prover.get_filename() for p in removed] if removed is not None else []
-        invalid_dict: dict[Path, int] = {p.prover.get_filename(): 0 for p in self.invalid}
-        keys_missing_set: set[Path] = {p.prover.get_filename() for p in self.keys_missing}
+        removed_paths: list[Path] = [Path(p.prover.get_filename()) for p in removed] if removed is not None else []
+        invalid_dict: dict[Path, int] = {Path(p.prover.get_filename()): 0 for p in self.invalid}
+        keys_missing_set: set[Path] = {Path(p.prover.get_filename()) for p in self.keys_missing}
         duplicates_set: set[str] = {p.prover.get_filename() for p in self.duplicates}
 
         # Inject invalid plots into `PlotManager` of the harvester so that the callback calls below can use them
@@ -100,7 +102,7 @@ class TestData:
         batch_size = self.harvester.plot_manager.refresh_parameter.batch_size
 
         # Used to capture the sync id in `run_internal`
-        sync_id: Optional[uint64] = None
+        sync_id: uint64 | None = None
 
         def run_internal() -> None:
             nonlocal sync_id
@@ -122,9 +124,9 @@ class TestData:
         await time_out_assert(60, sync_done)
 
         for plot_info in loaded:
-            self.plots[plot_info.prover.get_filename()] = plot_info
+            self.plots[Path(plot_info.prover.get_filename())] = plot_info
         for plot_info in removed:
-            del self.plots[plot_info.prover.get_filename()]
+            del self.plots[Path(plot_info.prover.get_filename())]
 
     def validate_plot_sync(self) -> None:
         assert len(self.plots) == len(self.plot_sync_receiver.plots())
@@ -140,7 +142,7 @@ class TestData:
             assert plot_info.pool_contract_puzzle_hash == synced_plot.pool_contract_puzzle_hash
             assert plot_info.plot_public_key == synced_plot.plot_public_key
             assert plot_info.file_size == synced_plot.file_size
-            assert uint64(int(plot_info.time_modified)) == synced_plot.time_modified
+            assert uint64(plot_info.time_modified) == synced_plot.time_modified
         for plot_info in self.invalid:
             assert plot_info.prover.get_filename() not in self.plot_sync_receiver.plots()
             assert plot_info.prover.get_filename() in self.plot_sync_receiver.invalid()
@@ -284,7 +286,7 @@ def create_example_plots(count: int, seeded_random: random.Random) -> list[PlotI
 
     return [
         PlotInfo(
-            prover=DiskProver(f"{x}", bytes32.random(seeded_random), 25 + x % 26),
+            prover=V1Prover(DiskProver(f"{x}", bytes32.random(seeded_random), 25 + x % 26)),
             pool_public_key=None,
             pool_contract_puzzle_hash=None,
             plot_public_key=G1Element(),
@@ -416,7 +418,7 @@ async def test_sync_reset_cases(
         # Inject some data into `PlotManager` of the harvester so that we can validate the reset worked and triggered a
         # fresh sync of all available data of the plot manager
         for plot_info in plots[0:10]:
-            test_data.plots[plot_info.prover.get_filename()] = plot_info
+            test_data.plots[Path(plot_info.prover.get_filename())] = plot_info
             plot_manager.plots = test_data.plots
         test_data.invalid = plots[10:20]
         test_data.keys_missing = plots[20:30]
@@ -424,8 +426,8 @@ async def test_sync_reset_cases(
         sender: Sender = test_runner.test_data[0].plot_sync_sender
         started_sync_id: uint64 = uint64(0)
 
-        plot_manager.failed_to_open_filenames = {p.prover.get_filename(): 0 for p in test_data.invalid}
-        plot_manager.no_key_filenames = {p.prover.get_filename() for p in test_data.keys_missing}
+        plot_manager.failed_to_open_filenames = {Path(p.prover.get_filename()): 0 for p in test_data.invalid}
+        plot_manager.no_key_filenames = {Path(p.prover.get_filename()) for p in test_data.keys_missing}
 
         async def wait_for_reset() -> bool:
             assert started_sync_id != 0

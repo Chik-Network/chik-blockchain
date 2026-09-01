@@ -3,8 +3,7 @@ from __future__ import annotations
 from chik_rs import SpendBundle
 from chik_rs.sized_ints import uint64
 
-from chik._tests.util.get_name_puzzle_conditions import get_name_puzzle_conditions
-from chik.consensus.cost_calculator import NPCResult
+from chik._tests.util.get_name_puzzle_conditions import NPCResult, get_name_puzzle_conditions
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.full_node.bundle_tools import simple_solution_generator
 from chik.types.blockchain_format.program import INFINITE_COST

@@ -11,7 +11,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from types import FrameType
-from typing import Any, Optional
+from typing import Any
 
 from chik.server.signal_handlers import SignalHandlers
 from chik.util.chik_logging import initialize_logging
@@ -132,7 +132,9 @@ async def spawn_process(
             await proc.communicate()
 
 
-async def spawn_all_processes(config: dict, net_config: dict, process_mgr: VDFClientProcessMgr):
+async def spawn_all_processes(
+    config: dict[str, Any], net_config: dict[str, Any], process_mgr: VDFClientProcessMgr
+) -> None:
     await asyncio.sleep(5)
     hostname = net_config["self_hostname"] if "host" not in config else config["host"]
     port = config["port"]
@@ -158,7 +160,7 @@ async def async_main(config: dict[str, Any], net_config: dict[str, Any]) -> None
 
     async def stop(
         signal_: signal.Signals,
-        stack_frame: Optional[FrameType],
+        stack_frame: FrameType | None,
         loop: asyncio.AbstractEventLoop,
     ) -> None:
         await process_mgr.kill_processes()
@@ -172,7 +174,7 @@ async def async_main(config: dict[str, Any], net_config: dict[str, Any]) -> None
             log.info("Launcher fully closed.")
 
 
-def main():
+def main() -> int:
     if os.name == "nt":
         log.info("Timelord launcher not supported on Windows.")
         return 1
@@ -184,6 +186,7 @@ def main():
     initialize_logging("TLauncher", config["logging"], root_path)
 
     asyncio.run(async_main(config=config, net_config=net_config))
+    return 0
 
 
 if __name__ == "__main__":

@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from chik_rs import EndOfSubSlotBundle, HeaderBlock, RewardChainBlock, SubEpochChallengeSegment, SubEpochData
+from chik_rs import (
+    EndOfSubSlotBundle,
+    HeaderBlock,
+    RewardChainBlock,
+    SubEpochChallengeSegment,
+    SubEpochData,
+)
 
 from chik.util.streamable import Streamable, streamable
 

@@ -2,16 +2,17 @@ from __future__ import annotations
 
 import collections
 import logging
-from collections.abc import Awaitable, Collection
+from collections.abc import Awaitable, Callable, Collection
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Union
 
 from chik_rs import (
     BlockRecord,
+    CoinRecord,
     ConsensusConstants,
     FullBlock,
     SpendBundleConditions,
     UnfinishedBlock,
+    check_time_locks,
     compute_merkle_set_root,
     is_canonical_serialization,
 )
@@ -21,10 +22,8 @@ from chikbip158 import PyBIP158
 
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
-from chik.consensus.check_time_locks import check_time_locks
 from chik.consensus.coinbase import create_farmer_coin, create_pool_coin
 from chik.types.blockchain_format.coin import Coin, hash_coin_ids
-from chik.types.coin_record import CoinRecord
 from chik.util.errors import Err
 from chik.util.hash import std_hash
 
@@ -47,7 +46,7 @@ class ForkAdd:
     coin: Coin
     confirmed_height: uint32
     timestamp: uint64
-    hint: Optional[bytes]
+    hint: bytes | None
     is_coinbase: bool
     # This means matching parent puzzle hash and amount
     same_as_parent: bool
@@ -109,16 +108,16 @@ class ForkInfo:
                 coin, block.height, timestamp, hint=None, is_coinbase=True, same_as_parent=False
             )
 
-    def include_spends(self, conds: Optional[SpendBundleConditions], block: FullBlock, header_hash: bytes32) -> None:
+    def include_spends(self, conds: SpendBundleConditions | None, block: FullBlock, header_hash: bytes32) -> None:
         self.update_fork_peak(block, header_hash)
         if conds is not None:
             assert block.foliage_transaction_block is not None
             timestamp = block.foliage_transaction_block.timestamp
             for spend in conds.spends:
                 spend_coin_id = bytes32(spend.coin_id)
-                self.removals_since_fork[spend_coin_id] = ForkRem(bytes32(spend.puzzle_hash), block.height)
+                self.removals_since_fork[spend_coin_id] = ForkRem(spend.puzzle_hash, block.height)
                 for puzzle_hash, amount, hint in spend.create_coin:
-                    coin = Coin(spend_coin_id, bytes32(puzzle_hash), uint64(amount))
+                    coin = Coin(spend_coin_id, puzzle_hash, uint64(amount))
                     same_as_parent = coin.puzzle_hash == spend.puzzle_hash and amount == spend.coin_amount
                     self.additions_since_fork[coin.name()] = ForkAdd(
                         coin, block.height, timestamp, hint=hint, is_coinbase=False, same_as_parent=same_as_parent
@@ -127,7 +126,7 @@ class ForkInfo:
 
     def include_block(
         self,
-        additions: list[tuple[Coin, Optional[bytes]]],
+        additions: list[tuple[Coin, bytes | None]],
         removals: list[tuple[bytes32, Coin]],
         block: FullBlock,
         header_hash: bytes32,
@@ -137,8 +136,8 @@ class ForkInfo:
             timestamp = block.foliage_transaction_block.timestamp
             spent_coins: dict[bytes32, Coin] = {}
             for spend_id, spend in removals:
-                spent_coins[bytes32(spend_id)] = spend
-                self.removals_since_fork[bytes32(spend_id)] = ForkRem(bytes32(spend.puzzle_hash), block.height)
+                spent_coins[spend_id] = spend
+                self.removals_since_fork[spend_id] = ForkRem(spend.puzzle_hash, block.height)
             for coin, hint in additions:
                 parent = spent_coins.get(coin.parent_coin_info)
                 assert parent is not None
@@ -161,7 +160,7 @@ def validate_block_merkle_roots(
     block_removals_root: bytes32,
     tx_additions: list[tuple[Coin, bytes32]],
     tx_removals: list[bytes32],
-) -> Optional[Err]:
+) -> Err | None:
     # Create addition Merkle set
     puzzlehash_coins_map: dict[bytes32, list[bytes32]] = {}
 
@@ -192,13 +191,13 @@ async def validate_block_body(
     constants: ConsensusConstants,
     records: BlockRecordsProtocol,
     get_coin_records: Callable[[Collection[bytes32]], Awaitable[list[CoinRecord]]],
-    block: Union[FullBlock, UnfinishedBlock],
+    block: FullBlock | UnfinishedBlock,
     height: uint32,
-    conds: Optional[SpendBundleConditions],
+    conds: SpendBundleConditions | None,
     fork_info: ForkInfo,
     *,
     log_coins: bool = False,
-) -> Optional[Err]:
+) -> Err | None:
     """
     This assumes the header block has been completely validated.
     Validates the transactions and body of the block.
@@ -227,7 +226,7 @@ async def validate_block_body(
         ):
             return Err.NOT_BLOCK_BUT_HAS_DATA
 
-        prev_tb: Optional[BlockRecord] = records.block_record(block.prev_header_hash)
+        prev_tb: BlockRecord | None = records.block_record(block.prev_header_hash)
         assert prev_tb is not None
         while not prev_tb.is_transaction_block:
             prev_tb = records.block_record(prev_tb.prev_hash)
@@ -334,18 +333,21 @@ async def validate_block_body(
     if block.transactions_generator is not None:
         if std_hash(bytes(block.transactions_generator)) != block.transactions_info.generator_root:
             return Err.INVALID_TRANSACTIONS_GENERATOR_HASH
-    else:
-        if block.transactions_info.generator_root != bytes([0] * 32):
-            return Err.INVALID_TRANSACTIONS_GENERATOR_HASH
+    elif block.transactions_info.generator_root != bytes([0] * 32):
+        return Err.INVALID_TRANSACTIONS_GENERATOR_HASH
 
     # 8a. The generator_ref_list must be the hash of the serialized bytes of
     #     the generator ref list for this block (or 'one' bytes [0x01] if no generator)
     # 8b. The generator ref list length must be less than or equal to MAX_GENERATOR_REF_LIST_SIZE entries
     # 8c. The generator ref list must not point to a height >= this block's height
-    if block.transactions_generator_ref_list in (None, []):
+    if block.transactions_generator_ref_list == []:
         if block.transactions_info.generator_refs_root != bytes([1] * 32):
             return Err.INVALID_TRANSACTIONS_GENERATOR_REFS_ROOT
     else:
+        # With hard fork 2 we ban transactions_generator_ref_list.
+        if prev_transaction_block_height >= constants.SOFT_FORK9_HEIGHT:
+            return Err.TOO_MANY_GENERATOR_REFS
+
         # If we have a generator reference list, we must have a generator
         if block.transactions_generator is None:
             return Err.INVALID_TRANSACTIONS_GENERATOR_REFS_ROOT
@@ -376,15 +378,15 @@ async def validate_block_body(
         assert conds is not None
         assert conds.validated_signature
 
-        if prev_transaction_block_height >= constants.HARD_FORK2_HEIGHT:
+        if prev_transaction_block_height >= constants.SOFT_FORK9_HEIGHT:
             if not is_canonical_serialization(bytes(block.transactions_generator)):
                 return Err.INVALID_TRANSACTIONS_GENERATOR_ENCODING
 
         for spend in conds.spends:
             removals.append(bytes32(spend.coin_id))
-            removals_puzzle_dic[bytes32(spend.coin_id)] = bytes32(spend.puzzle_hash)
+            removals_puzzle_dic[spend.coin_id] = spend.puzzle_hash
             for puzzle_hash, amount, _ in spend.create_coin:
-                c = Coin(bytes32(spend.coin_id), bytes32(puzzle_hash), uint64(amount))
+                c = Coin(spend.coin_id, puzzle_hash, uint64(amount))
                 additions.append((c, c.name()))
     else:
         assert conds is None
@@ -559,14 +561,16 @@ async def validate_block_body(
     # 21. Verify conditions
     # verify absolute/relative height/time conditions
     if conds is not None:
-        error = check_time_locks(
+        error: int | None = check_time_locks(
             removal_coin_records,
             conds,
             prev_transaction_block_height,
             prev_transaction_block_timestamp,
+            nowrap=(prev_transaction_block_height >= constants.HARD_FORK2_HEIGHT),
         )
         if error is not None:
-            return error
+            # TODO: standardise errors across Rust and Python so cast is not necesary here
+            return Err(error)
 
     # 22. Verify aggregated signature is done in pre-validation
     if not block.transactions_info.aggregated_signature:

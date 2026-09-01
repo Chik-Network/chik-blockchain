@@ -4,7 +4,6 @@ import logging
 import traceback
 from enum import IntEnum
 from functools import lru_cache
-from typing import Optional
 
 from chik_rs import ConsensusConstants, VDFInfo, VDFProof
 from chik_rs.sized_bytes import bytes32, bytes100
@@ -51,7 +50,7 @@ def validate_vdf(
     constants: ConsensusConstants,
     input_el: ClassgroupElement,
     info: VDFInfo,
-    target_vdf_info: Optional[VDFInfo] = None,
+    target_vdf_info: VDFInfo | None = None,
 ) -> bool:
     """
     If target_vdf_info is passed in, it is compared with info.
@@ -61,6 +60,9 @@ def validate_vdf(
         log.error(f"{tb} INVALID VDF INFO. Have: {info} Expected: {target_vdf_info}")
         return False
     if proof.witness_type + 1 > constants.MAX_VDF_WITNESS_SIZE:
+        return False
+    if len(input_el.data) != 100:
+        log.error(f"Invalid ClassgroupElement size: {len(input_el.data)} (expected 100)")
         return False
     try:
         disc: int = get_discriminant(info.challenge, constants.DISCRIMINANT_SIZE_BITS)

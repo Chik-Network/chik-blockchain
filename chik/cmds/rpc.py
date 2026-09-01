@@ -4,7 +4,7 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from typing import Any, Optional, TextIO
+from typing import Any, TextIO
 
 import click
 from aiohttp import ClientResponseError
@@ -13,7 +13,17 @@ from chik_rs.sized_ints import uint16
 from chik.cmds.cmd_classes import ChikCliContext
 from chik.util.config import load_config
 
-services: list[str] = ["crawler", "daemon", "farmer", "full_node", "harvester", "timelord", "wallet", "data_layer"]
+services: list[str] = [
+    "crawler",
+    "daemon",
+    "farmer",
+    "full_node",
+    "harvester",
+    "timelord",
+    "wallet",
+    "data_layer",
+    "solver",
+]
 
 
 async def call_endpoint(
@@ -174,8 +184,8 @@ def create_commands() -> None:
         def rpc_client_cmd(
             ctx: click.Context,
             endpoint: str,
-            request: Optional[str],
-            json_file: Optional[TextIO],
+            request: str | None,
+            json_file: TextIO | None,
             service: str = service,
         ) -> None:
             root_path: Path = ChikCliContext.set_default(ctx).root_path

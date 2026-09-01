@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from chik_rs import FullBlock
+from chik_rs import CoinRecord, FullBlock
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint128
 
 from chik.full_node.full_node_rpc_client import FullNodeRpcClient
-from chik.types.coin_record import CoinRecord
 from chik.util.bech32m import encode_puzzle_hash
 
 

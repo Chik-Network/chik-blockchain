@@ -5,7 +5,7 @@ import json
 import logging
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
 
 import aiohttp
 import pytest
@@ -14,6 +14,7 @@ from aiohttp.web_ws import WebSocketResponse
 from chik_rs import G1Element
 from pytest_mock import MockerFixture
 
+from chik._tests.conftest import ConsensusMode
 from chik._tests.util.misc import Marks, datacases
 from chik._tests.util.time_out_assert import time_out_assert_not_none
 from chik.daemon.client import DaemonProxy, connect_to_daemon
@@ -94,7 +95,7 @@ class ChikPlottersBladebitArgsCase:
     pool_contract: str = "txck1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
     compress: int = 1
     device: int = 0
-    hybrid_disk_mode: Optional[int] = None
+    hybrid_disk_mode: int | None = None
     farmer_pk: str = ""
     final_dir: str = ""
     marks: Marks = ()
@@ -147,7 +148,7 @@ class ChikPlottersBladebitArgsCase:
 class Service:
     running: bool
 
-    def poll(self) -> Optional[int]:
+    def poll(self) -> int | None:
         return None if self.running else 1
 
 
@@ -155,8 +156,8 @@ class Service:
 @dataclass
 class Daemon:
     # Instance variables used by WebSocketServer.is_running()
-    services: dict[str, Union[list[Service], Service]]
-    connections: dict[str, Optional[list[Any]]]
+    services: dict[str, list[Service] | Service]
+    connections: dict[str, list[Any] | None]
 
     # Instance variables used by WebSocketServer.get_wallet_addresses()
     net_config: dict[str, Any] = field(default_factory=dict)
@@ -314,9 +315,9 @@ label_newline_or_tab_response_data = {
 def assert_response(
     response: aiohttp.http_websocket.WSMessage,
     expected_response_data: dict[str, Any],
-    request_id: Optional[str] = None,
+    request_id: str | None = None,
     ack: bool = True,
-    command: Optional[str] = None,
+    command: str | None = None,
 ) -> None:
     # Expect: JSON response
     assert response.type == aiohttp.WSMsgType.TEXT
@@ -332,7 +333,7 @@ def assert_response(
 
 
 def assert_response_success_only(
-    response: aiohttp.http_websocket.WSMessage, request_id: Optional[str] = None
+    response: aiohttp.http_websocket.WSMessage, request_id: str | None = None
 ) -> dict[str, Any]:
     # Expect: JSON response
     assert response.type == aiohttp.WSMsgType.TEXT
@@ -592,6 +593,7 @@ async def test_get_routes(mock_lonely_daemon):
 
 
 @pytest.mark.anyio
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.PLAIN], reason="not relevant")
 async def test_get_network_info(daemon_client_with_config_and_keys: DaemonProxy):
     client = daemon_client_with_config_and_keys
     response = await client.get_network_info()
@@ -1015,7 +1017,7 @@ async def test_add_private_key(daemon_connection_and_temp_keychain):
     # Expect: Failure due to missing mnemonic
     assert_response(await ws.receive(), missing_mnemonic_response_data)
 
-    # When: using a mmnemonic with an incorrect word (typo)
+    # When: using a mnemonic with an incorrect word (typo)
     await ws.send_str(create_payload("add_private_key", {"mnemonic": mnemonic_with_typo}, "test", "daemon"))
     # Expect: Failure due to misspelled mnemonic
     assert_response(await ws.receive(), mnemonic_with_typo_response_data)
@@ -1025,7 +1027,7 @@ async def test_add_private_key(daemon_connection_and_temp_keychain):
     # Expect: Failure due to invalid mnemonic
     assert_response(await ws.receive(), invalid_mnemonic_length_response_data)
 
-    # When: using an incorrect mnemnonic
+    # When: using an incorrect mnemonic
     await ws.send_str(create_payload("add_private_key", {"mnemonic": " ".join(["abandon"] * 24)}, "test", "daemon"))
     # Expect: Failure due to checksum error
     assert_response(await ws.receive(), invalid_mnemonic_response_data)
@@ -1340,7 +1342,7 @@ async def test_bad_json(daemon_connection_and_temp_keychain: tuple[aiohttp.Clien
     ),
     RouteCase(
         route="unknown_command",
-        description="non-existant route",
+        description="non-existent route",
         request={},
         response={"success": False, "error": "unknown_command unknown_command"},
     ),
@@ -2100,6 +2102,7 @@ async def test_plotter_stop_plotting(
     ChikPlottersBladebitArgsCase(case_id="2", plot_type="cudaplot", hybrid_disk_mode=16),
     ChikPlottersBladebitArgsCase(case_id="3", plot_type="cudaplot", hybrid_disk_mode=128),
 )
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.PLAIN], reason="not relevant")
 def test_run_plotter_bladebit(
     mocker: MockerFixture,
     mock_daemon_with_config_and_keys,

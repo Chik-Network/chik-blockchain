@@ -6,22 +6,23 @@ import random
 from dataclasses import dataclass
 from pathlib import Path
 from time import monotonic
-from typing import Optional
 
 import aiosqlite
 import click
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
 
+from chik.consensus.block_height_map import BlockHeightMap
 from chik.consensus.blockchain import Blockchain
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.consensus.get_block_generator import get_block_generator
-from chik.full_node.block_height_map import BlockHeightMap
 from chik.full_node.block_store import BlockStore
 from chik.full_node.coin_store import CoinStore
 from chik.types.blockchain_format.serialized_program import SerializedProgram
+from chik.util.cpu import available_logical_cores
 from chik.util.db_version import lookup_db_version
 from chik.util.db_wrapper import DBWrapper2
+from chik.util.priority_thread_pool_executor import PriorityThreadPoolExecutor
 
 # the first transaction block. Each byte in transaction_height_delta is the
 # number of blocks to skip forward to get to the next transaction block
@@ -38,7 +39,7 @@ with open(Path(file_path).parent / "transaction_height_delta", "rb") as f:
 @dataclass(frozen=True)
 class BlockInfo:
     prev_header_hash: bytes32
-    transactions_generator: Optional[SerializedProgram]
+    transactions_generator: SerializedProgram | None
     transactions_generator_ref_list: list[uint32]
 
 
@@ -67,10 +68,12 @@ async def main(db_path: Path) -> None:
         coin_store = await CoinStore.create(db_wrapper)
 
         start_time = monotonic()
-        # make configurable
         reserved_cores = 4
+        cpu_count = available_logical_cores()
+        num_workers = max(cpu_count - reserved_cores, 1)
+        pool = PriorityThreadPoolExecutor(max_workers=num_workers, thread_name_prefix="validation-")
         height_map = await BlockHeightMap.create(db_path.parent, db_wrapper)
-        blockchain = await Blockchain.create(coin_store, block_store, height_map, DEFAULT_CONSTANTS, reserved_cores)
+        blockchain = await Blockchain.create(coin_store, block_store, height_map, DEFAULT_CONSTANTS, pool)
 
         peak = blockchain.get_peak()
         assert peak is not None
@@ -91,6 +94,7 @@ async def main(db_path: Path) -> None:
         print(f"get_block_generator(): {timing / REPETITIONS:0.3f}s")
 
         blockchain.shut_down()
+        pool.shutdown()
 
 
 @click.command()

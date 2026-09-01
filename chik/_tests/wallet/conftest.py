@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import contextlib
 import unittest
-from collections.abc import AsyncIterator, Awaitable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack
 from dataclasses import replace
-from typing import Any, Callable, Optional
+from typing import Any
 
 import pytest
 from chik_rs import (
@@ -34,7 +34,7 @@ from chik.wallet.wallet_state_manager import WalletStateManager
 @pytest.fixture(scope="function", autouse=True)
 def block_is_current_at(monkeypatch: pytest.MonkeyPatch) -> None:
     def make_new_synced(func: Callable[..., Awaitable[bool]]) -> Any:
-        async def mocked_synced(self: Any, block_is_current_at: Optional[uint64] = uint64(0)) -> bool:
+        async def mocked_synced(self: Any, block_is_current_at: uint64 | None = uint64(0)) -> bool:
             return await func(self, block_is_current_at)
 
         return mocked_synced
@@ -83,16 +83,16 @@ async def ignore_block_validation(
         return new_create
 
     def run_block(
-        block: FullBlock, prev_generators: list[bytes], constants: ConsensusConstants
-    ) -> tuple[Optional[int], Optional[SpendBundleConditions]]:
+        block: FullBlock, prev_generators: list[bytes], prev_tx_height: uint32, constants: ConsensusConstants
+    ) -> tuple[int | None, str | None, SpendBundleConditions | None]:
         assert block.transactions_generator is not None
         assert block.transactions_info is not None
-        flags = get_flags_for_height_and_constants(block.height, constants) | DONT_VALIDATE_SIGNATURE
+        flags = get_flags_for_height_and_constants(prev_tx_height, constants) | DONT_VALIDATE_SIGNATURE
         if block.height >= constants.HARD_FORK_HEIGHT:
             run_block = run_block_generator2
         else:
             run_block = run_block_generator
-        err, conds = run_block(
+        err, err_msg, conds = run_block(
             bytes(block.transactions_generator),
             prev_generators,
             block.transactions_info.cost,
@@ -104,7 +104,7 @@ async def ignore_block_validation(
         # pretend that the signatures are OK
         if conds is not None:
             conds = conds.replace(validated_signature=True)
-        return err, conds
+        return err, err_msg, conds
 
     monkeypatch.setattr("chik.simulator.block_tools.BlockTools", WalletBlockTools)
     monkeypatch.setattr(FullNode, "create", create_wrapper(FullNode.create))

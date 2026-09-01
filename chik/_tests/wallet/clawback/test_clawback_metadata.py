@@ -6,6 +6,7 @@ import pytest
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
 
+from chik._tests.conftest import ConsensusMode
 from chik.server.server import ChikServer
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
@@ -19,6 +20,7 @@ from chik.wallet.wallet_node import WalletNode
     "trusted",
     [True, False],
 )
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_is_recipient(
     simulator_and_wallet: tuple[list[FullNodeSimulator], list[tuple[WalletNode, ChikServer]], BlockTools],

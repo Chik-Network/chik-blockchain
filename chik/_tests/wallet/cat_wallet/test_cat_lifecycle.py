@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import pytest
 from chik_rs import AugSchemeMPL, G2Element, PrivateKey
 from chik_rs.sized_ints import uint64
@@ -38,13 +36,13 @@ async def do_spend(
     coins: list[Coin],
     lineage_proofs: list[LineageProof],
     inner_solutions: list[Program],
-    expected_result: tuple[MempoolInclusionStatus, Optional[Err]],
+    expected_result: tuple[MempoolInclusionStatus, Err | None],
     reveal_limitations_program: bool = True,
     signatures: list[G2Element] = [],
-    extra_deltas: Optional[list[int]] = None,
+    extra_deltas: list[int] | None = None,
     additional_spends: list[WalletSpendBundle] = [],
-    limitations_solutions: Optional[list[Program]] = None,
-    cost_logger: Optional[CostLogger] = None,
+    limitations_solutions: list[Program] | None = None,
+    cost_logger: CostLogger | None = None,
     cost_log_msg: str = "",
 ) -> int:
     if limitations_solutions is None:
@@ -83,6 +81,7 @@ async def do_spend(
     return cost
 
 
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_cat_mod(cost_logger: CostLogger, consensus_mode: ConsensusMode) -> None:
     async with sim_and_client() as (sim, sim_client):
@@ -220,6 +219,7 @@ async def test_cat_mod(cost_logger: CostLogger, consensus_mode: ConsensusMode) -
         )
 
 
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_complex_spend(cost_logger: CostLogger, consensus_mode: ConsensusMode) -> None:
     async with sim_and_client() as (sim, sim_client):
@@ -285,6 +285,7 @@ async def test_complex_spend(cost_logger: CostLogger, consensus_mode: ConsensusM
         )
 
 
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_genesis_by_id(cost_logger: CostLogger, consensus_mode: ConsensusMode) -> None:
     async with sim_and_client() as (sim, sim_client):
@@ -317,6 +318,7 @@ async def test_genesis_by_id(cost_logger: CostLogger, consensus_mode: ConsensusM
         )
 
 
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_genesis_by_puzhash(cost_logger: CostLogger, consensus_mode: ConsensusMode) -> None:
     async with sim_and_client() as (sim, sim_client):
@@ -349,6 +351,7 @@ async def test_genesis_by_puzhash(cost_logger: CostLogger, consensus_mode: Conse
         )
 
 
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_everything_with_signature(cost_logger: CostLogger, consensus_mode: ConsensusMode) -> None:
     async with sim_and_client() as (sim, sim_client):
@@ -423,6 +426,7 @@ async def test_everything_with_signature(cost_logger: CostLogger, consensus_mode
         )
 
 
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_delegated_tail(cost_logger: CostLogger, consensus_mode: ConsensusMode) -> None:
     async with sim_and_client() as (sim, sim_client):

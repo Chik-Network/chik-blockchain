@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field, replace
-from typing import Optional
 
 import pytest
 from chik_rs.sized_bytes import bytes32
@@ -14,7 +13,7 @@ from chik.util.streamable import Streamable, UInt32Range, UInt64Range, Versioned
 from chik.wallet.puzzles.clawback.metadata import ClawbackMetadata
 from chik.wallet.util.query_filter import AmountFilter, HashFilter
 from chik.wallet.util.wallet_types import CoinType, WalletType
-from chik.wallet.wallet_coin_record import WalletCoinRecord
+from chik.wallet.wallet_coin_record import WalletCoinRecord, WalletCoinRecordMetadataParsingError
 from chik.wallet.wallet_coin_store import CoinRecordOrder, GetCoinRecords, GetCoinRecordsResult, WalletCoinStore
 
 clawback_metadata = ClawbackMetadata(uint64(0), bytes32(b"1" * 32), bytes32(b"2" * 32))
@@ -134,7 +133,7 @@ class DummyWalletCoinRecords:
     ],
 )
 def test_wallet_coin_record_parsed_metadata_failures(invalid_record: WalletCoinRecord, error: str) -> None:
-    with pytest.raises(ValueError, match=error):
+    with pytest.raises(WalletCoinRecordMetadataParsingError, match=error):
         invalid_record.parsed_metadata()
 
 
@@ -632,7 +631,7 @@ get_coin_records_mixed_tests: list[tuple[GetCoinRecords, int, list[WalletCoinRec
 
 
 async def run_get_coin_records_test(
-    request: GetCoinRecords, total_count: Optional[int], coin_records: list[WalletCoinRecord]
+    request: GetCoinRecords, total_count: int | None, coin_records: list[WalletCoinRecord]
 ) -> None:
     async with DBConnection(1) as db_wrapper:
         store = await WalletCoinStore.create(db_wrapper)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any
 
 from chik_rs import CoinSpend
 
@@ -10,13 +10,12 @@ from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
-from chik.util.streamable import Streamable, streamable
 
 
 def make_spend(
     coin: Coin,
-    puzzle_reveal: Union[Program, SerializedProgram],
-    solution: Union[Program, SerializedProgram],
+    puzzle_reveal: Program | SerializedProgram,
+    solution: Program | SerializedProgram,
 ) -> CoinSpend:
     pr: SerializedProgram
     sol: SerializedProgram
@@ -34,13 +33,6 @@ def make_spend(
         raise ValueError("Only [SerializedProgram, Program] supported for solution")
 
     return CoinSpend(coin, pr, sol)
-
-
-@streamable
-@dataclass(frozen=True)
-class SpendInfo(Streamable):
-    puzzle: SerializedProgram
-    solution: SerializedProgram
 
 
 @dataclass(frozen=True)

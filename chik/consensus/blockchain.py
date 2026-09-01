@@ -5,16 +5,17 @@ import dataclasses
 import enum
 import logging
 import traceback
-from concurrent.futures import Executor, ThreadPoolExecutor
 from enum import Enum
-from typing import TYPE_CHECKING, ClassVar, Optional, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from chik_rs import (
     BlockRecord,
+    CoinRecord,
     ConsensusConstants,
     EndOfSubSlotBundle,
     FullBlock,
     HeaderBlock,
+    SpendBundleConditions,
     SubEpochChallengeSegment,
     SubEpochSummary,
     UnfinishedBlock,
@@ -26,27 +27,27 @@ from chik_rs.sized_ints import uint16, uint32, uint64, uint128
 
 from chik.consensus.block_body_validation import ForkInfo, validate_block_body
 from chik.consensus.block_header_validation import validate_unfinished_header_block
+from chik.consensus.block_height_map import BlockHeightMap
+from chik.consensus.blockchain_interface import MMRManagerProtocol
+from chik.consensus.blockchain_mmr import BlockchainMMRManager
 from chik.consensus.coin_store_protocol import CoinStoreProtocol
-from chik.consensus.cost_calculator import NPCResult
 from chik.consensus.difficulty_adjustment import get_next_sub_slot_iters_and_difficulty
 from chik.consensus.find_fork_point import lookup_fork_chain
 from chik.consensus.full_block_to_block_record import block_to_block_record
 from chik.consensus.generator_tools import get_block_header
+from chik.consensus.get_block_challenge import pre_sp_tx_block_height
 from chik.consensus.get_block_generator import get_block_generator
 from chik.consensus.multiprocess_validation import PreValidationResult
-from chik.full_node.block_height_map import BlockHeightMap
 from chik.full_node.block_store import BlockStore
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.vdf import VDFInfo
-from chik.types.coin_record import CoinRecord
 from chik.types.generator_types import BlockGenerator
 from chik.types.unfinished_header_block import UnfinishedHeaderBlock
 from chik.types.validation_state import ValidationState
-from chik.util.cpu import available_logical_cores
 from chik.util.errors import Err
 from chik.util.hash import std_hash
-from chik.util.inline_executor import InlineExecutor
 from chik.util.priority_mutex import PriorityMutex
+from chik.util.priority_thread_pool_executor import Executor
 
 log = logging.getLogger(__name__)
 
@@ -73,7 +74,7 @@ class StateChangeSummary:
     # list of coin-id, puzzle-hash pairs
     removals: list[tuple[bytes32, bytes32]]
     # new coin and hint
-    additions: list[tuple[Coin, Optional[bytes]]]
+    additions: list[tuple[Coin, bytes | None]]
     new_rewards: list[Coin]
 
 
@@ -93,7 +94,7 @@ class Blockchain:
     constants: ConsensusConstants
 
     # peak of the blockchain
-    _peak_height: Optional[uint32]
+    _peak_height: uint32 | None
     # All blocks in peak path are guaranteed to be included, can include orphan blocks
     __block_records: dict[bytes32, BlockRecord]
     # all hashes of blocks in block_record by height, used for garbage collection
@@ -105,6 +106,7 @@ class Blockchain:
     coin_store: CoinStoreProtocol
     # Store
     block_store: BlockStore
+    mmr_manager: MMRManagerProtocol
     # Used to verify blocks in parallel
     pool: Executor
     # Set holding seen compact proofs, in order to avoid duplicates.
@@ -125,9 +127,8 @@ class Blockchain:
         block_store: BlockStore,
         height_map: BlockHeightMap,
         consensus_constants: ConsensusConstants,
-        reserved_cores: int,
+        pool: Executor,
         *,
-        single_threaded: bool = False,
         log_coins: bool = False,
     ) -> Blockchain:
         """
@@ -141,20 +142,13 @@ class Blockchain:
         # be validated first.
         self.priority_mutex = PriorityMutex.create(priority_type=BlockchainMutexPriority)
         self.compact_proof_lock = asyncio.Lock()
-        if single_threaded:
-            self.pool = InlineExecutor()
-        else:
-            cpu_count = available_logical_cores()
-            num_workers = max(cpu_count - reserved_cores, 1)
-            self.pool = ThreadPoolExecutor(
-                max_workers=num_workers,
-                thread_name_prefix="block-validation-",
-            )
-            log.info(f"Started {num_workers} processes for block validation")
-
+        self.pool = pool
         self.constants = consensus_constants
         self.coin_store = coin_store
         self.block_store = block_store
+        self.mmr_manager = BlockchainMMRManager(
+            consensus_constants.GENESIS_CHALLENGE, aggregate_from=consensus_constants.HARD_FORK2_HEIGHT
+        )
         self._shut_down = False
         await self._load_chain_from_store(height_map)
         self._seen_compact_proofs = set()
@@ -162,7 +156,6 @@ class Blockchain:
 
     def shut_down(self) -> None:
         self._shut_down = True
-        self.pool.shutdown(wait=True)
 
     async def _load_chain_from_store(self, height_map: BlockHeightMap) -> None:
         """
@@ -172,7 +165,11 @@ class Blockchain:
         self.__block_records = {}
         self.__heights_in_cache = {}
         block_records, peak = await self.block_store.get_block_records_close_to_peak(self.constants.BLOCKS_CACHE_SIZE)
-        for block in block_records.values():
+
+        # Sort blocks by height to build MMR properly
+        sorted_blocks = sorted(block_records.values(), key=lambda b: b.height)
+
+        for block in sorted_blocks:
             self.add_block_record(block)
 
         if len(block_records) == 0:
@@ -185,7 +182,15 @@ class Blockchain:
         assert self.__height_map.contains_height(self._peak_height)
         assert not self.__height_map.contains_height(uint32(self._peak_height + 1))
 
-    def get_peak(self) -> Optional[BlockRecord]:
+        # Build MMR from canonical chain (height_map), starting from aggregate_from
+        # todo WPv2: persist MMR state to avoid rebuilding on startup
+        for height in range(self.mmr_manager.get_aggrtegate_from(), self._peak_height + 1):
+            header_hash = self.__height_map.get_hash(uint32(height))
+            block_record = await self.get_block_record_from_db(header_hash)
+            assert block_record is not None
+            self.mmr_manager.add_block_to_mmr(header_hash, block_record.prev_hash, block_record.height)
+
+    def get_peak(self) -> BlockRecord | None:
         """
         Return the peak of the blockchain
         """
@@ -193,7 +198,7 @@ class Blockchain:
             return None
         return self.height_to_block_record(self._peak_height)
 
-    def get_tx_peak(self) -> Optional[BlockRecord]:
+    def get_tx_peak(self) -> BlockRecord | None:
         """
         Return the most recent transaction block. i.e. closest to the peak of the blockchain
         Requires the blockchain to be initialized and there to be a peak set
@@ -213,17 +218,17 @@ class Blockchain:
 
         return tx_peak
 
-    async def get_full_peak(self) -> Optional[FullBlock]:
+    async def get_full_peak(self) -> FullBlock | None:
         if self._peak_height is None:
             return None
         """ Return list of FullBlocks that are peaks"""
-        peak_hash: Optional[bytes32] = self.height_to_hash(self._peak_height)
+        peak_hash: bytes32 | None = self.height_to_hash(self._peak_height)
         assert peak_hash is not None  # Since we must have the peak block
         block = await self.block_store.get_full_block(peak_hash)
         assert block is not None
         return block
 
-    async def get_full_block(self, header_hash: bytes32) -> Optional[FullBlock]:
+    async def get_full_block(self, header_hash: bytes32) -> FullBlock | None:
         return await self.block_store.get_full_block(header_hash)
 
     async def advance_fork_info(self, block: FullBlock, fork_info: ForkInfo) -> None:
@@ -258,7 +263,7 @@ class Blockchain:
         assert len(chain) == block.height - fork_info.peak_height - 1
 
         for height in range(fork_info.peak_height + 1, block.height):
-            fork_block: Optional[FullBlock] = await self.block_store.get_full_block(chain[uint32(height)])
+            fork_block: FullBlock | None = await self.block_store.get_full_block(chain[uint32(height)])
             assert fork_block is not None
             await self.run_single_block(fork_block, fork_info)
 
@@ -266,14 +271,21 @@ class Blockchain:
         assert fork_info.peak_height == block.height - 1
         assert block.height == 0 or fork_info.peak_hash == block.prev_header_hash
 
-        additions: list[tuple[Coin, Optional[bytes]]] = []
+        additions: list[tuple[Coin, bytes | None]] = []
         removals: list[tuple[bytes32, Coin]] = []
         if block.transactions_generator is not None:
-            block_generator: Optional[BlockGenerator] = await get_block_generator(self.lookup_block_generators, block)
+            block_generator: BlockGenerator | None = await get_block_generator(self.lookup_block_generators, block)
             assert block_generator is not None
             assert block.transactions_info is not None
             assert block.foliage_transaction_block is not None
-            flags = get_flags_for_height_and_constants(block.height, self.constants)
+            prev_tx_height = pre_sp_tx_block_height(
+                constants=self.constants,
+                blocks=self,
+                prev_b_hash=block.prev_header_hash,
+                sp_index=block.reward_chain_block.signage_point_index,
+                finished_sub_slots=len(block.finished_sub_slots),
+            )
+            flags = get_flags_for_height_and_constants(prev_tx_height, self.constants)
             additions, removals = additions_and_removals(
                 bytes(block.transactions_generator),
                 block_generator.generator_refs,
@@ -289,9 +301,9 @@ class Blockchain:
         pre_validation_result: PreValidationResult,
         sub_slot_iters: uint64,
         fork_info: ForkInfo,
-        prev_ses_block: Optional[BlockRecord] = None,
-        block_record: Optional[BlockRecord] = None,
-    ) -> tuple[AddBlockResult, Optional[Err], Optional[StateChangeSummary]]:
+        prev_ses_block: BlockRecord | None = None,
+        block_record: BlockRecord | None = None,
+    ) -> tuple[AddBlockResult, Err | None, StateChangeSummary | None]:
         """
         This method must be called under the blockchain lock
         Adds a new block into the blockchain, if it's valid and connected to the current
@@ -312,7 +324,7 @@ class Blockchain:
             A StateChangeSummary iff NEW_PEAK, with:
                 - A fork point if the result is NEW_PEAK
                 - A list of coin changes as a result of rollback
-                - A list of NPCResult for any new transaction block added to the chain
+                - A list of SpendBundleConditions for any new transaction block added to the chain
         """
 
         if block.height == 0 and block.prev_header_hash != self.constants.GENESIS_CHALLENGE:
@@ -325,7 +337,7 @@ class Blockchain:
         # first check if this block is disconnected from the currently known
         # blocks. We can only accept blocks that are connected to another block
         # we know of.
-        prev_block: Optional[BlockRecord] = None
+        prev_block: BlockRecord | None = None
         if not extending_main_chain and not genesis:
             prev_block = self.try_block_record(block.prev_header_hash)
             if prev_block is None:
@@ -421,7 +433,7 @@ class Blockchain:
 
         try:
             # Always add the block to the database
-            async with self.block_store.db_wrapper.writer():
+            async with self.block_store.transaction():
                 # Perform the DB operations to update the state, and rollback if something goes wrong
                 await self.block_store.add_full_block(header_hash, block, block_record)
                 records, state_change_summary = await self._reconsider_peak(block_record, genesis, fork_info)
@@ -437,11 +449,19 @@ class Blockchain:
             # otherwise other tasks may go look for this block before it's available
             if state_change_summary is not None:
                 self.__height_map.rollback(state_change_summary.fork_height)
+                if self._peak_height is not None and fork_info.fork_height < self._peak_height:
+                    self.mmr_manager.rollback_to_height(fork_info.fork_height, self)
+                # pre-allocate memory for height to hash map. We don't want it
+                # to fail once the DB transaction is committed.
+                self.__height_map.ensure_capacity(records[-1].height)
             for fetched_block_record in records:
                 self.__height_map.update_height(
                     fetched_block_record.height,
                     fetched_block_record.header_hash,
                     fetched_block_record.sub_epoch_summary_included,
+                )
+                self.mmr_manager.add_block_to_mmr(
+                    fetched_block_record.header_hash, fetched_block_record.prev_hash, fetched_block_record.height
                 )
 
             if state_change_summary is not None:
@@ -480,7 +500,7 @@ class Blockchain:
         block_record: BlockRecord,
         genesis: bool,
         fork_info: ForkInfo,
-    ) -> tuple[list[BlockRecord], Optional[StateChangeSummary]]:
+    ) -> tuple[list[BlockRecord], StateChangeSummary | None]:
         """
         When a new block is added, this is called, to check if the new block is the new peak of the chain.
         This also handles reorgs by reverting blocks which are not in the heaviest chain.
@@ -620,14 +640,14 @@ class Blockchain:
 
     async def get_sp_and_ip_sub_slots(
         self, header_hash: bytes32
-    ) -> Optional[tuple[Optional[EndOfSubSlotBundle], Optional[EndOfSubSlotBundle]]]:
-        block: Optional[FullBlock] = await self.block_store.get_full_block(header_hash)
+    ) -> tuple[EndOfSubSlotBundle | None, EndOfSubSlotBundle | None] | None:
+        block: FullBlock | None = await self.block_store.get_full_block(header_hash)
         if block is None:
             return None
         curr_br: BlockRecord = self.block_record(block.header_hash)
         is_overflow = curr_br.overflow
 
-        curr: Optional[FullBlock] = block
+        curr: FullBlock | None = block
         assert curr is not None
         while True:
             if curr_br.first_in_sub_slot:
@@ -652,7 +672,7 @@ class Blockchain:
             # Have both sub-slots
             return curr.finished_sub_slots[-2], ip_sub_slot
 
-        prev_curr: Optional[FullBlock] = await self.block_store.get_full_block(curr.prev_header_hash)
+        prev_curr: FullBlock | None = await self.block_store.get_full_block(curr.prev_header_hash)
         if prev_curr is None:
             assert curr.height == 0
             prev_curr = curr
@@ -676,7 +696,7 @@ class Blockchain:
         if peak is None:
             return []
         recent_rc: list[tuple[bytes32, uint128]] = []
-        curr: Optional[BlockRecord] = peak
+        curr: BlockRecord | None = peak
         while curr is not None and len(recent_rc) < 2 * self.constants.MAX_SUB_SLOT_BLOCKS:
             if curr != peak:
                 recent_rc.append((curr.reward_infusion_new_challenge, curr.total_iters))
@@ -694,23 +714,35 @@ class Blockchain:
 
     async def validate_unfinished_block_header(
         self, block: UnfinishedBlock, skip_overflow_ss_validation: bool = True
-    ) -> tuple[Optional[uint64], Optional[Err]]:
+    ) -> tuple[uint64 | None, Err | None]:
+        if len(block.reward_chain_block.proof_of_space.proof) >= 2000:
+            return None, Err.INVALID_POSPACE
+
         if len(block.transactions_generator_ref_list) > self.constants.MAX_GENERATOR_REF_LIST_SIZE:
             return None, Err.TOO_MANY_GENERATOR_REFS
 
-        if (
-            self.try_block_record(block.prev_header_hash) is None
-            and block.prev_header_hash != self.constants.GENESIS_CHALLENGE
-        ):
+        prev_b = self.try_block_record(block.prev_header_hash)
+        if prev_b is None and block.prev_header_hash != self.constants.GENESIS_CHALLENGE:
             return None, Err.INVALID_PREV_BLOCK_HASH
+
+        prev_tx_height = pre_sp_tx_block_height(
+            constants=self.constants,
+            blocks=self,
+            prev_b_hash=block.prev_header_hash,
+            sp_index=block.reward_chain_block.signage_point_index,
+            finished_sub_slots=len(block.finished_sub_slots),
+        )
+
+        # With hard fork 2 we ban transactions_generator_ref_list.
+        if prev_tx_height >= self.constants.SOFT_FORK9_HEIGHT and block.transactions_generator_ref_list != []:
+            return None, Err.TOO_MANY_GENERATOR_REFS
 
         if block.transactions_info is not None:
             if block.transactions_generator is not None:
                 if std_hash(bytes(block.transactions_generator)) != block.transactions_info.generator_root:
                     return None, Err.INVALID_TRANSACTIONS_GENERATOR_HASH
-            else:
-                if block.transactions_info.generator_root != bytes([0] * 32):
-                    return None, Err.INVALID_TRANSACTIONS_GENERATOR_HASH
+            elif block.transactions_info.generator_root != bytes([0] * 32):
+                return None, Err.INVALID_TRANSACTIONS_GENERATOR_HASH
 
             if (
                 block.foliage_transaction_block is None
@@ -751,12 +783,12 @@ class Blockchain:
         return required_iters, None
 
     async def validate_unfinished_block(
-        self, block: UnfinishedBlock, npc_result: Optional[NPCResult], skip_overflow_ss_validation: bool = True
+        self, block: UnfinishedBlock, conds: SpendBundleConditions | None, skip_overflow_ss_validation: bool = True
     ) -> PreValidationResult:
         required_iters, error = await self.validate_unfinished_block_header(block, skip_overflow_ss_validation)
 
         if error is not None:
-            return PreValidationResult(uint16(error.value), None, None, uint32(0))
+            return PreValidationResult(uint16(error.value), None, None, None, uint32(0))
 
         prev_height = (
             -1
@@ -766,7 +798,6 @@ class Blockchain:
 
         fork_info = ForkInfo(prev_height, prev_height, block.prev_header_hash)
 
-        conds = None if npc_result is None else npc_result.conds
         error_code = await validate_block_body(
             self.constants,
             self,
@@ -779,9 +810,9 @@ class Blockchain:
         )
 
         if error_code is not None:
-            return PreValidationResult(uint16(error_code.value), None, None, uint32(0))
+            return PreValidationResult(uint16(error_code.value), None, None, None, uint32(0))
 
-        return PreValidationResult(None, required_iters, conds, uint32(0))
+        return PreValidationResult(None, None, required_iters, conds, uint32(0))
 
     def contains_block(self, header_hash: bytes32, height: uint32) -> bool:
         block_hash_from_hh = self.height_to_hash(height)
@@ -794,7 +825,7 @@ class Blockchain:
 
     def height_to_block_record(self, height: uint32) -> BlockRecord:
         # Precondition: height is in the blockchain
-        header_hash: Optional[bytes32] = self.height_to_hash(height)
+        header_hash: bytes32 | None = self.height_to_hash(height)
         if header_hash is None:
             raise ValueError(f"Height is not in blockchain: {height}")
         return self.block_record(header_hash)
@@ -805,7 +836,7 @@ class Blockchain:
     def get_ses(self, height: uint32) -> SubEpochSummary:
         return self.__height_map.get_ses(height)
 
-    def height_to_hash(self, height: uint32) -> Optional[bytes32]:
+    def height_to_hash(self, height: uint32) -> bytes32 | None:
         if not self.__height_map.contains_height(height):
             return None
         return self.__height_map.get_hash(height)
@@ -813,7 +844,7 @@ class Blockchain:
     def contains_height(self, height: uint32) -> bool:
         return self.__height_map.contains_height(height)
 
-    def get_peak_height(self) -> Optional[uint32]:
+    def get_peak_height(self) -> uint32 | None:
         return self._peak_height
 
     async def warmup(self, fork_point: uint32) -> None:
@@ -877,13 +908,13 @@ class Blockchain:
     ) -> dict[bytes32, HeaderBlock]:
         hashes = []
         for height in range(start, stop + 1):
-            header_hash: Optional[bytes32] = self.height_to_hash(uint32(height))
+            header_hash: bytes32 | None = self.height_to_hash(uint32(height))
             if header_hash is not None:
                 hashes.append(header_hash)
 
         blocks: list[FullBlock] = []
         for hash in hashes.copy():
-            block = self.block_store.block_cache.get(hash)
+            block = self.block_store.get_block_from_cache(hash)
             if block is not None:
                 blocks.append(block)
                 hashes.remove(hash)
@@ -918,7 +949,7 @@ class Blockchain:
 
     async def get_header_block_by_height(
         self, height: int, header_hash: bytes32, tx_filter: bool = True
-    ) -> Optional[HeaderBlock]:
+    ) -> HeaderBlock | None:
         header_dict: dict[bytes32, HeaderBlock] = await self.get_header_blocks_in_range(height, height, tx_filter)
         if len(header_dict) == 0:
             return None
@@ -926,34 +957,25 @@ class Blockchain:
             return None
         return header_dict[header_hash]
 
-    async def get_block_records_at(self, heights: list[uint32], batch_size: int = 900) -> list[BlockRecord]:
+    async def get_block_records_at(self, heights: list[uint32]) -> list[BlockRecord]:
         """
         gets block records by height (only blocks that are part of the chain)
         """
-        records: list[BlockRecord] = []
         hashes: list[bytes32] = []
-        assert batch_size < self.block_store.db_wrapper.host_parameter_limit
         for height in heights:
-            header_hash: Optional[bytes32] = self.height_to_hash(height)
+            header_hash: bytes32 | None = self.height_to_hash(height)
             if header_hash is None:
                 raise ValueError(f"Do not have block at height {height}")
             hashes.append(header_hash)
-            if len(hashes) > batch_size:
-                res = await self.block_store.get_block_records_by_hash(hashes)
-                records.extend(res)
-                hashes = []
 
-        if len(hashes) > 0:
-            res = await self.block_store.get_block_records_by_hash(hashes)
-            records.extend(res)
-        return records
+        return await self.block_store.get_block_records_by_hash(hashes)
 
-    def try_block_record(self, header_hash: bytes32) -> Optional[BlockRecord]:
+    def try_block_record(self, header_hash: bytes32) -> BlockRecord | None:
         if header_hash in self.__block_records:
             return self.block_record(header_hash)
         return None
 
-    async def get_block_record_from_db(self, header_hash: bytes32) -> Optional[BlockRecord]:
+    async def get_block_record_from_db(self, header_hash: bytes32) -> BlockRecord | None:
         ret = self.__block_records.get(header_hash)
         if ret is not None:
             return ret
@@ -980,6 +1002,7 @@ class Blockchain:
 
         return (await self.block_store.get_block_record(header_hash)) is not None
 
+    # can only called on the heighest block
     def remove_block_record(self, header_hash: bytes32) -> None:
         sbr = self.block_record(header_hash)
         del self.__block_records[header_hash]
@@ -1003,8 +1026,8 @@ class Blockchain:
     async def get_sub_epoch_challenge_segments(
         self,
         ses_block_hash: bytes32,
-    ) -> Optional[list[SubEpochChallengeSegment]]:
-        segments: Optional[list[SubEpochChallengeSegment]] = await self.block_store.get_sub_epoch_challenge_segments(
+    ) -> list[SubEpochChallengeSegment] | None:
+        segments: list[SubEpochChallengeSegment] | None = await self.block_store.get_sub_epoch_challenge_segments(
             ses_block_hash
         )
         if segments is None:
@@ -1050,7 +1073,7 @@ class Blockchain:
         peak_block = await self.get_block_record_from_db(header_hash)
         assert peak_block is not None
         if self.height_to_hash(peak_block.height) != header_hash:
-            peak: Optional[BlockRecord] = self.get_peak()
+            peak: BlockRecord | None = self.get_peak()
             assert peak is not None
             reorg_chain: dict[uint32, bytes32]
             # Then we look up blocks up to fork point one at a time, backtracking
@@ -1079,3 +1102,17 @@ class Blockchain:
             generators.update(await self.block_store.get_generators_at(remaining_refs))
 
         return generators
+
+    def get_mmr_root_for_block(
+        self,
+        prev_header_hash: bytes32,
+        new_sp_index: int,
+        starts_new_slot: bool,
+    ) -> bytes32 | None:
+        return self.mmr_manager.get_mmr_root_for_block(prev_header_hash, new_sp_index, starts_new_slot, self)
+
+    def compute_current_mmr_root(self) -> bytes32 | None:
+        return self.mmr_manager.compute_current_mmr_root()
+
+    def add_block_to_mmr(self, block_record: BlockRecord) -> None:
+        self.mmr_manager.add_block_to_mmr(block_record.header_hash, block_record.prev_hash, block_record.height)

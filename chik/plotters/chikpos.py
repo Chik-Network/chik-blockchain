@@ -10,15 +10,16 @@ import importlib.metadata
 import logging
 from argparse import Namespace
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from chik.plotting.create_plots import create_plots, resolve_plot_keys
-from chik.plotting.util import Params, add_plot_directory, validate_plot_size
+from chik.plotting.util import Params, validate_plot_size
+from chik.util.harvester_config import add_plot_directory
 
 log = logging.getLogger(__name__)
 
 
-def get_chikpos_install_info() -> Optional[dict[str, Any]]:
+def get_chikpos_install_info() -> dict[str, Any] | None:
     chikpos_version = importlib.metadata.version("chikpos")
     return {"display_name": "Chik Proof of Space", "version": chikpos_version, "installed": True}
 

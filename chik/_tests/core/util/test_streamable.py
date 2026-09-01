@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import io
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field, fields
-from typing import Any, Callable, ClassVar, Optional, get_type_hints
+from enum import Enum
+from typing import Any, ClassVar, Literal, get_args, get_type_hints
 
 import pytest
 from chik_rs import FullBlock, G1Element, SubEpochChallengeSegment
 from chik_rs.sized_bytes import bytes4, bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64
 from klvm_tools import binutils
-from typing_extensions import Literal, get_args
 
-from chik.protocols.wallet_protocol import RespondRemovals
+from chik.protocols.wallet_protocol import RespondRemovals, RespondToPhUpdates
 from chik.simulator.block_tools import BlockTools, test_constants
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
@@ -24,21 +25,25 @@ from chik.util.streamable import (
     ParameterMissingError,
     Streamable,
     UnsupportedType,
+    _apply_list_limits,
     function_to_parse_one_item,
     function_to_stream_one_item,
     is_type_Dict,
+    is_type_Enum,
     is_type_List,
     is_type_SpecificOptional,
     is_type_Tuple,
     parse_bool,
     parse_bytes,
     parse_list,
+    parse_list_limited,
     parse_optional,
     parse_str,
     parse_tuple,
     parse_uint32,
     recurse_jsonify,
     streamable,
+    streamable_enum,
     streamable_from_dict,
     write_uint32,
 )
@@ -264,8 +269,10 @@ def test_convert_primitive_failures(input_dict: dict[str, Any], error: Any) -> N
             StreamableFromDict1,
             {"a": "asdf", "b": "2", "c": G1Element()},
             ConversionError,
-            "Failed to convert 'asdf' from type str to uint8: ValueError: invalid literal "
-            "for int() with base 10: 'asdf'",
+            (
+                "Failed to convert 'asdf' from type str to uint8: ValueError: invalid literal "
+                "for int() with base 10: 'asdf'"
+            ),
         ],
         [StreamableFromDict1, {"a": 1, "b": "2"}, ParameterMissingError, "1 field missing for StreamableFromDict1: c"],
         [StreamableFromDict1, {"a": 1}, ParameterMissingError, "2 fields missing for StreamableFromDict1: b, c"],
@@ -371,9 +378,28 @@ def test_not_lists() -> None:
 
 
 def test_basic_optional() -> None:
-    assert is_type_SpecificOptional(Optional[int])
-    assert is_type_SpecificOptional(Optional[Optional[int]])
+    assert is_type_SpecificOptional(int | None)
+    assert is_type_SpecificOptional(int | None)
     assert not is_type_SpecificOptional(list[int])
+
+
+class BasicEnum(Enum):
+    A = 1
+    B = 2
+
+
+def test_basic_enum() -> None:
+    assert is_type_Enum(BasicEnum)
+    assert not is_type_Enum(list[int])
+
+
+def test_enum_needs_proxy() -> None:
+    with pytest.raises(UnsupportedType):
+
+        @streamable
+        @dataclass(frozen=True)
+        class EnumStreamable(Streamable):
+            enum: BasicEnum
 
 
 @streamable
@@ -396,10 +422,10 @@ class PostInitTestClassBad(Streamable):
 @streamable
 @dataclass(frozen=True)
 class PostInitTestClassOptional(Streamable):
-    a: Optional[uint8]
-    b: Optional[uint8]
-    c: Optional[Optional[uint8]]
-    d: Optional[Optional[uint8]]
+    a: uint8 | None
+    b: uint8 | None
+    c: uint8 | None
+    d: uint8 | None
 
 
 @streamable
@@ -423,6 +449,25 @@ class PostInitTestClassDict(Streamable):
     b: dict[bytes32, dict[uint8, str]]
 
 
+@streamable_enum(uint32)
+class IntegerEnum(Enum):
+    A = 1
+    B = 2
+
+
+@streamable_enum(str)
+class StringEnum(Enum):
+    A = "foo"
+    B = "bar"
+
+
+@streamable
+@dataclass(frozen=True)
+class PostInitTestClassEnum(Streamable):
+    a: IntegerEnum
+    b: StringEnum
+
+
 @pytest.mark.parametrize(
     "test_class, args",
     [
@@ -433,6 +478,7 @@ class PostInitTestClassDict(Streamable):
         (PostInitTestClassTuple, ((1, "test"), ((200, "test_2"), b"\xba" * 32))),
         (PostInitTestClassDict, ({1: "bar"}, {bytes32.zeros: {1: "bar"}})),
         (PostInitTestClassOptional, (12, None, 13, None)),
+        (PostInitTestClassEnum, (IntegerEnum.A, StringEnum.B)),
     ],
 )
 def test_post_init_valid(test_class: type[Any], args: tuple[Any, ...]) -> None:
@@ -453,6 +499,8 @@ def test_post_init_valid(test_class: type[Any], args: tuple[Any, ...]) -> None:
             return validate_item_type(key_type, next(iter(item.keys()))) and validate_item_type(
                 value_type, next(iter(item.values()))
             )
+        if is_type_Enum(type_in):
+            return validate_item_type(type_in._streamable_proxy, type_in._streamable_proxy(item.value))  # type: ignore[attr-defined]
         return isinstance(item, type_in)
 
     test_object = test_class(*args)
@@ -493,10 +541,12 @@ def test_basic() -> None:
         b: uint32
         c: list[uint32]
         d: list[list[uint32]]
-        e: Optional[uint32]
-        f: Optional[uint32]
+        e: uint32 | None
+        f: uint32 | None
         g: tuple[uint32, str, bytes]
         h: dict[uint32, str]
+        i: IntegerEnum
+        j: StringEnum
 
     # we want to test invalid here, hence the ignore.
     a = TestClass(
@@ -508,6 +558,8 @@ def test_basic() -> None:
         None,
         (uint32(383), "hello", b"goodbye"),
         {uint32(1): "foo"},
+        IntegerEnum.A,
+        StringEnum.B,
     )
 
     b: bytes = bytes(a)
@@ -542,9 +594,9 @@ def test_json(bt: BlockTools) -> None:
 @streamable
 @dataclass(frozen=True)
 class OptionalTestClass(Streamable):
-    a: Optional[str]
-    b: Optional[bool]
-    c: Optional[list[Optional[str]]]
+    a: str | None
+    b: bool | None
+    c: list[str | None] | None
 
 
 @pytest.mark.parametrize(
@@ -558,7 +610,7 @@ class OptionalTestClass(Streamable):
         (None, None, None),
     ],
 )
-def test_optional_json(a: Optional[str], b: Optional[bool], c: Optional[list[Optional[str]]]) -> None:
+def test_optional_json(a: str | None, b: bool | None, c: list[str | None] | None) -> None:
     obj: OptionalTestClass = OptionalTestClass.from_json_dict({"a": a, "b": b, "c": c})
     assert obj.a == a
     assert obj.b == b
@@ -575,7 +627,7 @@ class TestClassRecursive1(Streamable):
 @dataclass(frozen=True)
 class TestClassRecursive2(Streamable):
     a: uint32
-    b: list[Optional[list[TestClassRecursive1]]]
+    b: list[list[TestClassRecursive1] | None]
     c: bytes32
 
 
@@ -589,7 +641,7 @@ def test_recursive_json() -> None:
 
 
 def test_recursive_types() -> None:
-    coin: Optional[Coin] = None
+    coin: Coin | None = None
     l1 = [(bytes32([2] * 32), coin)]
     rr = RespondRemovals(uint32(1), bytes32([1] * 32), l1, None)
     RespondRemovals(rr.height, rr.header_hash, rr.coins, rr.proofs)
@@ -602,7 +654,7 @@ def test_ambiguous_deserialization_optionals() -> None:
     @streamable
     @dataclass(frozen=True)
     class TestClassOptional(Streamable):
-        a: Optional[uint8]
+        a: uint8 | None
 
     # Does not have the required elements
     with pytest.raises(AssertionError):
@@ -619,8 +671,19 @@ def test_ambiguous_deserialization_int() -> None:
         a: uint32
 
     # Does not have the required uint size
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=re.escape("uint32.from_bytes() requires 4 bytes but got: 2")):
         TestClassUint.from_bytes(b"\x00\x00")
+
+
+def test_ambiguous_deserialization_int_enum() -> None:
+    @streamable
+    @dataclass(frozen=True)
+    class TestClassIntegerEnum(Streamable):
+        a: IntegerEnum
+
+    # passed bytes are incorrect size for serialization proxy
+    with pytest.raises(ValueError, match=re.escape("uint32.from_bytes() requires 4 bytes but got: 2")):
+        TestClassIntegerEnum.from_bytes(b"\x00\x00")
 
 
 def test_ambiguous_deserialization_list() -> None:
@@ -654,6 +717,28 @@ def test_ambiguous_deserialization_str() -> None:
     # Does not have the required str size
     with pytest.raises(AssertionError):
         TestClassStr.from_bytes(bytes([0, 0, 100, 24, 52]))
+
+
+def test_ambiguous_deserialization_str_enum() -> None:
+    @streamable
+    @dataclass(frozen=True)
+    class TestClassStr(Streamable):
+        a: StringEnum
+
+    # passed bytes are incorrect size for serialization proxy
+    with pytest.raises(AssertionError):
+        TestClassStr.from_bytes(bytes([0, 0, 100, 24, 52]))
+
+
+def test_deserialization_to_invalid_enum() -> None:
+    @streamable
+    @dataclass(frozen=True)
+    class TestClassStr(Streamable):
+        a: StringEnum
+
+    # encodes the string "baz" which is not a valid value for StringEnum
+    with pytest.raises(ValueError, match=re.escape("'baz' is not a valid StringEnum")):
+        TestClassStr.from_bytes(bytes([0, 0, 0, 3, 98, 97, 122]))
 
 
 def test_ambiguous_deserialization_bytes() -> None:
@@ -697,8 +782,23 @@ def test_ambiguous_deserialization_program() -> None:
 
     TestClassProgram.from_bytes(bytes(program))
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         TestClassProgram.from_bytes(bytes(program) + b"9")
+
+
+def test_from_bytes_rejects_trailing_bytes_rust_types() -> None:
+    from chik_rs import G2Element, SpendBundle
+
+    coin = Coin(bytes32(bytes(32)), bytes32(bytes(32)), uint64(0))
+    valid_coin = bytes(coin)
+    Coin.from_bytes(valid_coin)
+    with pytest.raises(ValueError):
+        Coin.from_bytes(valid_coin + b"\x00")
+
+    valid_sb = bytes(4) + bytes(G2Element())
+    SpendBundle.from_bytes(valid_sb)
+    with pytest.raises(ValueError):
+        SpendBundle.from_bytes(valid_sb + b"\x00")
 
 
 def test_streamable_empty() -> None:
@@ -814,6 +914,122 @@ def test_parse_list() -> None:
     # failure to parser internal type
     with pytest.raises(ValueError):
         parse_list(io.BytesIO(b"\x00\x00\x00\x01\x02"), parse_bool)
+
+
+def test_parse_list_limited_fixed_size() -> None:
+    # 5 bools: \x00\x00\x00\x05 followed by \x01\x00\x01\x00\x01
+    data = b"\x00\x00\x00\x05\x01\x00\x01\x00\x01"
+
+    # Limit to 3 items, element_fixed_size=1 -> seeks past remaining 2
+    f = io.BytesIO(data)
+    result = parse_list_limited(f, parse_bool, max_items=3, element_fixed_size=1)
+    assert result == [True, False, True]
+    assert f.read() == b""
+
+    # Limit larger than list size -> returns all items
+    f = io.BytesIO(data)
+    result = parse_list_limited(f, parse_bool, max_items=100, element_fixed_size=1)
+    assert result == [True, False, True, False, True]
+
+    # Limit of 0 -> returns empty, seeks past all
+    f = io.BytesIO(data)
+    result = parse_list_limited(f, parse_bool, max_items=0, element_fixed_size=1)
+    assert result == []
+    assert f.read() == b""
+
+    # Empty list
+    f = io.BytesIO(b"\x00\x00\x00\x00")
+    result = parse_list_limited(f, parse_bool, max_items=10, element_fixed_size=1)
+    assert result == []
+
+
+def test_parse_list_limited_variable_size() -> None:
+    # list of 3 variable-length byte strings: b"ab", b"cd", b"ef"
+    # Each is: uint32 length + bytes
+    data = (
+        b"\x00\x00\x00\x03"  # list size = 3
+        b"\x00\x00\x00\x02ab"  # "ab"
+        b"\x00\x00\x00\x02cd"  # "cd"
+        b"\x00\x00\x00\x02ef"  # "ef"
+    )
+
+    # Limit to 1 item, no fixed size -> parses remaining 2 to skip them
+    f = io.BytesIO(data)
+    result = parse_list_limited(f, parse_bytes, max_items=1, element_fixed_size=None)
+    assert result == [b"ab"]
+    assert f.read() == b""
+
+
+def test_from_bytes_with_list_limits() -> None:
+    @streamable
+    @dataclass(frozen=True)
+    class MsgWithList(Streamable):
+        coin_ids: list[bytes32]
+        flag: bool
+
+    ids = [bytes32(i.to_bytes(32, "big")) for i in range(100)]
+    msg = MsgWithList(ids, True)
+    blob = bytes(msg)
+
+    # Without limits -> all 100
+    parsed = MsgWithList.from_bytes(blob)
+    assert len(parsed.coin_ids) == 100
+    assert parsed.flag is True
+
+    # With limit -> 10 items, flag still parsed correctly
+    parsed = MsgWithList.from_bytes(blob, list_limits={"coin_ids": 10})
+    assert len(parsed.coin_ids) == 10
+    assert parsed.coin_ids == ids[:10]
+    assert parsed.flag is True
+
+    # Limit on non-existent field -> ignored
+    parsed = MsgWithList.from_bytes(blob, list_limits={"nonexistent": 5})
+    assert len(parsed.coin_ids) == 100
+
+    # Primitive list type (hits _FIXED_SIZE_PRIMITIVES path)
+    @streamable
+    @dataclass(frozen=True)
+    class MsgWithBools(Streamable):
+        flags: list[bool]
+
+    bools_msg = MsgWithBools([True, False, True, False, True])
+    bools_blob = bytes(bools_msg)
+    parsed_bools = MsgWithBools.from_bytes(bools_blob, list_limits={"flags": 2})
+    assert parsed_bools.flags == [True, False]
+
+
+def test_apply_list_limits_on_rust_type() -> None:
+    """Truncate list fields directly on a rust-typed object via truncate()."""
+    phs = [bytes32(i.to_bytes(32, "big")) for i in range(20)]
+    obj = RespondToPhUpdates(phs, uint32(0), [])
+    assert len(obj.puzzle_hashes) == 20
+
+    # truncate is called for matching list fields; no error for unknown fields
+    _apply_list_limits(obj, {"puzzle_hashes": 5})
+    assert len(obj.puzzle_hashes) == 5
+    assert obj.puzzle_hashes == phs[:5]
+
+    # non-existent field is silently ignored
+    _apply_list_limits(obj, {"nonexistent": 3})
+    assert len(obj.puzzle_hashes) == 5
+
+
+def test_apply_list_limits_on_python_streamable_with_rust_child() -> None:
+    """Recurse into a Python Streamable's fields to truncate a nested rust object."""
+    phs = [bytes32(i.to_bytes(32, "big")) for i in range(20)]
+    rust_child = RespondToPhUpdates(phs, uint32(0), [])
+
+    @streamable
+    @dataclass(frozen=True)
+    class Outer(Streamable):
+        inner: RespondToPhUpdates
+        flag: bool
+
+    outer = Outer(rust_child, True)
+    _apply_list_limits(outer, {"puzzle_hashes": 7})
+    assert len(outer.inner.puzzle_hashes) == 7
+    assert outer.inner.puzzle_hashes == phs[:7]
+    assert outer.flag is True
 
 
 def test_parse_tuple() -> None:

@@ -3,7 +3,6 @@ from __future__ import annotations
 import dataclasses
 import sys
 from collections.abc import Sequence
-from typing import Optional
 
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint16, uint32, uint64
@@ -18,7 +17,7 @@ from chik.util.config import selected_network_address_prefix
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.wallet_types import WalletType
-from chik.wallet.wallet_request_types import CombineCoins, SplitCoins
+from chik.wallet.wallet_request_types import CombineCoins, GetCoinRecordsByNames, GetSpendableCoins, SplitCoins
 
 
 async def async_list(
@@ -30,7 +29,7 @@ async def async_list(
     excluded_amounts: Sequence[CliAmount],
     excluded_coin_ids: Sequence[bytes32],
     show_unconfirmed: bool,
-    paginate: Optional[bool],
+    paginate: bool | None,
 ) -> None:
     addr_prefix = selected_network_address_prefix(client_info.config)
     if paginate is None:
@@ -44,23 +43,28 @@ async def async_list(
     if not (await client_info.client.get_sync_status()).synced:
         print("Wallet not synced. Please wait.")
         return
-    conf_coins, unconfirmed_removals, unconfirmed_additions = await client_info.client.get_spendable_coins(
-        wallet_id=wallet_id,
-        coin_selection_config=CMDCoinSelectionConfigLoader(
-            max_coin_amount=max_coin_amount,
-            min_coin_amount=min_coin_amount,
-            excluded_coin_amounts=list(excluded_amounts),
-            excluded_coin_ids=list(excluded_coin_ids),
-        ).to_coin_selection_config(mojo_per_unit),
+    response = await client_info.client.get_spendable_coins(
+        GetSpendableCoins.from_coin_selection_config(
+            wallet_id=uint32(wallet_id),
+            coin_selection_config=CMDCoinSelectionConfigLoader(
+                max_coin_amount=max_coin_amount,
+                min_coin_amount=min_coin_amount,
+                excluded_coin_amounts=list(excluded_amounts),
+                excluded_coin_ids=list(excluded_coin_ids),
+            ).to_coin_selection_config(mojo_per_unit),
+        )
     )
-    print(f"There are a total of {len(conf_coins) + len(unconfirmed_additions)} coins in wallet {wallet_id}.")
-    print(f"{len(conf_coins)} confirmed coins.")
-    print(f"{len(unconfirmed_additions)} unconfirmed additions.")
-    print(f"{len(unconfirmed_removals)} unconfirmed removals.")
+    print(
+        f"There are a total of {len(response.confirmed_records) + len(response.unconfirmed_additions)}"
+        f" coins in wallet {wallet_id}."
+    )
+    print(f"{len(response.confirmed_records)} confirmed coins.")
+    print(f"{len(response.unconfirmed_additions)} unconfirmed additions.")
+    print(f"{len(response.unconfirmed_removals)} unconfirmed removals.")
     print("Confirmed coins:")
     print_coins(
         "\tAddress: {} Amount: {}, Confirmed in block: {}\n",
-        [(cr.coin, str(cr.confirmed_block_index)) for cr in conf_coins],
+        [(cr.coin, str(cr.confirmed_block_index)) for cr in response.confirmed_records],
         mojo_per_unit,
         addr_prefix,
         paginate,
@@ -69,7 +73,7 @@ async def async_list(
         print("\nUnconfirmed Removals:")
         print_coins(
             "\tPrevious Address: {} Amount: {}, Confirmed in block: {}\n",
-            [(cr.coin, str(cr.confirmed_block_index)) for cr in unconfirmed_removals],
+            [(cr.coin, str(cr.confirmed_block_index)) for cr in response.unconfirmed_removals],
             mojo_per_unit,
             addr_prefix,
             paginate,
@@ -77,7 +81,7 @@ async def async_list(
         print("\nUnconfirmed Additions:")
         print_coins(
             "\tNew Address: {} Amount: {}, Not yet confirmed in a block.{}\n",
-            [(coin, "") for coin in unconfirmed_additions],
+            [(coin, "") for coin in response.unconfirmed_additions],
             mojo_per_unit,
             addr_prefix,
             paginate,
@@ -121,9 +125,9 @@ async def async_combine(
     min_coin_amount: CliAmount,
     excluded_amounts: Sequence[CliAmount],
     coins_to_exclude: Sequence[bytes32],
-    reuse_puzhash: Optional[bool],
+    reuse_puzhash: bool | None,
     number_of_coins: int,
-    target_coin_amount: Optional[CliAmount],
+    target_coin_amount: CliAmount | None,
     target_coin_ids: Sequence[bytes32],
     largest_first: bool,
     push: bool,
@@ -191,14 +195,14 @@ async def async_split(
     client_info: WalletClientInfo,
     wallet_id: int,
     fee: uint64,
-    number_of_coins: Optional[int],
-    amount_per_coin: Optional[CliAmount],
+    number_of_coins: int | None,
+    amount_per_coin: CliAmount | None,
     target_coin_id: bytes32,
     max_coin_amount: CliAmount,
     min_coin_amount: CliAmount,
     excluded_amounts: Sequence[CliAmount],
     coins_to_exclude: Sequence[bytes32],
-    reuse_puzhash: Optional[bool],
+    reuse_puzhash: bool | None,
     push: bool,
     condition_valid_times: ConditionValidTimes,
 ) -> list[TransactionRecord]:
@@ -217,19 +221,19 @@ async def async_split(
         return []
 
     if number_of_coins is None:
-        coins = await client_info.client.get_coin_records_by_names([target_coin_id])
-        if len(coins) == 0:
+        response = await client_info.client.get_coin_records_by_names(GetCoinRecordsByNames(names=[target_coin_id]))
+        if len(response.coin_records) == 0:
             print("Could not find target coin.")
             return []
         assert amount_per_coin is not None
-        number_of_coins = int(coins[0].coin.amount // amount_per_coin.convert_amount(mojo_per_unit))
+        number_of_coins = int(response.coin_records[0].coin.amount // amount_per_coin.convert_amount(mojo_per_unit))
     elif amount_per_coin is None:
-        coins = await client_info.client.get_coin_records_by_names([target_coin_id])
-        if len(coins) == 0:
+        response = await client_info.client.get_coin_records_by_names(GetCoinRecordsByNames(names=[target_coin_id]))
+        if len(response.coin_records) == 0:
             print("Could not find target coin.")
             return []
         assert number_of_coins is not None
-        amount_per_coin = CliAmount(True, uint64(coins[0].coin.amount // number_of_coins))
+        amount_per_coin = CliAmount(True, uint64(response.coin_records[0].coin.amount // number_of_coins))
 
     final_amount_per_coin = amount_per_coin.convert_amount(mojo_per_unit)
 

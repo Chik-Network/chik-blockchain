@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import dataclasses
-from typing import Any, Optional
+from typing import Any
 
 import pytest
 from chik_rs import AugSchemeMPL, CoinSpend, G1Element, G2Element, PrivateKey, SpendBundle
@@ -52,37 +52,18 @@ def test_process_fast_forward_spends_nothing_to_do() -> None:
     sb = spend_bundle_from_conditions(conditions, TEST_COIN, sig)
     item = mempool_item_from_spendbundle(sb)
     # This coin is not eligible for fast forward
-    assert item.bundle_coin_spends[TEST_COIN_ID].eligible_for_fast_forward is False
-    internal_mempool_item = InternalMempoolItem(sb, item.conds, item.height_added_to_mempool, item.bundle_coin_spends)
+    assert not item.bundle_coin_spends[TEST_COIN_ID].supports_fast_forward
+    internal_mempool_item = InternalMempoolItem(
+        sb.aggregated_signature, item.conds, item.height_added_to_mempool, item.bundle_coin_spends
+    )
     original_version = dataclasses.replace(internal_mempool_item)
     singleton_ff = SingletonFastForward()
-    bundle_coin_spends = singleton_ff.process_fast_forward_spends(
-        mempool_item=internal_mempool_item, height=TEST_HEIGHT, constants=DEFAULT_CONSTANTS
+    bundle_coin_spends, ff_state_update = singleton_ff.process_fast_forward_spends(
+        mempool_item=internal_mempool_item, prev_tx_height=TEST_HEIGHT, constants=DEFAULT_CONSTANTS
     )
+    assert ff_state_update == {}
     assert singleton_ff == SingletonFastForward()
     assert bundle_coin_spends == original_version.bundle_coin_spends
-
-
-def test_process_fast_forward_spends_unknown_ff() -> None:
-    """
-    This tests the case when we process for the first time but we are unable
-    to lookup the latest version from the item's latest singleton lineage
-    """
-    test_coin = Coin(TEST_COIN_ID, IDENTITY_PUZZLE_HASH, uint64(1))
-    conditions = [[ConditionOpcode.CREATE_COIN, IDENTITY_PUZZLE_HASH, 1]]
-    sb = spend_bundle_from_conditions(conditions, test_coin)
-    item = mempool_item_from_spendbundle(sb)
-    # The coin is eligible for fast forward
-    assert item.bundle_coin_spends[test_coin.name()].eligible_for_fast_forward is True
-    item.bundle_coin_spends[test_coin.name()].latest_singleton_lineage = None
-    internal_mempool_item = InternalMempoolItem(sb, item.conds, item.height_added_to_mempool, item.bundle_coin_spends)
-    singleton_ff = SingletonFastForward()
-    # We have no fast forward records yet, so we'll process this coin for the
-    # first time here, but the item's latest singleton lineage returns None
-    with pytest.raises(ValueError, match="Cannot proceed with singleton spend fast forward."):
-        singleton_ff.process_fast_forward_spends(
-            mempool_item=internal_mempool_item, height=TEST_HEIGHT, constants=DEFAULT_CONSTANTS
-        )
 
 
 def test_process_fast_forward_spends_latest_unspent() -> None:
@@ -103,13 +84,15 @@ def test_process_fast_forward_spends_latest_unspent() -> None:
     conditions = [[ConditionOpcode.CREATE_COIN, IDENTITY_PUZZLE_HASH, test_amount]]
     sb = spend_bundle_from_conditions(conditions, test_coin)
     item = mempool_item_from_spendbundle(sb)
-    assert item.bundle_coin_spends[test_coin.name()].eligible_for_fast_forward is True
+    assert item.bundle_coin_spends[test_coin.name()].supports_fast_forward
     item.bundle_coin_spends[test_coin.name()].latest_singleton_lineage = test_unspent_lineage_info
-    internal_mempool_item = InternalMempoolItem(sb, item.conds, item.height_added_to_mempool, item.bundle_coin_spends)
+    internal_mempool_item = InternalMempoolItem(
+        sb.aggregated_signature, item.conds, item.height_added_to_mempool, item.bundle_coin_spends
+    )
     original_version = dataclasses.replace(internal_mempool_item)
     singleton_ff = SingletonFastForward()
-    bundle_coin_spends = singleton_ff.process_fast_forward_spends(
-        mempool_item=internal_mempool_item, height=TEST_HEIGHT, constants=DEFAULT_CONSTANTS
+    bundle_coin_spends, ff_state_update = singleton_ff.process_fast_forward_spends(
+        mempool_item=internal_mempool_item, prev_tx_height=TEST_HEIGHT, constants=DEFAULT_CONSTANTS
     )
     child_coin = item.bundle_coin_spends[test_coin.name()].additions[0]
     expected_fast_forward_spends = {
@@ -117,6 +100,9 @@ def test_process_fast_forward_spends_latest_unspent() -> None:
             coin_id=child_coin.name(), parent_id=test_coin.name(), parent_parent_id=test_coin.parent_coin_info
         )
     }
+    assert singleton_ff.fast_forward_spends == {}
+    assert ff_state_update == expected_fast_forward_spends
+    singleton_ff.update_fast_forward_spends(ff_state_update)
     # We have set the next version from our additions to chain ff spends
     assert singleton_ff.fast_forward_spends == expected_fast_forward_spends
     # We didn't need to fast forward the item so it stays as is
@@ -168,12 +154,12 @@ def test_perform_the_fast_forward() -> None:
         "517b0dadb0c310ded24dd86dff8205398080ff808080"
     )
     test_coin_spend = CoinSpend(test_coin, test_puzzle_reveal, test_solution)
-    test_spend_data = BundleCoinSpend(test_coin_spend, False, True, [test_child_coin])
     test_unspent_lineage_info = UnspentLineageInfo(
         coin_id=latest_unspent_coin.name(),
         parent_id=latest_unspent_coin.parent_coin_info,
         parent_parent_id=test_child_coin.parent_coin_info,
     )
+    test_spend_data = BundleCoinSpend(test_coin_spend, False, [test_child_coin], uint64(0), test_unspent_lineage_info)
     # Start from a fresh state of fast forward spends
     fast_forward_spends: dict[bytes32, UnspentLineageInfo] = {}
     # Perform the fast forward on the test coin (the grandparent)
@@ -217,10 +203,10 @@ async def make_and_send_spend_bundle(
     is_eligible_for_ff: bool = True,
     *,
     is_launcher_coin: bool = False,
-    signing_puzzle: Optional[Program] = None,
-    signing_coin: Optional[Coin] = None,
+    signing_puzzle: Program | None = None,
+    signing_coin: Coin | None = None,
     aggsig: G2Element = G2Element(),
-) -> tuple[MempoolInclusionStatus, Optional[Err]]:
+) -> tuple[MempoolInclusionStatus, Err | None]:
     if is_launcher_coin or not is_eligible_for_ff:
         assert signing_puzzle is not None
         assert signing_coin is not None

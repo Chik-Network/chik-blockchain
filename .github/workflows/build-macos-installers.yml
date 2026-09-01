@@ -51,19 +51,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10"]
+        python-version: ["3.12"]
         os:
-          - runs-on: macos-13
+          - runs-on: "macos-15-intel"
             name: intel
             bladebit-suffix: macos-x86-64.tar.gz
             arch-artifact-name: intel
-          - runs-on: macos-14
+          - runs-on: "macos-15"
             name: m1
             bladebit-suffix: macos-arm64.tar.gz
             arch-artifact-name: arm
 
     env:
       CHIK_INSTALLER_VERSION: ${{ needs.version.outputs.chik-installer-version }}
+      CHIK_SEMVER_VERSION: ${{ needs.version.outputs.chik-semver-version }}
       POETRY_DYNAMIC_VERSIONING_OVERRIDE: "chik-blockchain=${{ needs.version.outputs.chik-installer-version }}"
       TAG_TYPE: ${{ needs.version.outputs.tag-type }}
 
@@ -71,7 +72,7 @@ jobs:
       - uses: Chik-Network/actions/clean-workspace@main
 
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -85,7 +86,7 @@ jobs:
         uses: Chik-Network/actions/setjobenv@main
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MACOSX_DEPLOYMENT_TARGET: 13
+          MACOSX_DEPLOYMENT_TARGET: 15
 
       - name: Test for secrets access
         id: check_secrets
@@ -110,7 +111,7 @@ jobs:
 
       - name: Import Apple app signing certificate
         if: steps.check_secrets.outputs.HAS_APPLE_SECRET
-        uses: Apple-Actions/import-codesign-certs@v5
+        uses: Apple-Actions/import-codesign-certs@v7
         with:
           p12-file-base64: ${{ secrets.APPLE_DEV_ID_APP }}
           p12-password: ${{ secrets.APPLE_DEV_ID_APP_PASS }}
@@ -176,10 +177,10 @@ jobs:
 
       - uses: chik-network/actions/activate-venv@main
 
-      - name: Setup Node 20.x
-        uses: actions/setup-node@v4
+      - name: Setup Node per .nvmrc in GUI
+        uses: actions/setup-node@v6.4.0
         with:
-          node-version: "20.x"
+          node-version-file: chik-blockchain-gui/.nvmrc
 
       - name: Prepare GUI cache
         id: gui-ref
@@ -191,7 +192,7 @@ jobs:
           rm -rf ./chik-blockchain-gui
 
       - name: Cache GUI
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: cache-gui
         with:
           path: ./chik-blockchain-gui
@@ -217,7 +218,7 @@ jobs:
           sh build_macos-2-installer.sh
 
       - name: Upload MacOS artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: chik-installers-macos-dmg-${{ matrix.os.arch-artifact-name }}
           path: build_scripts/final_installer/
@@ -242,7 +243,7 @@ jobs:
       fail-fast: false
       matrix:
         configuration:
-          - python-version: ["3.10"]
+          - python-version: ["3.12"]
             os:
               - matrix: macos
                 file-type:
@@ -293,14 +294,11 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - name: 13
-            matrix: 13
+          - name: 15
+            matrix: 15
             runs-on:
-              intel: macos-13
-          - name: 14
-            matrix: 14
-            runs-on:
-              arm: macos-14
+              intel: "macos-15-intel"
+              arm: "macos-15"
         arch:
           - name: ARM64
             matrix: arm
@@ -308,21 +306,12 @@ jobs:
           - name: Intel
             matrix: intel
             artifact-name: intel
-        exclude:
-          - os:
-              matrix: 13
-            arch:
-              matrix: arm
-          - os:
-              matrix: 14
-            arch:
-              matrix: intel
 
     steps:
       - uses: Chik-Network/actions/clean-workspace@main
 
       - name: Download packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         id: download
         with:
           name: chik-installers-macos-dmg-${{ matrix.arch.artifact-name }}

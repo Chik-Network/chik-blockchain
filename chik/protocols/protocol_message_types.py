@@ -6,6 +6,7 @@ from enum import Enum
 class ProtocolMessageTypes(Enum):
     # Shared protocol (all services)
     handshake = 1
+    configure_window_sizes = 111
 
     # Harvester protocol (harvester <-> farmer)
     harvester_handshake = 3
@@ -13,6 +14,7 @@ class ProtocolMessageTypes(Enum):
     new_proof_of_space = 5
     request_signatures = 6
     respond_signatures = 7
+    partial_proofs = 110
 
     # Farmer protocol (farmer <-> full_node)
     new_signage_point = 8
@@ -135,5 +137,11 @@ class ProtocolMessageTypes(Enum):
     mempool_items_removed = 105
     request_cost_info = 106
     respond_cost_info = 107
+
+    # new farmer protocol messages
+    solution_response = 108
+
+    # solver protocol
+    solve = 109
 
     error = 255

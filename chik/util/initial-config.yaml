@@ -11,6 +11,7 @@ daemon_heartbeat: 300 # sets the heartbeat for ping/ping interval and timeouts
 daemon_allow_tls_1_2: False # if True, allow TLS 1.2 for daemon connections
 inbound_rate_limit_percent: 100
 outbound_rate_limit_percent: 30
+# rate_limits: 3  # set to 3 to enable rate limits v3 (default: 2)
 
 network_overrides: &network_overrides
   constants:
@@ -20,7 +21,7 @@ network_overrides: &network_overrides
       GENESIS_PRE_FARM_FARMER_PUZZLE_HASH: "68e9833c8ea4fe2f222bf36ea6ff2236ccc209eda50b56ed84091d75d3f3c4d5"
     testnet0:
       MIN_PLOT_SIZE_V1: 18
-      MIN_PLOT_SIZE_V2: 20
+      PLOT_SIZE_V2: 20
       GENESIS_CHALLENGE: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
       GENESIS_PRE_FARM_POOL_PUZZLE_HASH: "d23da14695a188ae5708dd152263c4db883eb27edeb936178d4d988b8f3ce5fc"
       GENESIS_PRE_FARM_FARMER_PUZZLE_HASH: "3d8765d3a597ec1d99663f6c9816d915b9f68613ac94009884c4addaefcce6af"
@@ -34,11 +35,12 @@ network_overrides: &network_overrides
       GENESIS_PRE_FARM_POOL_PUZZLE_HASH: 3ef7c233fc0785f3c0cae5992c1d35e7c955ca37a423571c1607ba392a9d12f7
       MEMPOOL_BLOCK_BUFFER: 10
       MIN_PLOT_SIZE_V1: 18
-      MIN_PLOT_SIZE_V2: 20
       NETWORK_TYPE: 1
       SUB_SLOT_ITERS_STARTING: 67108864
       # Forks activated from the beginning on this network
       HARD_FORK_HEIGHT: 0
+      SOFT_FORK8_HEIGHT: 3755000
+      SOFT_FORK9_HEIGHT: 3924000
       PLOT_FILTER_128_HEIGHT: 6029568
       PLOT_FILTER_64_HEIGHT: 11075328
       PLOT_FILTER_32_HEIGHT: 16121088
@@ -52,9 +54,9 @@ network_overrides: &network_overrides
       GENESIS_PRE_FARM_POOL_PUZZLE_HASH: 08296fc227decd043aee855741444538e4cc9a31772c4d1a9e6242d1e777e42a
       MEMPOOL_BLOCK_BUFFER: 10
       MIN_PLOT_SIZE_V1: 18
-      MIN_PLOT_SIZE_V2: 20
       NETWORK_TYPE: 1
       SUB_SLOT_ITERS_STARTING: 67108864
+      HARD_FORK_HEIGHT: 3693395
   config:
     mainnet:
       address_prefix: "xck"
@@ -119,8 +121,8 @@ seeder:
   minimum_height: 240000
   # How many of a particular version we need to see before reporting it in the logs
   minimum_version_count: 100
-  domain_name: "seeder.example.com."
-  nameserver: "example.com."
+  domain_name: "dns-introducer.chiknetwork.com."
+  nameserver: "ns1.chiknetwork.com."
   ttl: 300
   soa:
     rname: "hostmaster.example.com" # all @ symbols need to be replaced with . in dns records.
@@ -208,6 +210,11 @@ farmer:
   full_node_peers:
     - host: *self_hostname
       port: 9678
+
+  # The farmer will attempt to connect to these solvers for V2 plot solving
+  solver_peers:
+    - host: *self_hostname
+      port: 9900
 
   pool_public_keys: !!set {}
 
@@ -316,7 +323,7 @@ full_node:
   #    are added. Use the new, optimized, compression function. This produces
   #    blocks that fill up the allowed block cost.
 
-  # block_creation: 0
+  # block_creation: 1
 
   # If we spend more than this many seconds forming the new transactions block
   # generator, stop and just go with what we have so far. This is a safety
@@ -368,6 +375,10 @@ full_node:
   # profiled.
   single_threaded: False
 
+  # set to 1 to log thread pool statistics (queue lengths, max wait times,
+  # jobs retired) every 10 seconds at INFO level.
+  # instrument_thread_pool: 0
+
   # when enabled, logs coins additions, removals and reorgs at INFO level.
   # Requires the log level to be INFO or DEBUG as well.
   log_coins: False
@@ -386,7 +397,6 @@ full_node:
   # Accept at most # of inbound connections for different node types.
   max_inbound_wallet: 20
   max_inbound_farmer: 10
-  max_inbound_timelord: 5
   # Only connect to peers who we have heard about in the last recent_peer_threshold seconds
   recent_peer_threshold: 6000
 
@@ -447,7 +457,7 @@ full_node:
     - "seeder.dexie.space"
     - "chik.hoffmang.com"
     - "seeder.xckpool.org"
-    - "seeder.xckseeder.com"
+    - "seeder.chiknetwork.com"
   introducer_peer:
     host: introducer.chiknetwork.com # Chik AWS introducer IPv4/IPv6
     port: 9678
@@ -579,7 +589,6 @@ wallet:
 
   # wallet overrides for limits
   inbound_rate_limit_percent: 100
-  outbound_rate_limit_percent: 60
 
   # timeout for weight proof request
   weight_proof_timeout: *weight_proof_timeout
@@ -590,6 +599,12 @@ wallet:
 
   # if an unknown DID is sent to us, a wallet will be automatically created
   did_auto_add_limit: 10
+
+  # if an NFT is received whose ownership transfer encodes a DID we do not yet
+  # have a per-DID NFT wallet for, a wallet will be automatically created.
+  # This cap bounds the number of DID-scoped NFT wallets to prevent an inbound
+  # NFT spammer from forcing unbounded wallet creation.
+  nft_auto_add_limit: 100
 
   # Interval to resend unconfirmed transactions, even if previously accepted into Mempool
   tx_resend_timeout_secs: 1800
@@ -629,6 +644,42 @@ wallet:
 
   auto_sign_txs: True
 
+solver:
+  # The solver server will run on this port
+  port: 9900
+
+  # Enable or disable UPnP port forwarding
+  enable_upnp: False
+
+  # Node IDs of trusted solver peers, only these can connect by default
+  trusted_peers:
+    0ThisisanexampleNodeID7ff9d60f1c3fa270c213c0ad0cb89c01274634a7c3cb7: Does_not_matter
+
+  # If False, accepts connections from all peers (not just trusted_peers)
+  # If True (default), only accepts localhost and trusted_peers connections
+  trusted_peers_only: True
+
+  # Logging configuration
+  logging: *logging
+
+  # Network overrides and selected network
+  network_overrides: *network_overrides
+  selected_network: *selected_network
+
+  # Number of threads for solver operations
+  num_threads: 1
+
+  # RPC server configuration
+  rpc_port: 9901
+  start_rpc_server: True
+
+  # SSL configuration
+  ssl:
+    private_crt: "config/ssl/solver/private_solver.crt"
+    private_key: "config/ssl/solver/private_solver.key"
+    public_crt: "config/ssl/solver/public_solver.crt"
+    public_key: "config/ssl/solver/public_solver.key"
+
 data_layer:
   # TODO: consider name
   # TODO: organize consistently with other sections
@@ -637,6 +688,8 @@ data_layer:
     port: 10490
 
   database_path: "data_layer/db/data_layer_CHALLENGE.sqlite"
+  merkle_blobs_path: "data_layer/db/merkle_blobs_CHALLENGE"
+  key_value_blobs_path: "data_layer/db/key_value_blobs_CHALLENGE"
   # The location where the server files will be stored.
   server_files_location: "data_layer/db/server_files_location_CHALLENGE"
   # The timeout for the client to download a file from a server
@@ -663,6 +716,8 @@ data_layer:
 
   # Speeds up autoinserts. Disable to perform inserts one by one instead of in a batch.
   enable_batch_autoinsert: True
+  # Maximum allowed delta file size (in MiB)
+  max_delta_file_size: 250
 
   logging: *logging
 
@@ -678,6 +733,9 @@ data_layer:
   maximum_full_file_count: 1
   # Enable to store all .DAT files grouped by store id
   group_files_by_store: False
+
+  # Increasing this number may help sync old clients faster, at the expense of using more RAM memory
+  merkle_blobs_cache_size: 1
 
 simulator:
   # Should the simulator farm a block whenever a transaction is in mempool

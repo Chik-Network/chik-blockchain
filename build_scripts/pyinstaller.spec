@@ -23,8 +23,6 @@ version_data = [
     for name in ["chik-blockchain", "chikpos"]
 ]
 
-block_cipher = None
-
 SERVERS = [
     "data_layer",
     "wallet",
@@ -42,6 +40,7 @@ else:
 
 hiddenimports = [
     *collect_submodules("chik"),
+    *collect_submodules("bitstring"),
     *keyring_imports,
     *hidden_imports_for_windows,
 ]
@@ -123,7 +122,6 @@ datas.append((f"{ROOT}/chik/util/initial-config.yaml", "chik/util"))
 for path in sorted({path.parent for path in ROOT.joinpath("chik").rglob("*.hex")}):
     datas.append((f"{path}/*.hex", path.relative_to(ROOT)))
 datas.append((f"{ROOT}/chik/ssl/*", "chik/ssl"))
-datas.append((f"{ROOT}/mozilla-ca/*", "mozilla-ca"))
 datas.extend(version_data)
 
 pathex = []
@@ -141,11 +139,10 @@ def add_binary(name, path_to_script, collect_args):
         excludes=[],
         win_no_prefer_redirects=False,
         win_private_assemblies=False,
-        cipher=block_cipher,
         noarchive=False,
     )
 
-    binary_pyz = PYZ(analysis.pure, analysis.zipped_data, cipher=block_cipher)
+    binary_pyz = PYZ(analysis.pure, analysis.zipped_data)
 
     binary_exe = EXE(
         binary_pyz,
@@ -174,7 +171,7 @@ add_binary("chik", f"{ROOT}/chik/cmds/chik.py", COLLECT_ARGS)
 add_binary("daemon", f"{ROOT}/chik/daemon/server.py", COLLECT_ARGS)
 
 for server in SERVERS:
-    add_binary(f"start_{server}", f"{ROOT}/chik/server/start_{server}.py", COLLECT_ARGS)
+    add_binary(f"start_{server}", f"{ROOT}/chik/{server}/start_{server}.py", COLLECT_ARGS)
 
 add_binary("start_crawler", f"{ROOT}/chik/seeder/start_crawler.py", COLLECT_ARGS)
 add_binary("start_seeder", f"{ROOT}/chik/seeder/dns_server.py", COLLECT_ARGS)

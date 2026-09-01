@@ -7,9 +7,9 @@ import traceback
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
-from chik_rs.sized_ints import int16, uint32, uint64
+from chik_rs.sized_ints import int16, uint8, uint32, uint64
 from typing_extensions import Protocol
 
 from chik.plot_sync.exceptions import AlreadyStartedError, InvalidConnectionTypeError
@@ -37,16 +37,24 @@ log = logging.getLogger(__name__)
 def _convert_plot_info_list(plot_infos: list[PlotInfo]) -> list[Plot]:
     converted: list[Plot] = []
     for plot_info in plot_infos:
+        param = plot_info.prover.get_param()
+        k: uint8
+        if param.size_v1 is not None:
+            k = param.size_v1
+        else:
+            assert param.strength_v2 is not None
+            k = uint8(0x80 | param.strength_v2)
+
         converted.append(
             Plot(
                 filename=plot_info.prover.get_filename(),
-                size=plot_info.prover.get_size(),
+                size=uint8(k),
                 plot_id=plot_info.prover.get_id(),
                 pool_public_key=plot_info.pool_public_key,
                 pool_contract_puzzle_hash=plot_info.pool_contract_puzzle_hash,
                 plot_public_key=plot_info.plot_public_key,
                 file_size=uint64(plot_info.file_size),
-                time_modified=uint64(int(plot_info.time_modified)),
+                time_modified=uint64(plot_info.time_modified),
                 compression_level=plot_info.prover.get_compression_level(),
             )
         )
@@ -72,7 +80,7 @@ class MessageGenerator(Generic[T]):
     args: Iterable[object]
 
     def generate(self) -> tuple[PlotSyncIdentifier, T]:
-        identifier = PlotSyncIdentifier(uint64(int(time.time())), self.sync_id, self.message_id)
+        identifier = PlotSyncIdentifier(uint64(time.time()), self.sync_id, self.message_id)
         payload = self.payload_type(identifier, *self.args)
         return identifier, payload
 
@@ -81,7 +89,7 @@ class MessageGenerator(Generic[T]):
 class ExpectedResponse:
     message_type: ProtocolMessageTypes
     identifier: PlotSyncIdentifier
-    message: Optional[PlotSyncResponse] = None
+    message: PlotSyncResponse | None = None
 
     def __str__(self) -> str:
         return (
@@ -92,14 +100,14 @@ class ExpectedResponse:
 
 class Sender:
     _plot_manager: PlotManager
-    _connection: Optional[WSChikConnection]
+    _connection: WSChikConnection | None
     _sync_id: uint64
     _next_message_id: uint64
     _messages: list[MessageGenerator[PayloadType]]
     _last_sync_id: uint64
     _stop_requested = False
-    _task: Optional[asyncio.Task[None]]
-    _response: Optional[ExpectedResponse]
+    _task: asyncio.Task[None] | None
+    _response: ExpectedResponse | None
     _harvesting_mode: HarvestingMode
 
     def __init__(self, plot_manager: PlotManager, harvesting_mode: HarvestingMode) -> None:
@@ -277,7 +285,7 @@ class Sender:
             PlotSyncStart,
             initial,
             self._last_sync_id,
-            uint32(int(count)),
+            uint32(count),
             self._harvesting_mode,
         )
 

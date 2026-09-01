@@ -5,7 +5,7 @@ import logging
 import random
 import sqlite3
 from pathlib import Path
-from typing import Optional, cast
+from typing import cast
 
 import pytest
 
@@ -16,12 +16,13 @@ from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik._tests.blockchain.blockchain_test_utils import _validate_and_add_block
+from chik._tests.core.full_node.test_full_node import find_reward_coin
 from chik._tests.util.db_connection import DBConnection, PathDBConnection
 from chik.consensus.block_body_validation import ForkInfo
+from chik.consensus.block_height_map import BlockHeightMap
 from chik.consensus.blockchain import AddBlockResult, Blockchain
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.consensus.full_block_to_block_record import header_block_to_sub_block_record
-from chik.full_node.block_height_map import BlockHeightMap
 from chik.full_node.block_store import BlockStore
 from chik.full_node.coin_store import CoinStore
 from chik.full_node.full_block_utils import GeneratorBlockInfo
@@ -31,6 +32,7 @@ from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.blockchain_format.vdf import VDFProof
 from chik.util.casts import int_to_bytes
 from chik.util.db_wrapper import get_host_parameter_limit
+from chik.util.inline_executor import InlineExecutor
 from chik.util.task_referencer import create_referenced_task
 
 log = logging.getLogger(__name__)
@@ -41,7 +43,7 @@ def use_cache(request: SubRequest) -> bool:
     return cast(bool, request.param)
 
 
-def maybe_serialize(gen: Optional[SerializedProgram]) -> Optional[bytes]:
+def maybe_serialize(gen: SerializedProgram | None) -> bytes | None:
     if gen is None:
         return None
     else:
@@ -57,11 +59,11 @@ async def test_block_store(tmp_dir: Path, db_version: int, bt: BlockTools, use_c
         3,
         guarantee_transaction_block=True,
         farmer_reward_puzzle_hash=bt.pool_ph,
-        pool_reward_puzzle_hash=bt.pool_ph,
         time_per_block=10,
     )
     wt: WalletTool = bt.get_pool_wallet_tool()
-    tx = wt.generate_signed_transaction(uint64(10), wt.get_new_puzzlehash(), blocks[-1].get_included_reward_coins()[0])
+    coin = find_reward_coin(blocks[-1], bt.pool_ph)
+    tx = wt.generate_signed_transaction(uint64(10), wt.get_new_puzzlehash(), coin)
     blocks = bt.get_consecutive_blocks(
         10,
         block_list_input=blocks,
@@ -74,7 +76,7 @@ async def test_block_store(tmp_dir: Path, db_version: int, bt: BlockTools, use_c
         coin_store_2 = await CoinStore.create(db_wrapper_2)
         store_2 = await BlockStore.create(db_wrapper_2, use_cache=use_cache)
         height_map = await BlockHeightMap.create(tmp_dir, db_wrapper_2)
-        bc = await Blockchain.create(coin_store_2, store_2, height_map, bt.constants, 2)
+        bc = await Blockchain.create(coin_store_2, store_2, height_map, bt.constants, InlineExecutor())
 
         store = await BlockStore.create(db_wrapper, use_cache=use_cache)
         await BlockStore.create(db_wrapper_2)
@@ -150,7 +152,7 @@ async def test_get_full_blocks_at(
         coin_store = await CoinStore.create(db_wrapper)
         block_store = await BlockStore.create(db_wrapper, use_cache=use_cache)
         height_map = await BlockHeightMap.create(tmp_dir, db_wrapper)
-        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, 2)
+        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, InlineExecutor())
 
         count = 0
         fork_info = ForkInfo(-1, -1, bt.constants.GENESIS_CHALLENGE)
@@ -178,7 +180,7 @@ async def test_get_block_records_in_range(
         coin_store = await CoinStore.create(db_wrapper)
         block_store = await BlockStore.create(db_wrapper, use_cache=use_cache)
         height_map = await BlockHeightMap.create(tmp_dir, db_wrapper)
-        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, 2)
+        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, InlineExecutor())
 
         count = 0
         fork_info = ForkInfo(-1, -1, bt.constants.GENESIS_CHALLENGE)
@@ -208,7 +210,7 @@ async def test_get_block_bytes_in_range_in_main_chain(
         coin_store = await CoinStore.create(db_wrapper)
         block_store = await BlockStore.create(db_wrapper, use_cache=use_cache)
         height_map = await BlockHeightMap.create(tmp_dir, db_wrapper)
-        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, 2)
+        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, InlineExecutor())
         count = 0
         fork_info = ForkInfo(-1, -1, bt.constants.GENESIS_CHALLENGE)
         for b1, b2 in zip(blocks, alt_blocks):
@@ -237,7 +239,7 @@ async def test_deadlock(tmp_dir: Path, db_version: int, bt: BlockTools, use_cach
         coin_store_2 = await CoinStore.create(wrapper_2)
         store_2 = await BlockStore.create(wrapper_2)
         height_map = await BlockHeightMap.create(tmp_dir, wrapper_2)
-        bc = await Blockchain.create(coin_store_2, store_2, height_map, bt.constants, 2)
+        bc = await Blockchain.create(coin_store_2, store_2, height_map, bt.constants, InlineExecutor())
         block_records = []
         for block in blocks:
             await _validate_and_add_block(bc, block)
@@ -268,7 +270,7 @@ async def test_rollback(bt: BlockTools, tmp_dir: Path, use_cache: bool, default_
         coin_store = await CoinStore.create(db_wrapper)
         block_store = await BlockStore.create(db_wrapper, use_cache=use_cache)
         height_map = await BlockHeightMap.create(tmp_dir, db_wrapper)
-        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, 2)
+        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, InlineExecutor())
 
         # insert all blocks
         count = 0
@@ -331,7 +333,7 @@ async def test_count_compactified_blocks(bt: BlockTools, tmp_dir: Path, db_versi
         coin_store = await CoinStore.create(db_wrapper)
         block_store = await BlockStore.create(db_wrapper, use_cache=use_cache)
         height_map = await BlockHeightMap.create(tmp_dir, db_wrapper)
-        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, 2)
+        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, InlineExecutor())
 
         count = await block_store.count_compactified_blocks()
         assert count == 0
@@ -352,7 +354,7 @@ async def test_count_uncompactified_blocks(bt: BlockTools, tmp_dir: Path, db_ver
         coin_store = await CoinStore.create(db_wrapper)
         block_store = await BlockStore.create(db_wrapper, use_cache=use_cache)
         height_map = await BlockHeightMap.create(tmp_dir, db_wrapper)
-        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, 2)
+        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, InlineExecutor())
 
         count = await block_store.count_uncompactified_blocks()
         assert count == 0
@@ -369,16 +371,10 @@ async def test_count_uncompactified_blocks(bt: BlockTools, tmp_dir: Path, db_ver
 async def test_replace_proof(bt: BlockTools, tmp_dir: Path, db_version: int, use_cache: bool) -> None:
     blocks = bt.get_consecutive_blocks(10)
 
-    def rand_bytes(num: int) -> bytes:
-        ret = bytearray(num)
-        for i in range(num):
-            ret[i] = random.getrandbits(8)
-        return bytes(ret)
-
     def rand_vdf_proof() -> VDFProof:
         return VDFProof(
             uint8(1),  # witness_type
-            rand_bytes(32),  # witness
+            random.randbytes(32),  # witness
             bool(random.randint(0, 1)),  # normalized_to_identity
         )
 
@@ -386,7 +382,7 @@ async def test_replace_proof(bt: BlockTools, tmp_dir: Path, db_version: int, use
         coin_store = await CoinStore.create(db_wrapper)
         block_store = await BlockStore.create(db_wrapper, use_cache=use_cache)
         height_map = await BlockHeightMap.create(tmp_dir, db_wrapper)
-        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, 2)
+        bc = await Blockchain.create(coin_store, block_store, height_map, bt.constants, InlineExecutor())
         for block in blocks:
             await _validate_and_add_block(bc, block)
 
@@ -424,8 +420,8 @@ async def test_get_generator(bt: BlockTools, db_version: int, use_cache: bool) -
         store = await BlockStore.create(db_wrapper, use_cache=use_cache)
 
         new_blocks = []
-        for i, block in enumerate(blocks):
-            block = block.replace(transactions_generator=generator(i))
+        for i, original_block in enumerate(blocks):
+            block = original_block.replace(transactions_generator=generator(i))
             block_record = header_block_to_sub_block_record(
                 DEFAULT_CONSTANTS, uint64(0), block, uint64(0), False, uint8(0), uint32(max(0, block.height - 1)), None
             )
@@ -467,7 +463,7 @@ async def test_get_blocks_by_hash(tmp_dir: Path, bt: BlockTools, db_version: int
         coin_store_2 = await CoinStore.create(db_wrapper_2)
         store_2 = await BlockStore.create(db_wrapper_2, use_cache=use_cache)
         height_map = await BlockHeightMap.create(tmp_dir, db_wrapper_2)
-        bc = await Blockchain.create(coin_store_2, store_2, height_map, bt.constants, 2)
+        bc = await Blockchain.create(coin_store_2, store_2, height_map, bt.constants, InlineExecutor())
 
         store = await BlockStore.create(db_wrapper, use_cache=use_cache)
         await BlockStore.create(db_wrapper_2)
@@ -507,7 +503,7 @@ async def test_get_block_bytes_in_range(tmp_dir: Path, bt: BlockTools, db_versio
         coin_store_2 = await CoinStore.create(db_wrapper_2)
         store_2 = await BlockStore.create(db_wrapper_2, use_cache=use_cache)
         height_map = await BlockHeightMap.create(tmp_dir, db_wrapper_2)
-        bc = await Blockchain.create(coin_store_2, store_2, height_map, bt.constants, 2)
+        bc = await Blockchain.create(coin_store_2, store_2, height_map, bt.constants, InlineExecutor())
 
         await BlockStore.create(db_wrapper_2)
 
@@ -580,7 +576,7 @@ async def test_get_prev_hash(tmp_dir: Path, bt: BlockTools, db_version: int, use
         coin_store_2 = await CoinStore.create(db_wrapper_2)
         store_2 = await BlockStore.create(db_wrapper_2, use_cache=use_cache)
         height_map = await BlockHeightMap.create(tmp_dir, db_wrapper_2)
-        bc = await Blockchain.create(coin_store_2, store_2, height_map, bt.constants, 2)
+        bc = await Blockchain.create(coin_store_2, store_2, height_map, bt.constants, InlineExecutor())
 
         store = await BlockStore.create(db_wrapper, use_cache=use_cache)
         await BlockStore.create(db_wrapper_2)

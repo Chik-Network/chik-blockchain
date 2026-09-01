@@ -4,6 +4,7 @@ from chik_rs import Coin, G2Element
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
+from chik.util.bech32m import encode_puzzle_hash
 from chik.wallet.conditions import ConditionValidTimes
 from chik.wallet.signer_protocol import KeyHints, SigningInstructions, TransactionInfo, UnsignedTransaction
 from chik.wallet.transaction_record import TransactionRecord
@@ -27,6 +28,7 @@ STD_TX = TransactionRecord(
     confirmed_at_height=uint32(1),
     created_at_time=uint64(1234),
     to_puzzle_hash=get_bytes32(1),
+    to_address=encode_puzzle_hash(get_bytes32(1), "xck"),
     amount=uint64(12345678),
     fee_amount=uint64(1234567),
     confirmed=False,
@@ -39,7 +41,7 @@ STD_TX = TransactionRecord(
     trade_id=None,
     type=uint32(TransactionType.OUTGOING_TX.value),
     name=get_bytes32(2),
-    memos=[(get_bytes32(3), [bytes([4] * 32)])],
+    memos={get_bytes32(3): [bytes([4] * 32)]},
     valid_times=ConditionValidTimes(),
 )
 

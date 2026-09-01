@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import contextlib
-from collections.abc import AsyncIterator, Awaitable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Callable, Generic, Optional, Protocol, TypeVar
+from typing import Generic, Protocol, TypeVar
 
 import aiosqlite
 from typing_extensions import Self
@@ -31,7 +31,7 @@ class ResourceManager(Protocol):
 @dataclass
 class SQLiteResourceManager:
     _db: DBWrapper2
-    _active_writer: Optional[aiosqlite.Connection] = field(init=False, default=None)
+    _active_writer: aiosqlite.Connection | None = field(init=False, default=None)
 
     def get_active_writer(self) -> aiosqlite.Connection:
         if self._active_writer is None:
@@ -102,8 +102,8 @@ class ActionScope(Generic[_T_SideEffects, _T_Config]):
     _resource_manager: ResourceManager
     _side_effects_format: type[_T_SideEffects]
     _config: _T_Config  # An object not intended to be mutated during the lifetime of the scope
-    _callback: Optional[Callable[[StateInterface[_T_SideEffects]], Awaitable[None]]] = None
-    _final_side_effects: Optional[_T_SideEffects] = field(init=False, default=None)
+    _callback: Callable[[StateInterface[_T_SideEffects]], Awaitable[None]] | None = None
+    _final_side_effects: _T_SideEffects | None = field(init=False, default=None)
 
     @property
     def side_effects(self) -> _T_SideEffects:
@@ -132,7 +132,7 @@ class ActionScope(Generic[_T_SideEffects, _T_Config]):
         async with resource_manager_backend.managed(side_effects_format()) as resource_manager:
             self = cls(_resource_manager=resource_manager, _side_effects_format=side_effects_format, _config=config)
 
-            yield self
+            yield self  # noqa: RUF075  # final callback runs only on successful scope exit
 
             async with self.use(_callbacks_allowed=False) as interface:
                 if self._callback is not None:
@@ -145,7 +145,7 @@ class ActionScope(Generic[_T_SideEffects, _T_Config]):
             side_effects = await self._resource_manager.get_resource(self._side_effects_format)
             interface = StateInterface(side_effects, _callbacks_allowed, self._callback)
 
-            yield interface
+            yield interface  # noqa: RUF075  # save side effects only on successful use() exit
 
             await self._resource_manager.save_resource(interface.side_effects)
             self._callback = interface.callback
@@ -155,13 +155,13 @@ class ActionScope(Generic[_T_SideEffects, _T_Config]):
 class StateInterface(Generic[_T_SideEffects]):
     side_effects: _T_SideEffects
     _callbacks_allowed: bool
-    _callback: Optional[Callable[[StateInterface[_T_SideEffects]], Awaitable[None]]] = None
+    _callback: Callable[[StateInterface[_T_SideEffects]], Awaitable[None]] | None = None
 
     @property
-    def callback(self) -> Optional[Callable[[StateInterface[_T_SideEffects]], Awaitable[None]]]:
+    def callback(self) -> Callable[[StateInterface[_T_SideEffects]], Awaitable[None]] | None:
         return self._callback
 
-    def set_callback(self, new_callback: Optional[Callable[[StateInterface[_T_SideEffects]], Awaitable[None]]]) -> None:
+    def set_callback(self, new_callback: Callable[[StateInterface[_T_SideEffects]], Awaitable[None]] | None) -> None:
         if not self._callbacks_allowed:
             raise RuntimeError("Callback cannot be edited from inside itself")
 

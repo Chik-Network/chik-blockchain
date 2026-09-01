@@ -8,7 +8,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from pathlib import Path
 from shutil import rmtree
-from typing import Any, Union
+from typing import Any
 
 import pytest
 
@@ -22,9 +22,9 @@ from pytest_mock import MockerFixture
 from chik._tests.environments.wallet import WalletStateTransition, WalletTestFramework
 from chik._tests.util.setup_nodes import setup_simulators_and_wallets_service
 from chik._tests.util.time_out_assert import time_out_assert
-from chik.pools.pool_wallet_info import PoolSingletonState, PoolWalletInfo
+from chik.pools.pool_config import PoolingShareState
+from chik.pools.pool_wallet_info import NewPoolWalletInitialTargetState, PoolSingletonState, PoolWalletInfo
 from chik.rpc.rpc_client import ResponseFailureError
-from chik.server.aliases import WalletService
 from chik.simulator.add_blocks_in_batches import add_blocks_in_batches
 from chik.simulator.block_tools import BlockTools, get_plot_dir
 from chik.simulator.full_node_simulator import FullNodeSimulator
@@ -32,8 +32,6 @@ from chik.simulator.simulator_protocol import ReorgProtocol
 from chik.simulator.start_simulator import SimulatorFullNodeService
 from chik.types.peer_info import PeerInfo
 from chik.util.bech32m import encode_puzzle_hash
-from chik.util.byte_types import hexstr_to_bytes
-from chik.util.config import load_config
 from chik.wallet.derive_keys import find_authentication_sk, find_owner_sk
 from chik.wallet.singleton import SINGLETON_LAUNCHER_PUZZLE_HASH as SINGLETON_LAUNCHER_HASH
 from chik.wallet.transaction_record import TransactionRecord
@@ -41,9 +39,23 @@ from chik.wallet.util.transaction_type import TransactionType
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 from chik.wallet.util.wallet_types import WalletType
 from chik.wallet.wallet_node import WalletNode
-from chik.wallet.wallet_request_types import PWAbsorbRewards, PWJoinPool, PWSelfPool, PWStatus
+from chik.wallet.wallet_request_types import (
+    CreateNewWallet,
+    CreateNewWalletType,
+    DeleteUnconfirmedTransactions,
+    GetTransactions,
+    GetWalletBalance,
+    GetWallets,
+    PWAbsorbRewards,
+    PWJoinPool,
+    PWSelfPool,
+    PWStatus,
+    SendTransaction,
+    WalletCreationMode,
+)
 from chik.wallet.wallet_rpc_client import WalletRpcClient
-from chik.wallet.wallet_state_manager import WalletStateManager
+from chik.wallet.wallet_service import WalletService
+from chik.wallet.wallet_state_manager import SyncStatus, WalletStateManager
 
 # TODO: Compare deducted fees in all tests against reported total_fee
 
@@ -79,9 +91,7 @@ async def manage_temporary_pool_plot(
         try:
             await bt.refresh_plots()
 
-            plot = TemporaryPoolPlot(bt=bt, p2_singleton_puzzle_hash=p2_singleton_puzzle_hash, plot_id=bt_plot.plot_id)
-
-            yield plot
+            yield TemporaryPoolPlot(bt=bt, p2_singleton_puzzle_hash=p2_singleton_puzzle_hash, plot_id=bt_plot.plot_id)
         finally:
             await bt.delete_plot(bt_plot.plot_id)
 
@@ -192,7 +202,7 @@ async def setup(
 
 
 async def verify_pool_state(wallet_rpc: WalletRpcClient, w_id: int, expected_state: PoolSingletonState) -> bool:
-    pw_status: PoolWalletInfo = (await wallet_rpc.pw_status(PWStatus(uint32(w_id)))).state
+    pw_status: PoolWalletInfo = (await wallet_rpc.pw_status(PWStatus(wallet_id=uint32(w_id)))).state
     return pw_status.current.state == expected_state.value
 
 
@@ -201,7 +211,7 @@ async def process_plotnft_create(
 ) -> int:
     wallet_rpc: WalletRpcClient = wallet_test_framework.environments[0].rpc_client
 
-    pre_block_balance_updates: dict[Union[int, str], dict[str, int]] = {
+    pre_block_balance_updates: dict[int | str, dict[str, int]] = {
         1: {
             "confirmed_wallet_balance": 0,
             "unconfirmed_wallet_balance": -1,
@@ -212,7 +222,7 @@ async def process_plotnft_create(
         }
     }
 
-    post_block_balance_updates: dict[Union[int, str], dict[str, int]] = {
+    post_block_balance_updates: dict[int | str, dict[str, int]] = {
         1: {
             "confirmed_wallet_balance": -1,
             "unconfirmed_wallet_balance": 0,
@@ -242,9 +252,9 @@ async def process_plotnft_create(
         ]
     )
 
-    summaries_response = await wallet_rpc.get_wallets(WalletType.POOLING_WALLET)
-    assert len(summaries_response) == 2 if second_nft else 1
-    wallet_id: int = summaries_response[-1]["id"]
+    summaries_response = await wallet_rpc.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+    assert len(summaries_response.wallets) == 2 if second_nft else 1
+    wallet_id: int = summaries_response.wallets[-1].id
 
     await verify_pool_state(wallet_rpc, wallet_id, expected_state=expected_state)
     return wallet_id
@@ -259,14 +269,20 @@ async def create_new_plotnft(
     async with wallet_state_manager.new_action_scope(wallet_test_framework.tx_config, push=True) as action_scope:
         our_ph = await action_scope.get_puzzle_hash(wallet_state_manager)
 
-    await wallet_rpc.create_new_pool_wallet(
-        target_puzzlehash=our_ph,
-        backup_host="",
-        mode="new",
-        relative_lock_height=uint32(0) if self_pool else LOCK_HEIGHT,
-        state="SELF_POOLING" if self_pool else "FARMING_TO_POOL",
-        pool_url="" if self_pool else "http://pool.example.com",
-        fee=uint64(0),
+    await wallet_rpc.create_new_wallet(
+        CreateNewWallet(
+            wallet_type=CreateNewWalletType.POOL_WALLET,
+            initial_target_state=NewPoolWalletInitialTargetState(
+                target_puzzle_hash=None if self_pool else our_ph,
+                state="SELF_POOLING" if self_pool else "FARMING_TO_POOL",
+                pool_url=None if self_pool else "http://pool.example.com",
+                relative_lock_height=None if self_pool else LOCK_HEIGHT,
+            ),
+            mode=WalletCreationMode.NEW,
+            fee=uint64(0),
+            push=True,
+        ),
+        wallet_test_framework.tx_config,
     )
 
     return await process_plotnft_create(
@@ -287,20 +303,28 @@ class TestPoolWalletRpc:
         client, wallet_node, full_node_api, _total_block_rewards, _ = one_wallet_node_and_rpc
         wallet = wallet_node.wallet_state_manager.main_wallet
 
-        async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
-            our_ph = await action_scope.get_puzzle_hash(wallet.wallet_state_manager)
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-        assert len(await client.get_wallets(WalletType.POOLING_WALLET)) == 0
-        creation_tx: TransactionRecord = await client.create_new_pool_wallet(
-            our_ph, "", uint32(0), f"{self_hostname}:5000", "new", "SELF_POOLING", fee
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET.value)))
+        assert len(summaries_response.wallets) == 0
+        create_response = await client.create_new_wallet(
+            CreateNewWallet(
+                wallet_type=CreateNewWalletType.POOL_WALLET,
+                initial_target_state=NewPoolWalletInitialTargetState(
+                    state="SELF_POOLING",
+                ),
+                mode=WalletCreationMode.NEW,
+                fee=fee,
+                push=True,
+            ),
+            DEFAULT_TX_CONFIG,
         )
-        await full_node_api.process_transaction_records(records=[creation_tx])
+        await full_node_api.process_transaction_records(records=create_response.transactions)
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=30)
 
-        summaries_response = await client.get_wallets(WalletType.POOLING_WALLET)
-        assert len(summaries_response) == 1
-        wallet_id: int = summaries_response[0]["id"]
-        status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(wallet_id)))).state
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET.value)))
+        assert len(summaries_response.wallets) == 1
+        wallet_id: int = summaries_response.wallets[0].id
+        status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
 
         assert status.current.state == PoolSingletonState.SELF_POOLING.value
         assert status.target is None
@@ -313,22 +337,26 @@ class TestPoolWalletRpc:
         assert status.current.relative_lock_height == 0
         assert status.current.version == 1
         # Check that config has been written properly
-        full_config: dict[str, Any] = load_config(wallet.wallet_state_manager.root_path, "config.yaml")
-        pool_list: list[dict[str, Any]] = full_config["pool"]["pool_list"]
-        assert len(pool_list) == 1
-        pool_config = pool_list[0]
-        assert (
-            pool_config["owner_public_key"]
-            == "0x880afd6f9e123005655376e389015877e60060b768592809d2c746325d256edeb0017e1b406cba0832aa983e5c4bbf54"
+        p2_singleton_puzzle_hashes = PoolingShareState.get_all_p2_singleton_puzzle_hashes(
+            root_path=wallet.wallet_state_manager.root_path
         )
-        # It can be one of multiple launcher IDs, due to selecting a different coin
-        launcher_id = None
-        for addition in creation_tx.additions:
-            if addition.puzzle_hash == SINGLETON_LAUNCHER_HASH:
-                launcher_id = addition.name()
-                break
-        assert hexstr_to_bytes(pool_config["launcher_id"]) == launcher_id
-        assert pool_config["pool_url"] == ""
+        assert len(p2_singleton_puzzle_hashes) == 1
+        with PoolingShareState.acquire(
+            root_path=wallet.wallet_state_manager.root_path, p2_singleton_puzzle_hash=p2_singleton_puzzle_hashes[0]
+        ) as pool_config:
+            assert pool_config.owner_public_key == G1Element.from_bytes(
+                bytes.fromhex(
+                    "880afd6f9e123005655376e389015877e60060b768592809d2c746325d256edeb0017e1b406cba0832aa983e5c4bbf54"
+                )
+            )
+            # It can be one of multiple launcher IDs, due to selecting a different coin
+            launcher_id = None
+            for addition in create_response.transactions[0].additions:
+                if addition.puzzle_hash == SINGLETON_LAUNCHER_HASH:
+                    launcher_id = addition.name()
+                    break
+            assert pool_config.launcher_id == launcher_id
+            assert pool_config.pool_url == ""
 
     @pytest.mark.anyio
     async def test_create_new_pool_wallet_farm_to_pool(
@@ -343,18 +371,31 @@ class TestPoolWalletRpc:
         async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
             our_ph = await action_scope.get_puzzle_hash(wallet.wallet_state_manager)
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-        assert len(await client.get_wallets(WalletType.POOLING_WALLET)) == 0
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+        assert len(summaries_response.wallets) == 0
 
-        creation_tx: TransactionRecord = await client.create_new_pool_wallet(
-            our_ph, "http://pool.example.com", uint32(10), f"{self_hostname}:5000", "new", "FARMING_TO_POOL", fee
+        create_response = await client.create_new_wallet(
+            CreateNewWallet(
+                wallet_type=CreateNewWalletType.POOL_WALLET,
+                initial_target_state=NewPoolWalletInitialTargetState(
+                    target_puzzle_hash=our_ph,
+                    state="FARMING_TO_POOL",
+                    pool_url="http://pool.example.com",
+                    relative_lock_height=uint32(10),
+                ),
+                mode=WalletCreationMode.NEW,
+                fee=fee,
+                push=True,
+            ),
+            DEFAULT_TX_CONFIG,
         )
-        await full_node_api.process_transaction_records(records=[creation_tx])
+        await full_node_api.process_transaction_records(records=create_response.transactions)
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
 
-        summaries_response = await client.get_wallets(WalletType.POOLING_WALLET)
-        assert len(summaries_response) == 1
-        wallet_id: int = summaries_response[0]["id"]
-        status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(wallet_id)))).state
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+        assert len(summaries_response.wallets) == 1
+        wallet_id: int = summaries_response.wallets[0].id
+        status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
 
         assert status.current.state == PoolSingletonState.FARMING_TO_POOL.value
         assert status.target is None
@@ -367,22 +408,26 @@ class TestPoolWalletRpc:
         assert status.current.relative_lock_height == 10
         assert status.current.version == 1
         # Check that config has been written properly
-        full_config: dict[str, Any] = load_config(wallet.wallet_state_manager.root_path, "config.yaml")
-        pool_list: list[dict[str, Any]] = full_config["pool"]["pool_list"]
-        assert len(pool_list) == 1
-        pool_config = pool_list[0]
-        assert (
-            pool_config["owner_public_key"]
-            == "0x880afd6f9e123005655376e389015877e60060b768592809d2c746325d256edeb0017e1b406cba0832aa983e5c4bbf54"
+        p2_singleton_puzzle_hashes = PoolingShareState.get_all_p2_singleton_puzzle_hashes(
+            root_path=wallet.wallet_state_manager.root_path
         )
-        # It can be one of multiple launcher IDs, due to selecting a different coin
-        launcher_id = None
-        for addition in creation_tx.additions:
-            if addition.puzzle_hash == SINGLETON_LAUNCHER_HASH:
-                launcher_id = addition.name()
-                break
-        assert hexstr_to_bytes(pool_config["launcher_id"]) == launcher_id
-        assert pool_config["pool_url"] == "http://pool.example.com"
+        assert len(p2_singleton_puzzle_hashes) == 1
+        with PoolingShareState.acquire(
+            root_path=wallet.wallet_state_manager.root_path, p2_singleton_puzzle_hash=p2_singleton_puzzle_hashes[0]
+        ) as pool_config:
+            assert pool_config.owner_public_key == G1Element.from_bytes(
+                bytes.fromhex(
+                    "880afd6f9e123005655376e389015877e60060b768592809d2c746325d256edeb0017e1b406cba0832aa983e5c4bbf54"
+                )
+            )
+            # It can be one of multiple launcher IDs, due to selecting a different coin
+            launcher_id = None
+            for addition in create_response.transactions[0].additions:
+                if addition.puzzle_hash == SINGLETON_LAUNCHER_HASH:
+                    launcher_id = addition.name()
+                    break
+            assert pool_config.launcher_id == launcher_id
+            assert pool_config.pool_url == "http://pool.example.com"
 
     @pytest.mark.anyio
     async def test_create_multiple_pool_wallets(
@@ -400,30 +445,54 @@ class TestPoolWalletRpc:
             our_ph_1 = await action_scope.get_puzzle_hash(wallet.wallet_state_manager)
             our_ph_2 = await action_scope.get_puzzle_hash(wallet.wallet_state_manager)
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-        assert len(await client.get_wallets(WalletType.POOLING_WALLET)) == 0
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+        assert len(summaries_response.wallets) == 0
 
-        creation_tx: TransactionRecord = await client.create_new_pool_wallet(
-            our_ph_1, "", uint32(0), f"{self_hostname}:5000", "new", "SELF_POOLING", fee
+        create_response_1 = await client.create_new_wallet(
+            CreateNewWallet(
+                wallet_type=CreateNewWalletType.POOL_WALLET,
+                initial_target_state=NewPoolWalletInitialTargetState(
+                    state="SELF_POOLING",
+                ),
+                mode=WalletCreationMode.NEW,
+                fee=fee,
+                push=True,
+            ),
+            DEFAULT_TX_CONFIG,
         )
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-        creation_tx_2: TransactionRecord = await client.create_new_pool_wallet(
-            our_ph_1, self_hostname, uint32(12), f"{self_hostname}:5000", "new", "FARMING_TO_POOL", fee
+        create_response_2 = await client.create_new_wallet(
+            CreateNewWallet(
+                wallet_type=CreateNewWalletType.POOL_WALLET,
+                initial_target_state=NewPoolWalletInitialTargetState(
+                    target_puzzle_hash=our_ph_1,
+                    state="FARMING_TO_POOL",
+                    pool_url=self_hostname,
+                    relative_lock_height=uint32(12),
+                ),
+                mode=WalletCreationMode.NEW,
+                fee=fee,
+                push=True,
+            ),
+            DEFAULT_TX_CONFIG,
         )
 
-        await full_node_api.process_transaction_records(records=[creation_tx, creation_tx_2])
+        await full_node_api.process_transaction_records(
+            records=[*create_response_1.transactions, *create_response_2.transactions]
+        )
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
 
         async def pw_created(check_wallet_id: int) -> bool:
             try:
-                await client.pw_status(PWStatus(uint32(check_wallet_id)))
+                await client.pw_status(PWStatus(wallet_id=uint32(check_wallet_id)))
                 return True
             except ValueError:
                 return False
 
         await time_out_assert(10, pw_created, True, 2)
         await time_out_assert(10, pw_created, True, 3)
-        status_2: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(2)))).state
-        status_3: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(3)))).state
+        status_2: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(2)))).state
+        status_3: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(3)))).state
 
         if status_2.current.state == PoolSingletonState.SELF_POOLING.value:
             assert status_3.current.state == PoolSingletonState.FARMING_TO_POOL.value
@@ -431,61 +500,86 @@ class TestPoolWalletRpc:
             assert status_2.current.state == PoolSingletonState.FARMING_TO_POOL.value
             assert status_3.current.state == PoolSingletonState.SELF_POOLING.value
 
-        full_config = load_config(wallet.wallet_state_manager.root_path, "config.yaml")
-        pool_list: list[dict[str, Any]] = full_config["pool"]["pool_list"]
-        assert len(pool_list) == 2
+        p2_singleton_puzzle_hashes = PoolingShareState.get_all_p2_singleton_puzzle_hashes(
+            root_path=wallet.wallet_state_manager.root_path
+        )
+        assert len(p2_singleton_puzzle_hashes) == 2
 
         assert len(await wallet_node.wallet_state_manager.tx_store.get_unconfirmed_for_wallet(2)) == 0
         assert len(await wallet_node.wallet_state_manager.tx_store.get_unconfirmed_for_wallet(3)) == 0
         # Doing a reorg reverts and removes the pool wallets
         await full_node_api.reorg_from_index_to_new_index(ReorgProtocol(uint32(0), uint32(20), our_ph_2, None))
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=30)
-        summaries_response = await client.get_wallets()
-        assert len(summaries_response) == 1
+        summaries_response = await client.get_wallets(GetWallets())
+        assert len(summaries_response.wallets) == 1
 
         with pytest.raises(ValueError):
-            await client.pw_status(PWStatus(uint32(2)))
+            await client.pw_status(PWStatus(wallet_id=uint32(2)))
         with pytest.raises(ValueError):
-            await client.pw_status(PWStatus(uint32(3)))
+            await client.pw_status(PWStatus(wallet_id=uint32(3)))
 
         # Create some CAT wallets to increase wallet IDs
         def mempool_empty() -> bool:
             return full_node_api.full_node.mempool_manager.mempool.size() == 0
 
-        await client.delete_unconfirmed_transactions(1)
+        await client.delete_unconfirmed_transactions(DeleteUnconfirmedTransactions(wallet_id=uint32(1)))
         await full_node_api.process_all_wallet_transactions(wallet=wallet)
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
 
         for i in range(5):
             await time_out_assert(10, mempool_empty)
-            res = await client.create_new_cat_and_wallet(uint64(20), test=True)
-            assert res["success"]
-            cat_0_id = res["wallet_id"]
-            asset_id = bytes.fromhex(res["asset_id"])
+            create_cat_res = await client.create_new_wallet(
+                CreateNewWallet(
+                    wallet_type=CreateNewWalletType.CAT_WALLET,
+                    mode=WalletCreationMode.NEW,
+                    amount=uint64(20),
+                    test=True,
+                    push=True,
+                ),
+                tx_config=DEFAULT_TX_CONFIG,
+            )
+            cat_0_id = create_cat_res.wallet_id
+            asset_id = create_cat_res.asset_id
+            assert asset_id is not None  # mypy doesn't know about __post_init__
             assert len(asset_id) > 0
             await full_node_api.process_all_wallet_transactions(wallet=wallet)
             await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-            bal_0 = await client.get_wallet_balance(cat_0_id)
-            assert bal_0["confirmed_wallet_balance"] == 20
+            bal_0 = (await client.get_wallet_balance(GetWalletBalance(wallet_id=cat_0_id))).wallet_balance
+            assert bal_0.confirmed_wallet_balance == 20
 
         # Test creation of many pool wallets. Use untrusted since that is the more complicated protocol, but don't
         # run this code more than once, since it's slow.
         if not trusted:
             for i in range(22):
                 await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-                creation_tx_3: TransactionRecord = await client.create_new_pool_wallet(
-                    our_ph_1, self_hostname, uint32(5), f"{self_hostname}:5000", "new", "FARMING_TO_POOL", fee
+                create_response = await client.create_new_wallet(
+                    CreateNewWallet(
+                        wallet_type=CreateNewWalletType.POOL_WALLET,
+                        initial_target_state=NewPoolWalletInitialTargetState(
+                            target_puzzle_hash=our_ph_1,
+                            state="FARMING_TO_POOL",
+                            pool_url=self_hostname,
+                            relative_lock_height=uint32(5),
+                        ),
+                        mode=WalletCreationMode.NEW,
+                        fee=fee,
+                        push=True,
+                    ),
+                    DEFAULT_TX_CONFIG,
                 )
-                await full_node_api.process_transaction_records(records=[creation_tx_3])
+                await full_node_api.process_transaction_records(records=create_response.transactions)
                 await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
 
-                full_config = load_config(wallet.wallet_state_manager.root_path, "config.yaml")
-                pool_list = full_config["pool"]["pool_list"]
-                assert len(pool_list) == i + 3
+                p2_singleton_puzzle_hashes = PoolingShareState.get_all_p2_singleton_puzzle_hashes(
+                    root_path=wallet.wallet_state_manager.root_path
+                )
+                assert len(p2_singleton_puzzle_hashes) == i + 3
                 if i == 0:
                     for some_wallet in wallet_node.wallet_state_manager.wallets.values():
                         if some_wallet.type() == WalletType.POOLING_WALLET:
-                            status: PoolWalletInfo = (await client.pw_status(PWStatus(some_wallet.id()))).state
+                            status: PoolWalletInfo = (
+                                await client.pw_status(PWStatus(wallet_id=some_wallet.id()))
+                            ).state
                             auth_sk = find_authentication_sk(
                                 [some_wallet.wallet_state_manager.get_master_private_key()], status.current.owner_pubkey
                             )
@@ -508,14 +602,24 @@ class TestPoolWalletRpc:
         async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
             our_ph = await action_scope.get_puzzle_hash(wallet.wallet_state_manager)
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-        assert len(await client.get_wallets(WalletType.POOLING_WALLET)) == 0
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+        assert len(summaries_response.wallets) == 0
 
-        creation_tx: TransactionRecord = await client.create_new_pool_wallet(
-            our_ph, "", uint32(0), f"{self_hostname}:5000", "new", "SELF_POOLING", fee
+        create_response = await client.create_new_wallet(
+            CreateNewWallet(
+                wallet_type=CreateNewWalletType.POOL_WALLET,
+                initial_target_state=NewPoolWalletInitialTargetState(
+                    state="SELF_POOLING",
+                ),
+                mode=WalletCreationMode.NEW,
+                fee=fee,
+                push=True,
+            ),
+            DEFAULT_TX_CONFIG,
         )
-        await full_node_api.process_transaction_records(records=[creation_tx])
+        await full_node_api.process_transaction_records(records=create_response.transactions)
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-        status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(2)))).state
+        status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(2)))).state
 
         assert status.current.state == PoolSingletonState.SELF_POOLING.value
         async with manage_temporary_pool_plot(bt, status.p2_singleton_puzzle_hash) as pool_plot:
@@ -531,8 +635,8 @@ class TestPoolWalletRpc:
             await add_blocks_in_batches(blocks[-3:], full_node_api.full_node)
             await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
 
-            bal = await client.get_wallet_balance(2)
-            assert bal["confirmed_wallet_balance"] == 2 * 1_750_000_000_000
+            bal = (await client.get_wallet_balance(GetWalletBalance(wallet_id=uint32(2)))).wallet_balance
+            assert bal.confirmed_wallet_balance == 2 * 1_750_000_000_000
 
             # Claim 2 * 1.75, and farm a new 1.75
             absorb_txs = (
@@ -554,11 +658,11 @@ class TestPoolWalletRpc:
                 )
                 == 2
             )
-            new_status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(2)))).state
+            new_status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(2)))).state
             assert status.current == new_status.current
             assert status.tip_singleton_coin_id != new_status.tip_singleton_coin_id
-            bal = await client.get_wallet_balance(2)
-            assert bal["confirmed_wallet_balance"] == 1 * 1_750_000_000_000
+            bal = (await client.get_wallet_balance(GetWalletBalance(wallet_id=uint32(2)))).wallet_balance
+            assert bal.confirmed_wallet_balance == 1 * 1_750_000_000_000
 
             # Claim another 1.75
             absorb_txs1 = (
@@ -571,14 +675,20 @@ class TestPoolWalletRpc:
 
             await full_node_api.farm_blocks_to_puzzlehash(count=2, farm_to=our_ph, guarantee_transaction_blocks=True)
             await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-            bal = await client.get_wallet_balance(2)
-            assert bal["confirmed_wallet_balance"] == 0
+            bal = (await client.get_wallet_balance(GetWalletBalance(wallet_id=uint32(2)))).wallet_balance
+            assert bal.confirmed_wallet_balance == 0
 
             assert len(await wallet_node.wallet_state_manager.tx_store.get_unconfirmed_for_wallet(2)) == 0
 
             tr: TransactionRecord = (
                 await client.send_transaction(
-                    1, uint64(100), encode_puzzle_hash(status.p2_singleton_puzzle_hash, "txck"), DEFAULT_TX_CONFIG
+                    SendTransaction(
+                        wallet_id=uint32(1),
+                        amount=uint64(100),
+                        address=encode_puzzle_hash(status.p2_singleton_puzzle_hash, "txck"),
+                        push=True,
+                    ),
+                    DEFAULT_TX_CONFIG,
                 )
             ).transaction
 
@@ -586,15 +696,15 @@ class TestPoolWalletRpc:
             await full_node_api.farm_blocks_to_puzzlehash(count=2, farm_to=our_ph, guarantee_transaction_blocks=True)
 
             # Balance ignores non coinbase TX
-            bal = await client.get_wallet_balance(2)
-            assert bal["confirmed_wallet_balance"] == 0
+            bal = (await client.get_wallet_balance(GetWalletBalance(wallet_id=uint32(2)))).wallet_balance
+            assert bal.confirmed_wallet_balance == 0
 
             with pytest.raises(ValueError):
                 await client.pw_absorb_rewards(
                     PWAbsorbRewards(wallet_id=uint32(2), fee=uint64(fee), push=True), DEFAULT_TX_CONFIG
                 )
 
-            tx1 = await client.get_transactions(1)
+            tx1 = (await client.get_transactions(GetTransactions(wallet_id=uint32(1)))).transactions
             assert (250_000_000_000 + fee) in [tx.amount for tx in tx1]
 
     @pytest.mark.anyio
@@ -609,22 +719,32 @@ class TestPoolWalletRpc:
         async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
             our_ph = await action_scope.get_puzzle_hash(wallet.wallet_state_manager)
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-        assert len(await client.get_wallets(WalletType.POOLING_WALLET)) == 0
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+        assert len(summaries_response.wallets) == 0
 
         main_expected_confirmed_balance = total_block_rewards
-        creation_tx: TransactionRecord = await client.create_new_pool_wallet(
-            our_ph, "", uint32(0), f"{self_hostname}:5000", "new", "SELF_POOLING", fee
+        create_response = await client.create_new_wallet(
+            CreateNewWallet(
+                wallet_type=CreateNewWalletType.POOL_WALLET,
+                initial_target_state=NewPoolWalletInitialTargetState(
+                    state="SELF_POOLING",
+                ),
+                mode=WalletCreationMode.NEW,
+                fee=fee,
+                push=True,
+            ),
+            DEFAULT_TX_CONFIG,
         )
-        await full_node_api.process_transaction_records(records=[creation_tx])
+        await full_node_api.process_transaction_records(records=create_response.transactions)
         main_expected_confirmed_balance -= fee
         main_expected_confirmed_balance -= 1
         pool_expected_confirmed_balance = 0
 
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-        main_bal = await client.get_wallet_balance(1)
-        assert main_bal["confirmed_wallet_balance"] == main_expected_confirmed_balance
+        main_bal = (await client.get_wallet_balance(GetWalletBalance(wallet_id=uint32(1)))).wallet_balance
+        assert main_bal.confirmed_wallet_balance == main_expected_confirmed_balance
 
-        status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(2)))).state
+        status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(2)))).state
         assert status.current.state == PoolSingletonState.SELF_POOLING.value
 
         async with manage_temporary_pool_plot(bt, status.p2_singleton_puzzle_hash) as pool_plot:
@@ -645,10 +765,10 @@ class TestPoolWalletRpc:
             pool_expected_confirmed_balance += block_count * 1_750_000_000_000
             main_expected_confirmed_balance += block_count * 250_000_000_000
 
-            main_bal = await client.get_wallet_balance(1)
-            assert main_bal["confirmed_wallet_balance"] == main_expected_confirmed_balance
-            bal = await client.get_wallet_balance(2)
-            assert bal["confirmed_wallet_balance"] == pool_expected_confirmed_balance
+            main_bal = (await client.get_wallet_balance(GetWalletBalance(wallet_id=uint32(1)))).wallet_balance
+            assert main_bal.confirmed_wallet_balance == main_expected_confirmed_balance
+            bal = (await client.get_wallet_balance(GetWalletBalance(wallet_id=uint32(2)))).wallet_balance
+            assert bal.confirmed_wallet_balance == pool_expected_confirmed_balance
 
             # Claim
             absorb_txs = (
@@ -663,13 +783,13 @@ class TestPoolWalletRpc:
             pool_expected_confirmed_balance -= 1_750_000_000_000
 
             await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-            new_status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(2)))).state
+            new_status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(2)))).state
             assert status.current == new_status.current
             assert status.tip_singleton_coin_id != new_status.tip_singleton_coin_id
-            main_bal = await client.get_wallet_balance(1)
-            pool_bal = await client.get_wallet_balance(2)
-            assert pool_bal["confirmed_wallet_balance"] == pool_expected_confirmed_balance
-            assert main_bal["confirmed_wallet_balance"] == main_expected_confirmed_balance  # 10499999999999
+            main_bal = (await client.get_wallet_balance(GetWalletBalance(wallet_id=uint32(1)))).wallet_balance
+            pool_bal = (await client.get_wallet_balance(GetWalletBalance(wallet_id=uint32(2)))).wallet_balance
+            assert pool_bal.confirmed_wallet_balance == pool_expected_confirmed_balance
+            assert main_bal.confirmed_wallet_balance == main_expected_confirmed_balance  # 10499999999999
 
     @pytest.mark.anyio
     async def test_absorb_pooling(
@@ -685,25 +805,38 @@ class TestPoolWalletRpc:
         async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
             our_ph = await action_scope.get_puzzle_hash(wallet.wallet_state_manager)
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-        assert len(await client.get_wallets(WalletType.POOLING_WALLET)) == 0
-        creation_tx: TransactionRecord = await client.create_new_pool_wallet(
-            our_ph, "http://123.45.67.89", uint32(10), f"{self_hostname}:5000", "new", "FARMING_TO_POOL", fee
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+        assert len(summaries_response.wallets) == 0
+        create_response = await client.create_new_wallet(
+            CreateNewWallet(
+                wallet_type=CreateNewWalletType.POOL_WALLET,
+                initial_target_state=NewPoolWalletInitialTargetState(
+                    target_puzzle_hash=our_ph,
+                    state="FARMING_TO_POOL",
+                    pool_url="http://123.45.67.89",
+                    relative_lock_height=uint32(10),
+                ),
+                mode=WalletCreationMode.NEW,
+                fee=fee,
+                push=True,
+            ),
+            DEFAULT_TX_CONFIG,
         )
-        await full_node_api.process_transaction_records(records=[creation_tx])
+        await full_node_api.process_transaction_records(records=create_response.transactions)
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
         main_expected_confirmed_balance -= 1
         main_expected_confirmed_balance -= fee
 
         async def farming_to_pool() -> bool:
             try:
-                status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(2)))).state
+                status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(2)))).state
                 return status.current.state == PoolSingletonState.FARMING_TO_POOL.value
             except ValueError:
                 return False
 
         await time_out_assert(20, farming_to_pool)
 
-        status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(2)))).state
+        status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(2)))).state
         async with manage_temporary_pool_plot(bt, status.p2_singleton_puzzle_hash) as pool_plot:
             all_blocks = await full_node_api.get_all_full_blocks()
             blocks = bt.get_consecutive_blocks(
@@ -720,8 +853,8 @@ class TestPoolWalletRpc:
             await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
             # Pooled plots don't have balance
             main_expected_confirmed_balance += block_count * 250_000_000_000
-            bal = await client.get_wallet_balance(2)
-            assert bal["confirmed_wallet_balance"] == 0
+            bal = (await client.get_wallet_balance(GetWalletBalance(wallet_id=uint32(2)))).wallet_balance
+            assert bal.confirmed_wallet_balance == 0
 
             # Claim block_count * 1.75
             ret = await client.pw_absorb_rewards(
@@ -740,17 +873,17 @@ class TestPoolWalletRpc:
             main_expected_confirmed_balance += block_count * 1_750_000_000_000
 
             async def status_updated() -> bool:
-                new_st: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(2)))).state
+                new_st: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(2)))).state
                 return status.current == new_st.current and status.tip_singleton_coin_id != new_st.tip_singleton_coin_id
 
             await time_out_assert(20, status_updated)
-            new_status = (await client.pw_status(PWStatus(uint32(2)))).state
-            bal = await client.get_wallet_balance(2)
-            assert bal["confirmed_wallet_balance"] == 0
+            new_status = (await client.pw_status(PWStatus(wallet_id=uint32(2)))).state
+            bal = (await client.get_wallet_balance(GetWalletBalance(wallet_id=uint32(2)))).wallet_balance
+            assert bal.confirmed_wallet_balance == 0
 
             await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-            bal = await client.get_wallet_balance(2)
-            assert bal["confirmed_wallet_balance"] == 0
+            bal = (await client.get_wallet_balance(GetWalletBalance(wallet_id=uint32(2)))).wallet_balance
+            assert bal.confirmed_wallet_balance == 0
             assert len(await wallet_node.wallet_state_manager.tx_store.get_unconfirmed_for_wallet(2)) == 0
             peak = full_node_api.full_node.blockchain.get_peak()
             assert peak is not None
@@ -789,11 +922,11 @@ class TestPoolWalletRpc:
 
                     await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
                     await time_out_assert(20, status_updated)
-                    status = (await client.pw_status(PWStatus(uint32(2)))).state
+                    status = (await client.pw_status(PWStatus(wallet_id=uint32(2)))).state
                     assert ret.fee_transaction is None
 
-            bal2 = await client.get_wallet_balance(2)
-            assert bal2["confirmed_wallet_balance"] == 0
+            bal2 = (await client.get_wallet_balance(GetWalletBalance(wallet_id=uint32(2)))).wallet_balance
+            assert bal2.confirmed_wallet_balance == 0
 
     @pytest.mark.anyio
     async def test_self_pooling_to_pooling(self, setup: Setup, fee: uint64, self_hostname: str) -> None:
@@ -805,35 +938,55 @@ class TestPoolWalletRpc:
         if fee != 0:
             pytest.skip("need to fix this test for non-zero fees")
 
-        full_node_api, wallet_node, our_ph, _total_block_rewards, client = setup
+        full_node_api, wallet_node, _our_ph, _total_block_rewards, client = setup
         pool_ph = bytes32.zeros
 
         assert wallet_node._wallet_state_manager is not None
 
-        assert len(await client.get_wallets(WalletType.POOLING_WALLET)) == 0
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+        assert len(summaries_response.wallets) == 0
 
-        creation_tx: TransactionRecord = await client.create_new_pool_wallet(
-            our_ph, "", uint32(0), f"{self_hostname}:5000", "new", "SELF_POOLING", fee
+        create_response_1 = await client.create_new_wallet(
+            CreateNewWallet(
+                wallet_type=CreateNewWalletType.POOL_WALLET,
+                initial_target_state=NewPoolWalletInitialTargetState(
+                    state="SELF_POOLING",
+                ),
+                mode=WalletCreationMode.NEW,
+                fee=fee,
+                push=True,
+            ),
+            DEFAULT_TX_CONFIG,
         )
-        await full_node_api.wait_transaction_records_entered_mempool(records=[creation_tx])
-        creation_tx_2: TransactionRecord = await client.create_new_pool_wallet(
-            our_ph, "", uint32(0), f"{self_hostname}:5001", "new", "SELF_POOLING", fee
+        await full_node_api.wait_transaction_records_entered_mempool(records=create_response_1.transactions)
+        await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
+        create_response_2 = await client.create_new_wallet(
+            CreateNewWallet(
+                wallet_type=CreateNewWalletType.POOL_WALLET,
+                initial_target_state=NewPoolWalletInitialTargetState(
+                    state="SELF_POOLING",
+                ),
+                mode=WalletCreationMode.NEW,
+                fee=fee,
+                push=True,
+            ),
+            DEFAULT_TX_CONFIG,
         )
 
-        for r in creation_tx.removals:
-            assert r not in creation_tx_2.removals
+        for r in create_response_1.transactions[0].removals:
+            assert r not in create_response_2.transactions[0].removals
 
-        await full_node_api.process_transaction_records(records=[creation_tx_2])
+        await full_node_api.process_transaction_records(records=create_response_2.transactions)
 
-        assert not full_node_api.txs_in_mempool(txs=[creation_tx])
+        assert not full_node_api.txs_in_mempool(txs=create_response_1.transactions)
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
 
-        summaries_response = await client.get_wallets(WalletType.POOLING_WALLET)
-        assert len(summaries_response) == 2
-        wallet_id: int = summaries_response[0]["id"]
-        wallet_id_2: int = summaries_response[1]["id"]
-        status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(wallet_id)))).state
-        status_2: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(wallet_id_2)))).state
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+        assert len(summaries_response.wallets) == 2
+        wallet_id: int = summaries_response.wallets[0].id
+        wallet_id_2: int = summaries_response.wallets[1].id
+        status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
+        status_2: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id_2)))).state
 
         assert status.current.state == PoolSingletonState.SELF_POOLING.value
         assert status_2.current.state == PoolSingletonState.SELF_POOLING.value
@@ -873,8 +1026,8 @@ class TestPoolWalletRpc:
         assert join_pool_tx_2 is not None
         await full_node_api.wait_transaction_records_entered_mempool(records=[join_pool_tx_2])
 
-        status = (await client.pw_status(PWStatus(uint32(wallet_id)))).state
-        status_2 = (await client.pw_status(PWStatus(uint32(wallet_id_2)))).state
+        status = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
+        status_2 = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id_2)))).state
 
         assert status.current.state == PoolSingletonState.SELF_POOLING.value
         assert status.target is not None
@@ -886,7 +1039,7 @@ class TestPoolWalletRpc:
         await full_node_api.process_transaction_records(records=[join_pool_tx, join_pool_tx_2])
 
         async def status_is_farming_to_pool(w_id: int) -> bool:
-            pw_status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(w_id)))).state
+            pw_status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(w_id)))).state
             return pw_status.current.state == PoolSingletonState.FARMING_TO_POOL.value
 
         await time_out_assert(20, status_is_farming_to_pool, True, wallet_id)
@@ -899,25 +1052,35 @@ class TestPoolWalletRpc:
         full_node_api, wallet_node, our_ph, _total_block_rewards, client = setup
         pool_ph = bytes32.zeros
 
-        assert len(await client.get_wallets(WalletType.POOLING_WALLET)) == 0
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+        assert len(summaries_response.wallets) == 0
 
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
 
-        creation_tx: TransactionRecord = await client.create_new_pool_wallet(
-            our_ph, "", uint32(0), f"{self_hostname}:5000", "new", "SELF_POOLING", fee
+        create_response = await client.create_new_wallet(
+            CreateNewWallet(
+                wallet_type=CreateNewWalletType.POOL_WALLET,
+                initial_target_state=NewPoolWalletInitialTargetState(
+                    state="SELF_POOLING",
+                ),
+                mode=WalletCreationMode.NEW,
+                fee=fee,
+                push=True,
+            ),
+            DEFAULT_TX_CONFIG,
         )
 
-        await full_node_api.wait_transaction_records_entered_mempool(records=[creation_tx])
+        await full_node_api.wait_transaction_records_entered_mempool(records=create_response.transactions)
 
         await full_node_api.farm_blocks_to_puzzlehash(count=6, farm_to=our_ph, guarantee_transaction_blocks=True)
-        assert not full_node_api.txs_in_mempool(txs=[creation_tx])
+        assert not full_node_api.txs_in_mempool(txs=create_response.transactions)
 
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
 
-        summaries_response = await client.get_wallets(WalletType.POOLING_WALLET)
-        assert len(summaries_response) == 1
-        wallet_id: int = summaries_response[0]["id"]
-        status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(wallet_id)))).state
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+        assert len(summaries_response.wallets) == 1
+        wallet_id: int = summaries_response.wallets[0].id
+        status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
 
         assert status.current.state == PoolSingletonState.SELF_POOLING.value
         assert status.target is None
@@ -934,7 +1097,7 @@ class TestPoolWalletRpc:
             DEFAULT_TX_CONFIG,
         )
 
-        status = (await client.pw_status(PWStatus(uint32(wallet_id)))).state
+        status = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
 
         assert status.current.state == PoolSingletonState.SELF_POOLING.value
         assert status.current.pool_url == ""
@@ -950,7 +1113,7 @@ class TestPoolWalletRpc:
 
         async def status_is_farming_to_pool() -> bool:
             await full_node_api.farm_blocks_to_puzzlehash(count=1, farm_to=our_ph, guarantee_transaction_blocks=True)
-            pw_status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(wallet_id)))).state
+            pw_status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
             return pw_status.current.state == PoolSingletonState.FARMING_TO_POOL.value
 
         await time_out_assert(timeout=MAX_WAIT_SECS, function=status_is_farming_to_pool)
@@ -967,7 +1130,7 @@ class TestPoolWalletRpc:
         await full_node_api.farm_blocks_to_puzzlehash(count=1, farm_to=our_ph, guarantee_transaction_blocks=True)
 
         async def status_is_leaving() -> bool:
-            pw_status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(wallet_id)))).state
+            pw_status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
             return pw_status.current.state == PoolSingletonState.LEAVING_POOL.value
 
         await time_out_assert(timeout=MAX_WAIT_SECS, function=status_is_leaving)
@@ -975,7 +1138,7 @@ class TestPoolWalletRpc:
 
         async def status_is_self_pooling() -> bool:
             # Farm enough blocks to wait for relative_lock_height
-            pw_status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(wallet_id)))).state
+            pw_status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
             log.warning(f"PW status state: {pw_status.current}")
             return pw_status.current.state == PoolSingletonState.SELF_POOLING.value
 
@@ -1015,6 +1178,9 @@ class TestPoolWalletRpc:
 
         wallet_state_manager: WalletStateManager = wallet_environments.environments[0].wallet_state_manager
         wallet_rpc: WalletRpcClient = wallet_environments.environments[0].rpc_client
+
+        summaries_response = await wallet_rpc.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+        assert len(summaries_response.wallets) == 0
 
         wallet_state_manager.config["reuse_public_key_for_change"][
             str(wallet_state_manager.root_pubkey.get_fingerprint())
@@ -1061,7 +1227,7 @@ class TestPoolWalletRpc:
                 print(f"Checking state after {total_blocks_farmed} blocks")
 
                 await full_node.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
-                pw_status: PoolWalletInfo = (await wallet_rpc.pw_status(PWStatus(uint32(wallet_id)))).state
+                pw_status: PoolWalletInfo = (await wallet_rpc.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
                 if pw_status.current.state == state.value:
                     return True
             return False
@@ -1074,7 +1240,7 @@ class TestPoolWalletRpc:
             wallet_environments.environments[0].node,
         )
 
-        pw_status: PoolWalletInfo = (await wallet_rpc.pw_status(PWStatus(uint32(wallet_id)))).state
+        pw_status: PoolWalletInfo = (await wallet_rpc.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
         assert pw_status.current.state == PoolSingletonState.FARMING_TO_POOL.value
         assert pw_status.current.pool_url == "https://pool-b.org"
         assert pw_status.current.relative_lock_height == LOCK_HEIGHT
@@ -1087,36 +1253,49 @@ class TestPoolWalletRpc:
         pool_b_ph = bytes32.zeros
         WAIT_SECS = 30
 
-        assert len(await client.get_wallets(WalletType.POOLING_WALLET)) == 0
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+        assert len(summaries_response.wallets) == 0
 
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
 
-        creation_tx: TransactionRecord = await client.create_new_pool_wallet(
-            pool_a_ph, "https://pool-a.org", uint32(5), f"{self_hostname}:5000", "new", "FARMING_TO_POOL", uint64(fee)
+        create_response = await client.create_new_wallet(
+            CreateNewWallet(
+                wallet_type=CreateNewWalletType.POOL_WALLET,
+                initial_target_state=NewPoolWalletInitialTargetState(
+                    target_puzzle_hash=pool_a_ph,
+                    state="FARMING_TO_POOL",
+                    pool_url="https://pool-a.org",
+                    relative_lock_height=uint32(5),
+                ),
+                mode=WalletCreationMode.NEW,
+                fee=uint64(0),
+                push=True,
+            ),
+            DEFAULT_TX_CONFIG,
         )
 
-        await full_node_api.wait_transaction_records_entered_mempool(records=[creation_tx])
+        await full_node_api.wait_transaction_records_entered_mempool(records=create_response.transactions)
 
         await full_node_api.farm_blocks_to_puzzlehash(count=6, farm_to=our_ph, guarantee_transaction_blocks=True)
-        assert not full_node_api.txs_in_mempool(txs=[creation_tx])
+        assert not full_node_api.txs_in_mempool(txs=create_response.transactions)
 
         await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
 
-        summaries_response = await client.get_wallets(WalletType.POOLING_WALLET)
-        assert len(summaries_response) == 1
-        wallet_id: int = summaries_response[0]["id"]
-        status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(wallet_id)))).state
+        summaries_response = await client.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+        assert len(summaries_response.wallets) == 1
+        wallet_id: int = summaries_response.wallets[0].id
+        status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
 
         assert status.current.state == PoolSingletonState.FARMING_TO_POOL.value
         assert status.target is None
 
         async def status_is_farming_to_pool() -> bool:
-            pw_status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(wallet_id)))).state
+            pw_status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
             return pw_status.current.state == PoolSingletonState.FARMING_TO_POOL.value
 
         await time_out_assert(timeout=WAIT_SECS, function=status_is_farming_to_pool)
 
-        pw_info: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(wallet_id)))).state
+        pw_info: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
         assert pw_info.current.pool_url == "https://pool-a.org"
         assert pw_info.current.relative_lock_height == 5
 
@@ -1137,7 +1316,7 @@ class TestPoolWalletRpc:
         await full_node_api.farm_blocks_to_puzzlehash(count=1, farm_to=our_ph, guarantee_transaction_blocks=True)
 
         async def status_is_leaving_no_blocks() -> bool:
-            pw_status: PoolWalletInfo = (await client.pw_status(PWStatus(uint32(wallet_id)))).state
+            pw_status: PoolWalletInfo = (await client.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
             return pw_status.current.state == PoolSingletonState.LEAVING_POOL.value
 
         await time_out_assert(timeout=WAIT_SECS, function=status_is_leaving_no_blocks)
@@ -1236,11 +1415,9 @@ class TestPoolWalletRpc:
         # Create a farming plotnft to url http://pool.example.com
         wallet_id = await create_new_plotnft(wallet_environments)
 
-        mock = mocker.patch.object(wallet_state_manager, "synced")
-        mock.return_value = False
-
-        # Test joining the same pool via the RPC client
-        with pytest.raises(ResponseFailureError, match="Wallet needs to be fully synced."):
+        mock = mocker.patch.object(wallet_state_manager, "get_sync_status")
+        mock.return_value = SyncStatus.SLIGHTLY_BEHIND
+        with pytest.raises(ResponseFailureError, match="Wallet needs to be fully synced"):
             await wallet_rpc.pw_join_pool(
                 PWJoinPool(
                     wallet_id=uint32(wallet_id),

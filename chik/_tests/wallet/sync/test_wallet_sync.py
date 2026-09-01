@@ -2,21 +2,23 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import enum
 import functools
 import logging
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Callable, Optional
 from unittest.mock import MagicMock
 
 import pytest
 from aiosqlite import Error as AIOSqliteError
 from chik_rs import (
     BlockRecord,
+    Coin,
     CoinState,
     ConsensusConstants,
     FullBlock,
     G2Element,
+    MerkleSet,
     SpendBundle,
     confirm_not_included_already_hashed,
 )
@@ -25,7 +27,14 @@ from chik_rs.sized_ints import uint32, uint64, uint128
 from chikbip158 import PyBIP158
 from colorlog import getLogger
 
-from chik._tests.connection_utils import connect_and_get_peer, disconnect_all, disconnect_all_and_reconnect
+from chik._tests.conftest import ConsensusMode
+from chik._tests.connection_utils import (
+    add_dummy_connection,
+    add_dummy_connection_wsc,
+    connect_and_get_peer,
+    disconnect_all,
+    disconnect_all_and_reconnect,
+)
 from chik._tests.util.blockchain_mock import BlockchainMock
 from chik._tests.util.misc import patch_request_handler, wallet_height_at_least
 from chik._tests.util.setup_nodes import OldSimulatorsAndWallets
@@ -35,14 +44,18 @@ from chik.consensus.augmented_chain import AugmentedBlockchain
 from chik.consensus.block_body_validation import ForkInfo
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.consensus.difficulty_adjustment import get_next_sub_slot_iters_and_difficulty
-from chik.full_node.full_node_api import FullNodeAPI
+from chik.consensus.generator_tools import get_block_header
+from chik.full_node.full_node_api import MAX_COIN_HASHES_PER_REQUEST, FullNodeAPI
 from chik.full_node.weight_proof import WeightProofHandler
 from chik.protocols import full_node_protocol, wallet_protocol
-from chik.protocols.outbound_message import Message, make_msg
+from chik.protocols.outbound_message import Message, NodeType, make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.protocols.shared_protocol import Capability
 from chik.protocols.wallet_protocol import (
+    RejectAdditionsRequest,
+    RejectRemovalsRequest,
     RequestAdditions,
+    RequestRemovals,
     RespondAdditions,
     RespondBlockHeader,
     RespondBlockHeaders,
@@ -54,6 +67,7 @@ from chik.simulator.add_blocks_in_batches import add_blocks_in_batches
 from chik.simulator.block_tools import BlockTools
 from chik.simulator.full_node_simulator import FullNodeSimulator
 from chik.simulator.simulator_protocol import FarmNewBlockProtocol
+from chik.types.blockchain_format.coin import hash_coin_ids
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
 from chik.types.coin_spend import make_spend
@@ -64,9 +78,16 @@ from chik.util.hash import std_hash
 from chik.wallet.conditions import CreateCoin
 from chik.wallet.nft_wallet.nft_wallet import NFTWallet
 from chik.wallet.util.compute_memos import compute_memos
+from chik.wallet.util.peer_request_cache import PeerRequestCache
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
-from chik.wallet.util.wallet_sync_utils import PeerRequestException
+from chik.wallet.util.wallet_sync_utils import (
+    PeerRequestException,
+    fetch_coin_spend,
+    request_header_blocks,
+    validate_additions,
+)
 from chik.wallet.util.wallet_types import WalletIdentifier
+from chik.wallet.wallet_coin_record import WalletCoinRecord
 from chik.wallet.wallet_state_manager import WalletStateManager
 from chik.wallet.wallet_weight_proof_handler import get_wp_fork_point
 
@@ -110,7 +131,9 @@ async def test_request_block_headers(
     assert [x.transactions_filter for x in bh] == [b"\x00"] * 6
 
     num_blocks = 20
-    new_blocks = bt.get_consecutive_blocks(num_blocks, block_list_input=default_400_blocks, pool_reward_puzzle_hash=ph)
+    new_blocks = bt.get_consecutive_blocks(
+        num_blocks, block_list_input=default_400_blocks, farmer_reward_puzzle_hash=ph
+    )
     await add_blocks_in_batches(new_blocks, full_node_api.full_node)
     msg = await full_node_api.request_block_headers(wallet_protocol.RequestBlockHeaders(uint32(110), uint32(115), True))
     assert msg is not None
@@ -136,7 +159,9 @@ async def test_request_block_headers_transactions_filter(
         `request_block_headers` in this regard, to `request_header_blocks` as
         well as `request_block_header`.
     """
-    full_node_api, _, bt = one_node_one_block
+    full_node_api, server, bt = one_node_one_block
+    _, peer_id = await add_dummy_connection(server, "127.0.0.1", 12312)
+    peer = server.all_connections[peer_id]
     ph = SerializedProgram.to(1).get_tree_hash()
     for _ in range(2):
         await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph))
@@ -190,11 +215,36 @@ async def test_request_block_headers_transactions_filter(
     assert block_headers_res.header_blocks == block_headers
     assert block_headers_res.header_blocks[0].transactions_filter == expected_transactions_filter
     # Go even further and compare this to the outcome of request_block_header
-    msg = await full_node_api.request_block_header(wallet_protocol.RequestBlockHeader(uint32(new_block.height)))
+    msg = await full_node_api.request_block_header(wallet_protocol.RequestBlockHeader(uint32(new_block.height)), peer)
     assert msg is not None
     block_header_res = RespondBlockHeader.from_bytes(msg.data)
     assert block_header_res.header_block == block_header
     assert block_header_res.header_block.transactions_filter == expected_transactions_filter
+
+
+@pytest.mark.limit_consensus_modes(reason="save time")
+@pytest.mark.anyio
+async def test_request_header_blocks_without_block_headers_capability(
+    simulator_and_wallet: OldSimulatorsAndWallets,
+) -> None:
+    """Exercise the legacy request_header_blocks path for peers that lack BLOCK_HEADERS capability."""
+    [full_node_api], [(wallet_node, wallet_server)], _ = simulator_and_wallet
+    full_node_server = full_node_api.full_node.server
+
+    await wallet_server.start_client(PeerInfo("127.0.0.1", full_node_server.get_port()), None)
+    peer = wallet_server.get_connections()[0]
+
+    await full_node_api.farm_blocks_to_puzzlehash(count=2, guarantee_transaction_blocks=True)
+    await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
+
+    original_capabilities = peer.peer_capabilities
+    peer.peer_capabilities = [c for c in original_capabilities if c != Capability.BLOCK_HEADERS]
+    try:
+        result = await request_header_blocks(peer, uint32(0), uint32(1))
+        assert result is not None
+        assert len(result) == 2
+    finally:
+        peer.peer_capabilities = original_capabilities
 
 
 # @pytest.mark.parametrize(
@@ -203,6 +253,7 @@ async def test_request_block_headers_transactions_filter(
 #     [(80, 99, False, ProtocolMessageTypes.respond_block_headers)],
 #     [(10, 8, False, None)],
 # )
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_request_block_headers_rejected(
     simulator_and_wallet: OldSimulatorsAndWallets, default_400_blocks: list[FullBlock]
@@ -347,6 +398,7 @@ async def test_almost_recent(
         await time_out_assert(30, wallet.get_confirmed_balance, 10 * calculate_pool_reward(uint32(1000)))
 
 
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_backtrack_sync_wallet(
     two_wallet_nodes: OldSimulatorsAndWallets,
@@ -377,6 +429,7 @@ async def test_backtrack_sync_wallet(
 
 
 # Tests a reorg with the wallet
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_short_batch_sync_wallet(
     two_wallet_nodes: OldSimulatorsAndWallets,
@@ -609,6 +662,7 @@ async def test_wallet_reorg_get_coinbase(
         await time_out_assert(20, wallet.get_confirmed_balance, funds)
 
 
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_request_additions_errors(simulator_and_wallet: OldSimulatorsAndWallets, self_hostname: str) -> None:
     full_nodes, wallets, _ = simulator_and_wallet
@@ -625,19 +679,47 @@ async def test_request_additions_errors(simulator_and_wallet: OldSimulatorsAndWa
 
     await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
 
-    last_block: Optional[BlockRecord] = full_node_api.full_node.blockchain.get_peak()
+    last_block: BlockRecord | None = full_node_api.full_node.blockchain.get_peak()
     assert last_block is not None
 
-    # Invalid height
-    with pytest.raises(ValueError):
-        await full_node_api.request_additions(RequestAdditions(uint32(100), last_block.header_hash, [ph]))
+    # Invalid height (with header_hash specified)
+    res = await full_node_api.request_additions(RequestAdditions(uint32(100), last_block.header_hash, [ph]))
+    assert res is not None
+    reject = RejectAdditionsRequest.from_bytes(res.data)
+    assert reject.height == 100
+    assert reject.header_hash == last_block.header_hash
+
+    # Invalid height (no header_hash, returns zeros)
+    res = await full_node_api.request_additions(RequestAdditions(uint32(100), None, [ph]))
+    assert res is not None
+    reject = RejectAdditionsRequest.from_bytes(res.data)
+    assert reject.height == 100
+    assert reject.header_hash == bytes32.zeros
 
     # Invalid header hash
-    with pytest.raises(ValueError):
-        await full_node_api.request_additions(RequestAdditions(last_block.height, std_hash(b""), [ph]))
+    res = await full_node_api.request_additions(RequestAdditions(last_block.height, std_hash(b""), [ph]))
+    assert res is not None
+    reject = RejectAdditionsRequest.from_bytes(res.data)
+    assert reject.height == last_block.height
+    assert reject.header_hash == std_hash(b"")
+
+    # Too many puzzle hashes
+    too_many = [bytes32.random() for _ in range(MAX_COIN_HASHES_PER_REQUEST + 1)]
+    res = await full_node_api.request_additions(RequestAdditions(last_block.height, last_block.header_hash, too_many))
+    assert res is not None
+    reject = RejectAdditionsRequest.from_bytes(res.data)
+    assert reject.height == last_block.height
+    assert reject.header_hash == last_block.header_hash
+
+    # Exactly at the limit is allowed
+    at_limit = [bytes32.random() for _i in range(MAX_COIN_HASHES_PER_REQUEST)]
+    res = await full_node_api.request_additions(RequestAdditions(last_block.height, last_block.header_hash, at_limit))
+    assert res is not None
+    response = RespondAdditions.from_bytes(res.data)
+    assert response.height == last_block.height
 
     # No results
-    fake_coin = std_hash(b"")
+    fake_coin = bytes32.random()
     assert ph != fake_coin
     res1 = await full_node_api.request_additions(
         RequestAdditions(last_block.height, last_block.header_hash, [fake_coin])
@@ -660,11 +742,12 @@ async def test_request_additions_errors(simulator_and_wallet: OldSimulatorsAndWa
     # all coin names are concatenated and hashed into one entry in the merkle set for proof_2
     # the response contains the list of coins so you can check the proof_2
 
-    assert response.proofs[0][0] == std_hash(b"")
+    assert response.proofs[0][0] == fake_coin
     assert response.proofs[0][1] is not None
     assert response.proofs[0][2] is None
 
 
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_request_additions_success(simulator_and_wallet: OldSimulatorsAndWallets, self_hostname: str) -> None:
     full_nodes, wallets, _ = simulator_and_wallet
@@ -674,7 +757,7 @@ async def test_request_additions_success(simulator_and_wallet: OldSimulatorsAndW
         ph = await action_scope.get_puzzle_hash(wallet.wallet_state_manager)
 
     full_node_api = full_nodes[0]
-    await wallet_server.start_client(PeerInfo(self_hostname, full_node_api.full_node.server.get_port()), None)
+    wallet_peer = await connect_and_get_peer(full_node_api.full_node.server, wallet_server, self_hostname)
 
     for _ in range(2):
         await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph))
@@ -696,7 +779,7 @@ async def test_request_additions_success(simulator_and_wallet: OldSimulatorsAndW
         )
     [tx] = action_scope.side_effects.transactions
     assert tx.spend_bundle is not None
-    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle))
+    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle), wallet_peer)
     await full_node_api.wait_transaction_records_entered_mempool([tx])
     await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph))
 
@@ -756,6 +839,37 @@ async def test_request_additions_success(simulator_and_wallet: OldSimulatorsAndW
     assert len(response.coins) == 0
 
 
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
+@pytest.mark.anyio
+async def test_request_removals_too_many_coin_names(
+    simulator_and_wallet: OldSimulatorsAndWallets, self_hostname: str
+) -> None:
+    full_nodes, wallets, _ = simulator_and_wallet
+    wallet_node, wallet_server = wallets[0]
+    wallet = wallet_node.wallet_state_manager.main_wallet
+    async with wallet.wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
+        ph = await action_scope.get_puzzle_hash(wallet.wallet_state_manager)
+
+    full_node_api = full_nodes[0]
+    await wallet_server.start_client(PeerInfo(self_hostname, full_node_api.full_node.server.get_port()), None)
+
+    for _ in range(2):
+        await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph))
+
+    await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=20)
+
+    last_block = full_node_api.full_node.blockchain.get_peak()
+    assert last_block is not None
+
+    too_many = [bytes32.random() for _ in range(MAX_COIN_HASHES_PER_REQUEST + 1)]
+    res = await full_node_api.request_removals(RequestRemovals(last_block.height, last_block.header_hash, too_many))
+    assert res is not None
+    reject = RejectRemovalsRequest.from_bytes(res.data)
+    assert reject.height == last_block.height
+    assert reject.header_hash == last_block.header_hash
+
+
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_get_wp_fork_point(
     default_10000_blocks: list[FullBlock], blockchain_constants: ConsensusConstants
@@ -837,6 +951,7 @@ It runs in seven phases:
 """
 
 
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     "spam_filter_after_n_txs, xck_spam_amount, dust_value",
@@ -916,7 +1031,9 @@ async def test_dusted_wallet(
         )
     [tx] = action_scope.side_effects.transactions
     assert tx.spend_bundle is not None
-    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle))
+    _, dummy_node_id = await add_dummy_connection(full_node_api.server, self_hostname, 12312)
+    dummy_peer = full_node_api.server.all_connections[dummy_node_id]
+    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle), dummy_peer)
     await full_node_api.wait_transaction_records_entered_mempool([tx])
     await full_node_api.wait_for_wallets_synced(wallet_nodes=[farm_wallet_node, dust_wallet_node], timeout=20)
     await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph))
@@ -983,7 +1100,7 @@ async def test_dusted_wallet(
                 )
             [tx] = action_scope.side_effects.transactions
             assert tx.spend_bundle is not None
-            await full_node_api.send_transaction(SendTransaction(tx.spend_bundle))
+            await full_node_api.send_transaction(SendTransaction(tx.spend_bundle), dummy_peer)
 
             # advance the chain and sync both wallets
             await full_node_api.wait_transaction_records_entered_mempool([tx])
@@ -1006,7 +1123,7 @@ async def test_dusted_wallet(
             )
         [tx] = action_scope.side_effects.transactions
         assert tx.spend_bundle is not None
-        await full_node_api.send_transaction(SendTransaction(tx.spend_bundle))
+        await full_node_api.send_transaction(SendTransaction(tx.spend_bundle), dummy_peer)
 
         # advance the chain and sync both wallets
         await full_node_api.wait_transaction_records_entered_mempool([tx])
@@ -1059,7 +1176,7 @@ async def test_dusted_wallet(
         )
     [tx] = action_scope.side_effects.transactions
     assert tx.spend_bundle is not None
-    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle))
+    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle), dummy_peer)
 
     # advance the chain and sync both wallets
     await full_node_api.wait_transaction_records_entered_mempool([tx])
@@ -1103,7 +1220,7 @@ async def test_dusted_wallet(
         )
     [tx] = action_scope.side_effects.transactions
     assert tx.spend_bundle is not None
-    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle))
+    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle), dummy_peer)
 
     # advance the chain and sync both wallets
     await full_node_api.wait_transaction_records_entered_mempool([tx])
@@ -1167,7 +1284,7 @@ async def test_dusted_wallet(
         )
     [tx] = action_scope.side_effects.transactions
     assert tx.spend_bundle is not None
-    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle))
+    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle), dummy_peer)
 
     # advance the chain and sync both wallets
     await full_node_api.wait_transaction_records_entered_mempool([tx])
@@ -1208,13 +1325,13 @@ async def test_dusted_wallet(
         )
     [tx] = action_scope.side_effects.transactions
     assert tx.spend_bundle is not None
-    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle))
+    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle), dummy_peer)
 
     # advance the chain and sync both wallets
     await full_node_api.wait_transaction_records_entered_mempool([tx])
-    await full_node_api.wait_for_wallets_synced(wallet_nodes=[farm_wallet_node, dust_wallet_node], timeout=20)
+    await full_node_api.wait_for_wallets_synced(wallet_nodes=[farm_wallet_node, dust_wallet_node], timeout=40)
     await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph))
-    await full_node_api.wait_for_wallets_synced(wallet_nodes=[farm_wallet_node, dust_wallet_node], timeout=20)
+    await full_node_api.wait_for_wallets_synced(wallet_nodes=[farm_wallet_node, dust_wallet_node], timeout=40)
 
     # Obtain and log important values
     all_unspent = await dust_wallet_node.wallet_state_manager.coin_store.get_all_unspent_coins()
@@ -1257,7 +1374,7 @@ async def test_dusted_wallet(
                 )
             [tx] = action_scope.side_effects.transactions
             assert tx.spend_bundle is not None
-            await full_node_api.send_transaction(SendTransaction(tx.spend_bundle))
+            await full_node_api.send_transaction(SendTransaction(tx.spend_bundle), dummy_peer)
             await full_node_api.wait_transaction_records_entered_mempool([tx])
             await full_node_api.wait_for_wallets_synced(wallet_nodes=[farm_wallet_node, dust_wallet_node], timeout=20)
             await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph))
@@ -1276,13 +1393,13 @@ async def test_dusted_wallet(
         )
     [tx] = action_scope.side_effects.transactions
     assert tx.spend_bundle is not None
-    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle))
+    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle), dummy_peer)
 
     # advance the chain and sync both wallets
     await full_node_api.wait_transaction_records_entered_mempool([tx])
-    await full_node_api.wait_for_wallets_synced(wallet_nodes=[farm_wallet_node, dust_wallet_node], timeout=20)
+    await full_node_api.wait_for_wallets_synced(wallet_nodes=[farm_wallet_node, dust_wallet_node], timeout=40)
     await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(ph))
-    await full_node_api.wait_for_wallets_synced(wallet_nodes=[farm_wallet_node, dust_wallet_node], timeout=20)
+    await full_node_api.wait_for_wallets_synced(wallet_nodes=[farm_wallet_node, dust_wallet_node], timeout=40)
 
     # Obtain and log important values
     all_unspent = await dust_wallet_node.wallet_state_manager.coin_store.get_all_unspent_coins()
@@ -1311,7 +1428,7 @@ async def test_dusted_wallet(
         )
     [tx] = action_scope.side_effects.transactions
     assert tx.spend_bundle is not None
-    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle))
+    await full_node_api.send_transaction(SendTransaction(tx.spend_bundle), dummy_peer)
 
     # advance the chain and sync both wallets
     await full_node_api.wait_transaction_records_entered_mempool([tx])
@@ -1405,6 +1522,7 @@ async def test_dusted_wallet(
     await time_out_assert(15, get_nft_count, 1, dust_nft_wallet)
 
 
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.anyio
 async def test_retry_store(
     two_wallet_nodes: OldSimulatorsAndWallets, self_hostname: str, monkeypatch: pytest.MonkeyPatch
@@ -1430,10 +1548,10 @@ async def test_retry_store(
 
     def flaky_get_coin_state(
         flakiness_info: FlakinessInfo,
-        func: Callable[[list[bytes32], WSChikConnection, Optional[uint32]], Awaitable[list[CoinState]]],
-    ) -> Callable[[list[bytes32], WSChikConnection, Optional[uint32]], Awaitable[list[CoinState]]]:
+        func: Callable[[list[bytes32], WSChikConnection, uint32 | None], Awaitable[list[CoinState]]],
+    ) -> Callable[[list[bytes32], WSChikConnection, uint32 | None], Awaitable[list[CoinState]]]:
         async def new_func(
-            coin_names: list[bytes32], peer: WSChikConnection, fork_height: Optional[uint32] = None
+            coin_names: list[bytes32], peer: WSChikConnection, fork_height: uint32 | None = None
         ) -> list[CoinState]:
             if flakiness_info.coin_state_flaky:
                 flakiness_info.coin_state_flaky = False
@@ -1446,10 +1564,14 @@ async def test_retry_store(
     request_puzzle_solution_failure_tested = False
 
     def flaky_request_puzzle_solution(
-        func: Callable[[FullNodeAPI, wallet_protocol.RequestPuzzleSolution], Awaitable[Optional[Message]]],
-    ) -> Callable[[FullNodeAPI, wallet_protocol.RequestPuzzleSolution], Awaitable[Optional[Message]]]:
+        func: Callable[
+            [FullNodeAPI, wallet_protocol.RequestPuzzleSolution, WSChikConnection], Awaitable[Message | None]
+        ],
+    ) -> Callable[[FullNodeAPI, wallet_protocol.RequestPuzzleSolution, WSChikConnection], Awaitable[Message | None]]:
         @functools.wraps(func)
-        async def new_func(self: FullNodeAPI, request: wallet_protocol.RequestPuzzleSolution) -> Optional[Message]:
+        async def new_func(
+            self: FullNodeAPI, request: wallet_protocol.RequestPuzzleSolution, peer: WSChikConnection
+        ) -> Message | None:
             nonlocal request_puzzle_solution_failure_tested
             if not request_puzzle_solution_failure_tested:
                 request_puzzle_solution_failure_tested = True
@@ -1457,16 +1579,16 @@ async def test_retry_store(
                 reject = wallet_protocol.RejectPuzzleSolution(bytes32.zeros, uint32(0))
                 return make_msg(ProtocolMessageTypes.reject_puzzle_solution, reject)
             else:
-                return await func(self, request)
+                return await func(self, request, peer)
 
         return new_func
 
     def flaky_fetch_children(
         flakiness_info: FlakinessInfo,
-        func: Callable[[bytes32, WSChikConnection, Optional[uint32]], Awaitable[list[CoinState]]],
-    ) -> Callable[[bytes32, WSChikConnection, Optional[uint32]], Awaitable[list[CoinState]]]:
+        func: Callable[[bytes32, WSChikConnection, uint32 | None], Awaitable[list[CoinState]]],
+    ) -> Callable[[bytes32, WSChikConnection, uint32 | None], Awaitable[list[CoinState]]]:
         async def new_func(
-            coin_name: bytes32, peer: WSChikConnection, fork_height: Optional[uint32] = None
+            coin_name: bytes32, peer: WSChikConnection, fork_height: uint32 | None = None
         ) -> list[CoinState]:
             if flakiness_info.fetch_children_flaky:
                 flakiness_info.fetch_children_flaky = False
@@ -1489,9 +1611,9 @@ async def test_retry_store(
         return new_func
 
     def flaky_info_for_puzhash(
-        flakiness_info: FlakinessInfo, func: Callable[[bytes32], Awaitable[Optional[WalletIdentifier]]]
-    ) -> Callable[[bytes32], Awaitable[Optional[WalletIdentifier]]]:
-        async def new_func(puzzle_hash: bytes32) -> Optional[WalletIdentifier]:
+        flakiness_info: FlakinessInfo, func: Callable[[bytes32], Awaitable[WalletIdentifier | None]]
+    ) -> Callable[[bytes32], Awaitable[WalletIdentifier | None]]:
+        async def new_func(puzzle_hash: bytes32) -> WalletIdentifier | None:
             if flakiness_info.db_flaky:
                 flakiness_info.db_flaky = False
                 raise AIOSqliteError
@@ -1604,7 +1726,7 @@ async def test_bad_peak_mismatch(
         full_node_protocol.RespondProofOfWeight(wp, wp.recent_chain_data[-1].header_hash),
     )
     with monkeypatch.context() as m:
-        f: asyncio.Future[Optional[Message]] = asyncio.Future()
+        f: asyncio.Future[Message | None] = asyncio.Future()
         f.set_result(wp_msg)
         m.setattr(full_node_api, "request_proof_of_weight", MagicMock(return_value=f))
 
@@ -1613,7 +1735,7 @@ async def test_bad_peak_mismatch(
             ProtocolMessageTypes.respond_block_header,
             wallet_protocol.RespondBlockHeader(wp.recent_chain_data[-1]),
         )
-        f2: asyncio.Future[Optional[Message]] = asyncio.Future()
+        f2: asyncio.Future[Message | None] = asyncio.Future()
         f2.set_result(header_block_msg)
         m.setattr(full_node_api, "request_block_header", MagicMock(return_value=f2))
 
@@ -1637,7 +1759,7 @@ async def test_bad_peak_mismatch(
 async def test_long_sync_untrusted_break(
     setup_two_nodes_and_wallet: OldSimulatorsAndWallets,
     default_1000_blocks: list[FullBlock],
-    default_400_blocks: list[FullBlock],
+    default_1500_blocks: list[FullBlock],
     self_hostname: str,
     caplog: pytest.LogCaptureFixture,
     use_delta_sync: bool,
@@ -1648,26 +1770,15 @@ async def test_long_sync_untrusted_break(
     wallet_node.config["trusted_peers"] = {trusted_full_node_server.node_id.hex(): None}
     wallet_node.config["use_delta_sync"] = use_delta_sync
 
-    sync_canceled = False
-
     async def register_for_ph_updates(
         self: object,
         request: wallet_protocol.RegisterForPhUpdates,
         peer: WSChikConnection,
     ) -> None:
-        nonlocal sync_canceled
-        # Just sleep a long time here to simulate a long-running untrusted sync
-        try:
-            await asyncio.sleep(120)
-        except Exception:
-            sync_canceled = True
-            raise
+        await peer.wait_until_closed()
 
     def wallet_syncing() -> bool:
         return wallet_node.wallet_state_manager.sync_mode
-
-    def check_sync_canceled() -> bool:
-        return sync_canceled
 
     def synced_to_trusted() -> bool:
         return trusted_full_node_server.node_id in wallet_node.synced_peers
@@ -1677,31 +1788,42 @@ async def test_long_sync_untrusted_break(
         untrusted_peers = sum(not wallet_node.is_trusted(peer) for peer in wallet_server.all_connections.values())
         return trusted_peers == 1 and untrusted_peers == 0
 
-    await add_blocks_in_batches(default_400_blocks, trusted_full_node_api.full_node)
+    await add_blocks_in_batches(default_1500_blocks[:600], trusted_full_node_api.full_node)
+    await add_blocks_in_batches(default_1000_blocks[:600], untrusted_full_node_api.full_node)
 
-    await add_blocks_in_batches(default_1000_blocks[:400], untrusted_full_node_api.full_node)
-
-    with patch_request_handler(api=untrusted_full_node_api, handler=register_for_ph_updates):
+    with (
+        patch_request_handler(api=untrusted_full_node_api, handler=register_for_ph_updates),
+        caplog.at_level(logging.INFO),
+    ):
         # Connect to the untrusted peer and wait until the long sync started
-        await wallet_server.start_client(PeerInfo(self_hostname, untrusted_full_node_server.get_port()), None)
+        assert await wallet_server.start_client(PeerInfo(self_hostname, untrusted_full_node_server.get_port()), None)
+        untrusted_conn = wallet_server.all_connections.get(untrusted_full_node_server.node_id)
+        assert untrusted_conn is not None
         await time_out_assert(30, wallet_syncing)
-        with caplog.at_level(logging.INFO):
-            # Connect to the trusted peer and make sure the running untrusted long sync gets interrupted via disconnect
-            await wallet_server.start_client(PeerInfo(self_hostname, trusted_full_node_server.get_port()), None)
-            await time_out_assert(600, wallet_height_at_least, True, wallet_node, len(default_400_blocks) - 1)
-            assert time_out_assert(10, synced_to_trusted)
-            assert untrusted_full_node_server.node_id not in wallet_node.synced_peers
-            assert "Connected to a synced trusted peer, disconnecting from all untrusted nodes." in caplog.text
 
-        # Make sure the sync was interrupted
-        assert time_out_assert(30, check_sync_canceled)
+        # Connect to the trusted peer and make sure the running untrusted long sync gets interrupted via disconnect
+        assert await wallet_server.start_client(PeerInfo(self_hostname, trusted_full_node_server.get_port()), None)
+        await time_out_assert(600, wallet_height_at_least, True, wallet_node, 599)
+        await time_out_assert(10, synced_to_trusted)
+        assert untrusted_full_node_server.node_id not in wallet_node.synced_peers
+
+        assert "Connected to a synced trusted peer, disconnecting from all untrusted nodes." in caplog.text
+        assert (
+            f"Connection closed: {untrusted_conn.peer_info.host}, node id: {untrusted_full_node_server.node_id}"
+            in caplog.text
+        )
         # And that we only have a trusted peer left
-        assert time_out_assert(30, only_trusted_peer)
+        await time_out_assert(30, only_trusted_peer)
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("chain_length", [0, 100])
 @pytest.mark.parametrize("fork_point", [500, 1500])
+# TODO: todo_v2_plots once we have new test chains, we can probably re-enable this
+@pytest.mark.limit_consensus_modes(
+    allows=[ConsensusMode.PLAIN, ConsensusMode.HARD_FORK_2_0],
+    reason="after plot-v1 phase-out, the chains aren't valid anymore",
+)
 async def test_long_reorg_nodes_and_wallet(
     chain_length: int,
     fork_point: int,
@@ -1735,8 +1857,8 @@ async def test_long_reorg_nodes_and_wallet(
     assert last_blk.weight < last_reorg_blk.weight
 
     await wallet_server.start_client(PeerInfo(self_hostname, full_node_1.server.get_port()), None)
-    assert len(wallet_server.all_connections) == 1
-    assert len(full_node_1.server.all_connections) == 1
+    await time_out_assert(5, lambda: len(wallet_server.all_connections) == 1)
+    await time_out_assert(5, lambda: len(full_node_1.server.all_connections) == 1)
 
     await add_blocks_in_batches(blocks, full_node_1.full_node)
     node_1_peak = full_node_1.full_node.blockchain.get_peak()
@@ -1767,3 +1889,211 @@ async def test_long_reorg_nodes_and_wallet(
     p1 = full_node_2.full_node.blockchain.get_peak()
     assert p1 is not None
     assert p1.header_hash == last_reorg_blk.header_hash
+
+
+@pytest.mark.anyio
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0], reason="irrelevant")
+async def test_validate_received_state_from_peer_no_additions(
+    simulator_and_wallet: OldSimulatorsAndWallets, self_hostname: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """
+    Covers the case where we fail to obtain additions in
+    `validate_received_state_from_peer` to make sure we don't disconnect/ban
+    the peer.
+    """
+    [full_node_api], [(wallet_node, _)], bt = simulator_and_wallet
+    await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(bytes32.random()))
+    peak = full_node_api.full_node.blockchain.get_peak()
+    assert peak is not None
+    blocks = await full_node_api.get_all_full_blocks()
+    blocks = bt.get_consecutive_blocks(1, blocks, guarantee_transaction_block=True)
+    new_block_header = get_block_header(blocks[-1])
+    created_height = uint32(peak.height + 1)
+    assert new_block_header.height == created_height
+    peer_request_cache = PeerRequestCache()
+    peer_request_cache.add_to_blocks(new_block_header)
+    ph = bytes32.random()
+    coin_state = CoinState(Coin(bytes32.random(), ph, uint64(1)), None, created_height)
+    wsc, _ = await add_dummy_connection_wsc(
+        full_node_api.full_node.server, self_hostname, 42, NodeType.WALLET, wait_for_peer_added=False
+    )
+    caplog.clear()
+    caplog.set_level(logging.INFO)
+    result = await wallet_node.validate_received_state_from_peer(
+        coin_state=coin_state, peer=wsc, peer_request_cache=peer_request_cache, fork_height=None
+    )
+    assert result is False
+    assert (
+        f"Failed to obtain additions for height {created_height} "
+        f"header hash {new_block_header.header_hash} puzzle hash {ph}" in caplog.text
+    )
+    assert not wsc.closed
+
+
+@pytest.mark.anyio
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0], reason="irrelevant")
+@pytest.mark.parametrize("remote_spent", [True, False])
+async def test_validate_received_state_from_peer_no_removals(
+    simulator_and_wallet: OldSimulatorsAndWallets,
+    self_hostname: str,
+    caplog: pytest.LogCaptureFixture,
+    remote_spent: bool,
+) -> None:
+    """
+    Covers the case where we fail to obtain removals in
+    `validate_received_state_from_peer` to make sure we don't disconnect/ban
+    the peer.
+    """
+    [full_node_api], [(wallet_node, wallet_server)], _ = simulator_and_wallet
+    server = full_node_api.full_node.server
+    await wallet_server.start_client(PeerInfo(self_hostname, server.get_port()), None)
+    await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(bytes32.random()))
+    await full_node_api.wait_for_wallet_synced(wallet_node=wallet_node, timeout=10)
+    peak = full_node_api.full_node.blockchain.get_peak()
+    assert peak is not None
+    created_height = peak.height
+    spent_height = created_height
+    coin = Coin(bytes32.random(), bytes32.random(), uint64(1))
+    peer_request_cache = PeerRequestCache()
+    if remote_spent:
+        coin_state = CoinState(coin, spent_height, created_height)
+    else:
+        await wallet_node.wallet_state_manager.coin_store.add_coin_record(
+            WalletCoinRecord(
+                coin=coin,
+                confirmed_block_height=created_height,
+                spent_block_height=spent_height,
+                spent=True,
+                coinbase=False,
+                wallet_type=wallet_node.wallet_state_manager.main_wallet.type(),
+                wallet_id=int(wallet_node.wallet_state_manager.main_wallet.id()),
+            )
+        )
+        coin_state = CoinState(coin, None, created_height)
+    wsc, _ = await add_dummy_connection_wsc(server, self_hostname, 42, NodeType.WALLET, wait_for_peer_added=False)
+    caplog.clear()
+    caplog.set_level(logging.INFO)
+    request_removals_calls: list[uint32] = []
+
+    async def request_removals(self: FullNodeAPI, request: RequestRemovals) -> Message | None:
+        request_removals_calls.append(request.height)
+        reject = RejectRemovalsRequest(request.height, request.header_hash)
+        return make_msg(ProtocolMessageTypes.reject_removals_request, reject)
+
+    with patch_request_handler(api=server.api, handler=request_removals):
+        result = await wallet_node.validate_received_state_from_peer(
+            coin_state=coin_state, peer=wsc, peer_request_cache=peer_request_cache, fork_height=None
+        )
+    assert result is False
+    assert request_removals_calls == [spent_height]
+    assert (
+        f"Failed to obtain removals for height {spent_height} "
+        f"header hash {peak.header_hash} coin name {coin.name()}" in caplog.text
+    )
+    assert not wsc.closed
+
+
+class FetchCoinSpendCase(enum.Enum):
+    ValidResponse = 0
+    RejectResponse = 1
+    WrongPuzzleHash = 2
+    WrongCoinName = 3
+
+
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0], reason="irrelevant")
+@pytest.mark.anyio
+async def test_fetch_coin_spend(
+    one_node_one_block: tuple[FullNodeSimulator, ChikServer, BlockTools], self_hostname: str
+) -> None:
+    _, server, _ = one_node_one_block
+    wcs, _ = await add_dummy_connection_wsc(server, self_hostname, 42, NodeType.WALLET, wait_for_peer_added=False)
+    puzzle = SerializedProgram.to(1)
+    solution = SerializedProgram.to(2)
+    coin = Coin(bytes32.random(), puzzle.get_tree_hash(), uint64(1))
+    coin_id = coin.name()
+    height = uint32(1337)
+
+    def make_puzzle_solution_response(coin_name: bytes32, puzzle_reveal: SerializedProgram) -> Message:
+        response = wallet_protocol.RespondPuzzleSolution(
+            wallet_protocol.PuzzleSolutionResponse(coin_name, height, puzzle_reveal, solution)
+        )
+        return make_msg(ProtocolMessageTypes.respond_puzzle_solution, response)
+
+    def request_puzzle_solution(
+        case: FetchCoinSpendCase,
+    ) -> Callable[[FullNodeAPI, wallet_protocol.RequestPuzzleSolution, WSChikConnection], Awaitable[Message]]:
+        async def request_puzzle_solution_handler(
+            self: FullNodeAPI, request: wallet_protocol.RequestPuzzleSolution, peer_arg: WSChikConnection
+        ) -> Message:
+            if case == FetchCoinSpendCase.ValidResponse:
+                return make_puzzle_solution_response(coin_id, puzzle)
+            if case == FetchCoinSpendCase.RejectResponse:
+                return make_msg(
+                    ProtocolMessageTypes.reject_puzzle_solution,
+                    wallet_protocol.RejectPuzzleSolution(request.coin_name, request.height),
+                )
+            if case == FetchCoinSpendCase.WrongPuzzleHash:
+                return make_puzzle_solution_response(coin_id, SerializedProgram.to(3))
+            if case == FetchCoinSpendCase.WrongCoinName:
+                return make_puzzle_solution_response(bytes32.random(), puzzle)
+            assert False  # pragma: no cover
+
+        return request_puzzle_solution_handler
+
+    test_cases = [
+        (FetchCoinSpendCase.ValidResponse, None),
+        (FetchCoinSpendCase.RejectResponse, "Was not able to obtain solution"),
+        (FetchCoinSpendCase.WrongPuzzleHash, "wrong puzzle hash"),
+        (FetchCoinSpendCase.WrongCoinName, "wrong coin name"),
+    ]
+    for case, expected_error in test_cases:
+        with patch_request_handler(
+            api=server.api,
+            handler=request_puzzle_solution(case),
+            request_type=ProtocolMessageTypes.request_puzzle_solution,
+        ):
+            if expected_error is None:
+                coin_spend = await fetch_coin_spend(height, coin, wcs)
+                assert coin_spend.coin == coin
+                assert coin_spend.puzzle_reveal == puzzle
+                assert coin_spend.solution == solution
+            else:
+                with pytest.raises(PeerRequestException, match=expected_error):
+                    await fetch_coin_spend(height, coin, wcs)
+
+
+def test_validate_additions_failure_cases() -> None:
+    """
+    Covers the failure cases of `validate_additions`
+    """
+    ph = bytes32.random()
+    ph2 = bytes32.random()
+    coin = Coin(bytes32.random(), bytes32.random(), uint64(1))
+    coin_list = [coin]
+    coin_ids_hash = hash_coin_ids([c.name() for c in coin_list])
+    # Length mismatch
+    assert validate_additions([(ph, [])], [], bytes32.random()) is False
+    # Puzzle hash mismatch
+    assert validate_additions([(ph, [])], [(ph2, b"\x00", None)], bytes32.random()) is False
+    # Verify exclusion proof for puzzle hash
+    # coin_list empty + proof that actually proves inclusion => exclusion check fails.
+    exclusion_set = MerkleSet([ph])
+    _, included_proof_for_ph_a = exclusion_set.is_included_already_hashed(ph)
+    assert validate_additions([(ph, [])], [(ph, included_proof_for_ph_a, None)], exclusion_set.get_root()) is False
+    # `coin_list_proof` is None
+    ph_proof = b""
+    coin_list_proof = None
+    assert validate_additions([(ph, coin_list)], [(ph, ph_proof, coin_list_proof)], bytes32.random()) is False
+    # Verify inclusion proof for coin list
+    wrong_coin_hash = bytes32.random()
+    wrong_set = MerkleSet([wrong_coin_hash])
+    _, wrong_coin_list_proof = wrong_set.is_included_already_hashed(wrong_coin_hash)
+    wrong_set_root = wrong_set.get_root()
+    assert validate_additions([(ph, coin_list)], [(ph, ph_proof, wrong_coin_list_proof)], wrong_set_root) is False
+    # Verify inclusion proof for puzzle hash
+    proof_set = MerkleSet([coin_ids_hash, ph2])
+    _, coin_list_proof = proof_set.is_included_already_hashed(coin_ids_hash)
+    _, wrong_ph_proof = proof_set.is_included_already_hashed(ph2)
+    assert ph != ph2
+    proof_set_root = proof_set.get_root()
+    assert validate_additions([(ph, coin_list)], [(ph, wrong_ph_proof, coin_list_proof)], proof_set_root) is False

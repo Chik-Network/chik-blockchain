@@ -1,0 +1,9 @@
+# Modules where strict-bytes is disabled (mypy 2.1 treats bytearray/memoryview as bytes subtypes).
+chik.full_node.full_block_utils
+chik.full_node.block_store
+chik.types.blockchain_format.coin
+chik.seeder.dns_server
+chik._tests.util.test_full_block_utils
+chik._tests.core.full_node.test_block_height_map
+chik._tests.timelord.test_timelord
+chik._tests.core.test_filter

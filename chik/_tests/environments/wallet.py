@@ -3,10 +3,10 @@ from __future__ import annotations
 import contextlib
 import json
 import operator
-import unittest
+import unittest.mock
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Union, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
@@ -25,6 +25,7 @@ from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG, TXConfig
 from chik.wallet.wallet import Wallet
 from chik.wallet.wallet_node import Balance, WalletNode
 from chik.wallet.wallet_node_api import WalletNodeAPI
+from chik.wallet.wallet_request_types import GetWalletBalance
 from chik.wallet.wallet_rpc_api import WalletRpcApi
 from chik.wallet.wallet_rpc_client import WalletRpcClient
 from chik.wallet.wallet_state_manager import WalletStateManager
@@ -35,7 +36,9 @@ STANDARD_TX_ENDPOINT_ARGS: dict[str, Any] = TransactionEndpoint(
         min_coin_amount=cli_amount_none,
         max_coin_amount=cli_amount_none,
         coins_to_exclude=(),
+        coins_to_include=(),
         amounts_to_exclude=(),
+        primary_coin=None,
         reuse=None,
     ),
     transaction_writer=TransactionsOut(transaction_file_out=None),
@@ -49,9 +52,9 @@ OPP_DICT = {"<": operator.lt, ">": operator.gt, "<=": operator.le, ">=": operato
 
 
 class BalanceCheckingError(Exception):
-    errors: dict[Union[int, str], list[str]]
+    errors: dict[int | str, list[str]]
 
-    def __init__(self, errors: dict[Union[int, str], list[str]]) -> None:
+    def __init__(self, errors: dict[int | str, list[str]]) -> None:
         self.errors = errors
 
     def __repr__(self) -> str:
@@ -68,10 +71,10 @@ class WalletState:
 
 @dataclass
 class WalletStateTransition:
-    pre_block_balance_updates: dict[Union[int, str], dict[str, int]] = field(default_factory=dict)
-    post_block_balance_updates: dict[Union[int, str], dict[str, int]] = field(default_factory=dict)
-    pre_block_additional_balance_info: dict[Union[int, str], dict[str, int]] = field(default_factory=dict)
-    post_block_additional_balance_info: dict[Union[int, str], dict[str, int]] = field(default_factory=dict)
+    pre_block_balance_updates: dict[int | str, dict[str, int]] = field(default_factory=dict)
+    post_block_balance_updates: dict[int | str, dict[str, int]] = field(default_factory=dict)
+    pre_block_additional_balance_info: dict[int | str, dict[str, int]] = field(default_factory=dict)
+    post_block_additional_balance_info: dict[int | str, dict[str, int]] = field(default_factory=dict)
 
 
 @dataclass
@@ -120,7 +123,7 @@ class WalletEnvironment:
     def xck_wallet(self) -> Wallet:
         return self.service._node.wallet_state_manager.main_wallet
 
-    def dealias_wallet_id(self, wallet_id_or_alias: Union[int, str]) -> uint32:
+    def dealias_wallet_id(self, wallet_id_or_alias: int | str) -> uint32:
         """
         This function turns something that is either a wallet id or a wallet alias into a wallet id.
         """
@@ -130,7 +133,7 @@ class WalletEnvironment:
             else uint32(self.wallet_aliases[wallet_id_or_alias])
         )
 
-    def alias_wallet_id(self, wallet_id: uint32) -> Union[uint32, str]:
+    def alias_wallet_id(self, wallet_id: uint32) -> uint32 | str:
         """
         This function turns a wallet id into an alias if one is available or the same wallet id if one is not.
         """
@@ -140,7 +143,7 @@ class WalletEnvironment:
         else:
             return wallet_id
 
-    async def check_balances(self, additional_balance_info: dict[Union[int, str], dict[str, int]] = {}) -> None:
+    async def check_balances(self, additional_balance_info: dict[int | str, dict[str, int]] = {}) -> None:
         """
         This function checks the internal representation of what the balances should be against the balances that the
         wallet actually returns via the RPC.
@@ -150,7 +153,7 @@ class WalletEnvironment:
         dealiased_additional_balance_info: dict[uint32, dict[str, int]] = {
             self.dealias_wallet_id(k): v for k, v in additional_balance_info.items()
         }
-        errors: dict[Union[int, str], list[str]] = {}
+        errors: dict[int | str, list[str]] = {}
         for wallet_id in self.wallet_state_manager.wallets:
             if wallet_id not in self.wallet_states:
                 raise KeyError(f"No wallet state for wallet id {wallet_id} (alias: {self.alias_wallet_id(wallet_id)})")
@@ -169,7 +172,9 @@ class WalletEnvironment:
                     else {}
                 ),
             }
-            balance_response: dict[str, int] = await self.rpc_client.get_wallet_balance(wallet_id)
+            balance_response: dict[str, int] = (
+                await self.rpc_client.get_wallet_balance(GetWalletBalance(wallet_id=wallet_id))
+            ).wallet_balance.to_json_dict()
 
             if not expected_result.items() <= balance_response.items():
                 for key, value in expected_result.items():
@@ -186,7 +191,7 @@ class WalletEnvironment:
         if errors != {}:
             raise BalanceCheckingError(errors)
 
-    async def change_balances(self, update_dictionary: dict[Union[int, str], dict[str, int]]) -> None:
+    async def change_balances(self, update_dictionary: dict[int | str, dict[str, int]]) -> None:
         """
         This method changes the internal representation of what the wallet balances should be. This is probably
         necessary to call before check_balances as most wallet operations will result in a balance change that causes
@@ -225,7 +230,7 @@ class WalletEnvironment:
                 )
             else:
                 for key, change in kwargs.items():
-                    if key in "set_remainder":
+                    if key in {"set_remainder", "init"}:
                         continue
                     if "#" in key:
                         opp: str = key[0 : key.index("#")]
@@ -275,7 +280,7 @@ class WalletEnvironment:
             if tx.type not in CLAWBACK_INCOMING_TRANSACTION_TYPES and tx.name not in _exclude_from_mempool_check
         ]
         # Ensure txs enter mempool and are marked as such locally
-        await full_node_api.wait_transaction_records_entered_mempool(pending_txs)
+        await full_node_api.wait_transaction_records_entered_mempool(pending_txs, wallet_node=self.node)
         await full_node_api.wait_transaction_records_marked_as_in_mempool([tx.name for tx in pending_txs], self.node)
 
         return pending_txs
@@ -319,6 +324,8 @@ class WalletTestFramework:
                 min_coin_amount=CliAmount(amount=self.tx_config.min_coin_amount, mojos=True),
                 max_coin_amount=CliAmount(amount=self.tx_config.max_coin_amount, mojos=True),
                 coins_to_exclude=tuple(self.tx_config.excluded_coin_ids),
+                coins_to_include=tuple(self.tx_config.included_coin_ids),
+                primary_coin=self.tx_config.primary_coin,
                 amounts_to_exclude=tuple(
                     CliAmount(amount=amt, mojos=True) for amt in self.tx_config.excluded_coin_amounts
                 ),
@@ -344,7 +351,7 @@ class WalletTestFramework:
         1) Ensures all pending transactions have entered the mempool
         2) Checks that all balances have changed properly prior to a block being farmed
         3) Farms a block (to no one in particular)
-        4) Chacks that all balances have changed properly after the block was farmed
+        4) Checks that all balances have changed properly after the block was farmed
         5) Checks that all pending transactions that were gathered in step 1 are now confirmed
         6) Checks that if `reuse_puzhash` was set, no new derivations were created
         7) Ensures the wallet is in a synced state before progressing to the rest of the test
@@ -380,8 +387,8 @@ class WalletTestFramework:
                         await env.check_balances(transition.pre_block_additional_balance_info)
                 except Exception:
                     raise ValueError(f"Error with env index {i}")
-        except Exception:
-            raise ValueError("Error before block was farmed")
+        except Exception as e:
+            raise ValueError(f"Error before block was farmed: {e}") from e
 
         # Farm block
         await self.full_node.farm_blocks_to_puzzlehash(count=1, guarantee_transaction_blocks=True)
@@ -406,8 +413,8 @@ class WalletTestFramework:
                         await env.check_balances(transition.post_block_additional_balance_info)
                 except Exception:
                     raise ValueError(f"Error with env {i}")
-        except Exception:
-            raise ValueError("Error after block was farmed")
+        except Exception as e:
+            raise ValueError(f"Error after block was farmed: {e}") from e
 
         # Make sure all pending txs from before the block are now confirmed
         for i, (env, txs) in enumerate(zip(self.environments, pending_txs)):

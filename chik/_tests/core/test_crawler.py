@@ -16,8 +16,8 @@ from chik.protocols.full_node_protocol import NewPeak
 from chik.protocols.outbound_message import make_msg
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.protocols.wallet_protocol import RequestChildren
+from chik.seeder.crawler_service import CrawlerService
 from chik.seeder.peer_record import PeerRecord, PeerReliability
-from chik.server.aliases import CrawlerService
 from chik.types.peer_info import PeerInfo
 
 
@@ -52,6 +52,7 @@ async def test_unknown_messages(
     assert await crawler.server.start_client(
         PeerInfo(self_hostname, cast(FullNodeAPI, full_node_service._api).server.get_port()), None
     )
+    await time_out_assert(5, lambda: crawler.server.node_id in full_node.server.all_connections)
     connection = full_node.server.all_connections[crawler.server.node_id]
 
     def receiving_failed() -> bool:
@@ -76,6 +77,7 @@ async def test_valid_message(
     assert await crawler.server.start_client(
         PeerInfo(self_hostname, cast(FullNodeAPI, full_node_service._api).server.get_port()), None
     )
+    await time_out_assert(5, lambda: crawler.server.node_id in full_node.server.all_connections)
     connection = full_node.server.all_connections[crawler.server.node_id]
 
     def peer_added() -> bool:
@@ -111,7 +113,7 @@ async def test_crawler_to_db(crawler_service_no_loop: CrawlerService, one_node: 
         uint64(0),
         uint32(0),
         uint64(0),
-        uint64(int(time.time())),
+        uint64(time.time()),
         uint64(0),
         "undefined",
         uint64(0),
@@ -153,8 +155,8 @@ async def test_crawler_peer_cleanup(
             uint64(0),
             uint32(0),
             uint64(0),
-            uint64(int(time.time())),
-            uint64(int((datetime.now() - timedelta(days=idx * 10)).timestamp())),
+            uint64(time.time()),
+            uint64((datetime.now() - timedelta(days=idx * 10)).timestamp()),
             "undefined",
             uint64(0),
             tls_version="unknown",

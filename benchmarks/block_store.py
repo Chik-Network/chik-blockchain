@@ -20,12 +20,11 @@ from chik_rs import (
     TransactionsInfo,
 )
 from chik_rs.sized_bytes import bytes32
-from chik_rs.sized_ints import uint8, uint32, uint64, uint128
+from chik_rs.sized_ints import uint8, uint16, uint32, uint64, uint128
 
 from benchmarks.utils import setup_db
 from chik._tests.util.benchmarks import (
     klvm_generator,
-    rand_bytes,
     rand_class_group_element,
     rand_g1,
     rand_g2,
@@ -100,6 +99,7 @@ async def run_add_block_benchmark(version: int) -> None:
                     uint8(random.randint(0, 255)),  # num_blocks_overflow: uint8
                     None,  # new_difficulty: Optional[uint64]
                     None,  # new_sub_slot_iters: Optional[uint64]
+                    None,  # challenge_merkle_root: Optional[bytes32]
                 )
 
             has_pool_pk = random.randint(0, 1)
@@ -109,8 +109,12 @@ async def run_add_block_benchmark(version: int) -> None:
                 rand_g1() if has_pool_pk else None,
                 rand_hash() if not has_pool_pk else None,
                 rand_g1(),  # plot_public_key
-                uint8(32),
-                rand_bytes(8 * 32),
+                uint8(0),  # v1
+                uint16(0),  # plot_index
+                uint8(0),  # group_id
+                uint8(0),  # strength
+                uint8(32),  # size
+                random.randbytes(8 * 32),
             )
 
             reward_chain_block = RewardChainBlock(
@@ -127,6 +131,7 @@ async def run_add_block_benchmark(version: int) -> None:
                 rand_g2(),  # reward_chain_sp_signature
                 rand_vdf(),  # reward_chain_ip_vdf
                 rand_vdf() if deficit < 16 else None,
+                None,  # header_mmr_root
                 is_transaction,
             )
 

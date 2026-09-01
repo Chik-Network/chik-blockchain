@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import click
 
 from chik.cmds.cmd_classes import ChikCliContext
@@ -13,10 +11,7 @@ from chik.cmds.peer_funcs import peer_async
 @click.option(
     "-p",
     "--rpc-port",
-    help=(
-        "Set the port where the farmer, wallet, full node or harvester "
-        "is hosting the RPC interface. See the rpc_port in config.yaml"
-    ),
+    help=("Set the port where the service is hosting the RPC interface. See the rpc_port in config.yaml"),
     type=int,
     default=None,
 )
@@ -27,11 +22,11 @@ from chik.cmds.peer_funcs import peer_async
 @click.option(
     "-r", "--remove-connection", help="Remove a Node by the first 8 characters of NodeID", type=str, default=""
 )
-@click.argument("node_type", type=click.Choice(list(NODE_TYPES.keys())), nargs=1, required=True)
+@click.argument("node_type", type=click.Choice(sorted(NODE_TYPES.keys())), nargs=1, required=True)
 @click.pass_context
 def peer_cmd(
     ctx: click.Context,
-    rpc_port: Optional[int],
+    rpc_port: int | None,
     connections: bool,
     add_connection: str,
     remove_connection: str,

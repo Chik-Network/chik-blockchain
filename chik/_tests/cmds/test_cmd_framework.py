@@ -5,7 +5,7 @@ import textwrap
 from collections.abc import Sequence
 from dataclasses import asdict
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any
 
 import click
 import pytest
@@ -32,7 +32,7 @@ from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.tx_config import CoinSelectionConfig, TXConfig
 
 
-def check_click_parsing(cmd: ChikCommand, *args: str, context: Optional[ChikCliContext] = None) -> None:
+def check_click_parsing(cmd: ChikCommand, *args: str, context: ChikCliContext | None = None) -> None:
     @click.group()
     def _cmd() -> None:
         pass
@@ -232,7 +232,7 @@ def test_typing() -> None:
     # Test optional
     @chik_command(group=cmd, name="temp_cmd_optional", short_help="blah", help="n/a")
     class TempCMDOptional:
-        optional: Optional[int] = option("--optional", required=False)
+        optional: int | None = option("--optional", required=False)
 
         def run(self) -> None: ...
 
@@ -244,7 +244,7 @@ def test_typing() -> None:
 
         @chik_command(group=cmd, name="temp_cmd_optional_bad", short_help="blah", help="n/a")
         class TempCMDOptionalBad2:
-            optional: Optional[int] = option("--optional", required=True)
+            optional: int | None = option("--optional", required=True)
 
             def run(self) -> None: ...
 
@@ -252,13 +252,13 @@ def test_typing() -> None:
 
         @chik_command(group=cmd, name="temp_cmd_optional_bad", short_help="blah", help="n/a")
         class TempCMDOptionalBad3:
-            optional: Optional[int] = option("--optional", default="string", required=False)
+            optional: int | None = option("--optional", default="string", required=False)
 
             def run(self) -> None: ...
 
     @chik_command(group=cmd, name="temp_cmd_optional_fine", short_help="blah", help="n/a")
     class TempCMDOptionalBad4:
-        optional: Optional[int] = option("--optional", default=None, required=False)
+        optional: int | None = option("--optional", default=None, required=False)
 
         def run(self) -> None: ...
 
@@ -443,6 +443,8 @@ def test_tx_config_helper() -> None:
             max_coin_amount=CliAmount(amount=Decimal("0.01"), mojos=False),
             amounts_to_exclude=(CliAmount(amount=Decimal("0.01"), mojos=False),),
             coins_to_exclude=(bytes32([0] * 32),),
+            coins_to_include=(bytes32([1] * 32),),
+            primary_coin=bytes32([1] * 32),
         )
     )
 
@@ -456,6 +458,10 @@ def test_tx_config_helper() -> None:
         "0.01",
         "--exclude-coin",
         bytes32([0] * 32).hex(),
+        "--include-coin",
+        bytes32([1] * 32).hex(),
+        "--primary-coin",
+        bytes32([1] * 32).hex(),
     )
 
     # again, convenience for testing sake
@@ -464,6 +470,8 @@ def test_tx_config_helper() -> None:
         max_coin_amount=uint64(1),
         excluded_coin_amounts=[uint64(1)],
         excluded_coin_ids=[bytes32([0] * 32)],
+        included_coin_ids=[bytes32([1] * 32)],
+        primary_coin=bytes32([1] * 32),
     )
 
     @chik_command(group=cmd, name="tx_config_cmd", short_help="blah", help="blah")
@@ -480,6 +488,8 @@ def test_tx_config_helper() -> None:
             max_coin_amount=CliAmount(amount=Decimal("0.01"), mojos=False),
             amounts_to_exclude=(CliAmount(amount=Decimal("0.01"), mojos=False),),
             coins_to_exclude=(bytes32([0] * 32),),
+            coins_to_include=(bytes32([1] * 32),),
+            primary_coin=bytes32([1] * 32),
             reuse=False,
         )
     )
@@ -494,6 +504,10 @@ def test_tx_config_helper() -> None:
         "0.01",
         "--exclude-coin",
         bytes32([0] * 32).hex(),
+        "--include-coin",
+        bytes32([1] * 32).hex(),
+        "--primary-coin",
+        bytes32([1] * 32).hex(),
         "--new-address",
     )
 
@@ -503,6 +517,8 @@ def test_tx_config_helper() -> None:
         max_coin_amount=uint64(1),
         excluded_coin_amounts=[uint64(1)],
         excluded_coin_ids=[bytes32([0] * 32)],
+        included_coin_ids=[bytes32([1] * 32)],
+        primary_coin=bytes32([1] * 32),
         reuse_puzhash=False,
     )
 

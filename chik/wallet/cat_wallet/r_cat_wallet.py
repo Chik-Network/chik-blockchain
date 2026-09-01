@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import TYPE_CHECKING, Any, ClassVar, Optional, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from chik_rs import G1Element
 from chik_rs.sized_bytes import bytes32
@@ -71,8 +71,8 @@ class RCATWallet(CATWallet):
     create_new_cat_wallet = None  # type: ignore[assignment]
 
     @staticmethod
-    def default_wallet_name_for_unknown_cat(limitations_program_hash_hex: str) -> str:
-        return f"Revocable-CAT {limitations_program_hash_hex[:16]}..."
+    def default_wallet_name_for_unknown_cat(limitations_program_hash: bytes32) -> str:
+        return f"Revocable-CAT {limitations_program_hash.hex()[:16]}..."
 
     # We need to override this with a different signature.
     # It's not immediately clear what is proper here, likely needs a bit of a refactor.
@@ -81,31 +81,28 @@ class RCATWallet(CATWallet):
         cls,
         wallet_state_manager: WalletStateManager,
         wallet: Wallet,
-        limitations_program_hash_hex: str,
+        limitations_program_hash: bytes32,
         hidden_puzzle_hash: bytes32,
-        name: Optional[str] = None,
+        name: str | None = None,
     ) -> Self:
         self = cls()
         self.standard_wallet = wallet
         self.log = logging.getLogger(__name__)
 
-        limitations_program_hash_hex = bytes32.from_hexstr(limitations_program_hash_hex).hex()  # Normalize the format
-
         for id, w in wallet_state_manager.wallets.items():
             if w.type() == cls.type():
                 assert isinstance(w, cls)
-                if w.get_asset_id() == limitations_program_hash_hex:
+                if w.get_asset_id() == limitations_program_hash:
                     self.log.warning("Not creating wallet for already existing CAT wallet")
                     return w
 
         self.wallet_state_manager = wallet_state_manager
-        if limitations_program_hash_hex in DEFAULT_CATS:
-            cat_info = DEFAULT_CATS[limitations_program_hash_hex]
+        if limitations_program_hash.hex() in DEFAULT_CATS:
+            cat_info = DEFAULT_CATS[limitations_program_hash.hex()]
             name = cat_info["name"]
         elif name is None:
-            name = self.default_wallet_name_for_unknown_cat(limitations_program_hash_hex)
+            name = self.default_wallet_name_for_unknown_cat(limitations_program_hash)
 
-        limitations_program_hash = bytes32.from_hexstr(limitations_program_hash_hex)
         self.cat_info = cls.wallet_info_type(limitations_program_hash, None, hidden_puzzle_hash)
         info_as_string = bytes(self.cat_info).hex()
         self.wallet_info = await wallet_state_manager.user_store.create_wallet(name, cls.wallet_type, info_as_string)
@@ -137,17 +134,20 @@ class RCATWallet(CATWallet):
         wallet_state_manager: WalletStateManager,
         wallet: Wallet,
         puzzle_driver: PuzzleInfo,
-        name: Optional[str] = None,
+        name: str | None = None,
         # We're hinting this as Any for mypy by should explore adding this to the wallet protocol and hinting properly
-        potential_subclasses: dict[AssetType, Any] = {},
+        potential_subclasses: dict[AssetType, Any] | None = None,
     ) -> Any:
-        rev_layer: Optional[PuzzleInfo] = puzzle_driver.also()
+        if potential_subclasses is None:
+            potential_subclasses = {}
+
+        rev_layer: PuzzleInfo | None = puzzle_driver.also()
         if rev_layer is None:
             raise ValueError("create_from_puzzle_info called on RCATWallet with a non R-CAT puzzle driver")
         return await cls.get_or_create_wallet_for_cat(
             wallet_state_manager,
             wallet,
-            puzzle_driver["tail"].hex(),
+            puzzle_driver["tail"],
             bytes32(rev_layer["hidden_puzzle_hash"]),
             name,
         )
@@ -162,7 +162,7 @@ class RCATWallet(CATWallet):
         cat_wallet: CATWallet,
         hidden_puzzle_hash: bytes32,
     ) -> bool:
-        if not cat_wallet.lineage_store.is_empty():
+        if not await cat_wallet.lineage_store.is_empty():
             cat_wallet.log.error("Received a revocable CAT to a CAT wallet that already has CATs")
             return False
         replace_self = cls()
@@ -216,9 +216,9 @@ class RCATWallet(CATWallet):
         primaries: list[CreateCoin],
         conditions: tuple[Condition, ...] = tuple(),
     ) -> Program:
-        record: Optional[
-            DerivationRecord
-        ] = await self.wallet_state_manager.puzzle_store.get_derivation_record_for_puzzle_hash(coin.puzzle_hash)
+        record: (
+            DerivationRecord | None
+        ) = await self.wallet_state_manager.puzzle_store.get_derivation_record_for_puzzle_hash(coin.puzzle_hash)
         if record is None:
             raise RuntimeError(f"Missing Derivation Record for CAT puzzle_hash {coin.puzzle_hash}")
         return solve_revocation_layer(
@@ -231,7 +231,7 @@ class RCATWallet(CATWallet):
             AssetType(puzzle_driver.type()) == AssetType.CAT
             and puzzle_driver["tail"] == self.cat_info.limitations_program_hash
         ):
-            inner_puzzle_driver: Optional[PuzzleInfo] = puzzle_driver.also()
+            inner_puzzle_driver: PuzzleInfo | None = puzzle_driver.also()
             if inner_puzzle_driver is None:
                 raise ValueError("Malformed puzzle driver passed to RCATWallet.match_puzzle_info")
             return (
@@ -244,7 +244,7 @@ class RCATWallet(CATWallet):
         return PuzzleInfo(
             {
                 "type": AssetType.CAT.value,
-                "tail": "0x" + self.get_asset_id(),
+                "tail": "0x" + self.get_asset_id().hex(),
                 "also": {
                     "type": AssetType.REVOCATION_LAYER.value,
                     "hidden_puzzle_hash": "0x" + self.cat_info.hidden_puzzle_hash.hex(),

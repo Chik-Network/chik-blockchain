@@ -40,21 +40,22 @@ repos:
     hooks:
       - id: poetry
         name: poetry
-        entry: ./activated.py --poetry poetry check
+        entry: ./activated.py --poetry python poetry-check.py
         language: system
         pass_filenames: false
+        files: "^(poetry.lock|poetry.toml|pyproject.toml)$"
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v3.1.0
     hooks:
       - id: prettier
         types_or: [ini, json, toml, yaml, markdown]
   - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.8.0-1
+    rev: v3.12.0-2
     hooks:
       - id: shfmt
         args: ["--diff", "--write", "-i", "2"]
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.3.0
+    rev: v6.0.0
     hooks:
       - id: check-yaml
       - id: mixed-line-ending
@@ -68,7 +69,7 @@ repos:
     hooks:
       - id: chiklispp
         name: Pretty print chiklisp files
-        entry: ./activated.py python tools/chiklispp.py .
+        entry: ./activated.py python tools/chiklispp.py chik
         language: system
         pass_filenames: false
   - repo: local

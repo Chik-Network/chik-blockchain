@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from io import StringIO
-from typing import Optional, cast
+from typing import cast
 
 import click
 import pytest
 from chik_rs import G1Element
 from chik_rs.sized_bytes import bytes32
-from chik_rs.sized_ints import uint32, uint64
+from chik_rs.sized_ints import uint16, uint32, uint64
 
 # TODO: update after resolution in https://github.com/pytest-dev/pytest/issues/7469
 from pytest_mock import MockerFixture
@@ -37,7 +38,7 @@ from chik.cmds.plotnft import (
     LeavePlotNFTCMD,
     ShowPlotNFTCMD,
 )
-from chik.pools.pool_config import PoolWalletConfig, load_pool_config, update_pool_config
+from chik.pools.pool_config import PoolingShareState
 from chik.pools.pool_wallet_info import PoolSingletonState
 from chik.simulator.setup_services import setup_farmer
 from chik.util.bech32m import encode_puzzle_hash
@@ -46,7 +47,7 @@ from chik.util.errors import CliRpcConnectionError
 from chik.wallet.util.address_type import AddressType
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 from chik.wallet.util.wallet_types import WalletType
-from chik.wallet.wallet_request_types import PWStatus
+from chik.wallet.wallet_request_types import GetWallets, PWStatus
 from chik.wallet.wallet_rpc_client import WalletRpcClient
 from chik.wallet.wallet_state_manager import WalletStateManager
 
@@ -58,8 +59,8 @@ pytestmark = [pytest.mark.limit_consensus_modes(reason="irrelevant")]
 class StateUrlCase:
     id: str
     state: str
-    pool_url: Optional[str]
-    expected_error: Optional[str] = None
+    pool_url: str | None
+    expected_error: str | None = None
     marks: Marks = ()
 
 
@@ -153,9 +154,9 @@ async def test_plotnft_cli_create(
         ]
     )
 
-    summaries_response = await wallet_rpc.get_wallets(WalletType.POOLING_WALLET)
-    assert len(summaries_response) == 1
-    wallet_id: int = summaries_response[0]["id"]
+    summaries_response = await wallet_rpc.get_wallets(GetWallets(type=uint16(WalletType.POOLING_WALLET)))
+    assert len(summaries_response.wallets) == 1
+    wallet_id: int = summaries_response.wallets[0].id
 
     await verify_pool_state(wallet_rpc, wallet_id, PoolSingletonState.SELF_POOLING)
 
@@ -325,7 +326,7 @@ async def test_plotnft_cli_show_with_farmer(
         assert "Current state" not in out
 
         wallet_id = await create_new_plotnft(wallet_environments)
-        pw_info = (await wallet_rpc.pw_status(PWStatus(uint32(wallet_id)))).state
+        pw_info = (await wallet_rpc.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
 
         await ShowPlotNFTCMD(
             context=ChikCliContext(root_path=root_path),
@@ -484,7 +485,7 @@ async def test_plotnft_cli_join(
     wallet_id = await create_new_plotnft(wallet_environments)
 
     # Test joining the same pool again
-    with pytest.raises(click.ClickException, match="already farming to pool http://pool.example.com"):
+    with pytest.raises(click.ClickException, match=re.escape("already farming to pool http://pool.example.com")):
         await JoinPlotNFTCMD(
             rpc_info=NeedsWalletRPC(
                 client_info=client_info,
@@ -679,7 +680,7 @@ async def test_plotnft_cli_claim(
     # Create a self-pooling plotnft
     wallet_id = await create_new_plotnft(wallet_environments, self_pool=True)
 
-    status = (await wallet_rpc.pw_status(PWStatus(uint32(wallet_id)))).state
+    status = (await wallet_rpc.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
     async with wallet_state_manager.new_action_scope(DEFAULT_TX_CONFIG, push=True) as action_scope:
         our_ph = await action_scope.get_puzzle_hash(wallet_state_manager)
     bt = wallet_environments.full_node.bt
@@ -877,7 +878,7 @@ async def test_plotnft_cli_change_payout(
     root_path = wallet_environments.environments[0].node.root_path
 
     wallet_id = await create_new_plotnft(wallet_environments)
-    pw_info = (await wallet_rpc.pw_status(PWStatus(uint32(wallet_id)))).state
+    pw_info = (await wallet_rpc.pw_status(PWStatus(wallet_id=uint32(wallet_id)))).state
 
     # This tests what happens when using None for root_path
     mocker.patch("chik.cmds.plotnft_funcs.DEFAULT_ROOT_PATH", root_path)
@@ -889,20 +890,14 @@ async def test_plotnft_cli_change_payout(
     out, _err = capsys.readouterr()
     assert f"{bytes32(32 * b'0').hex()} Not found." in out
 
-    new_config: PoolWalletConfig = PoolWalletConfig(
-        launcher_id=pw_info.launcher_id,
-        pool_url="http://pool.example.com",
-        payout_instructions=zero_address,
-        target_puzzle_hash=bytes32(32 * b"0"),
-        p2_singleton_puzzle_hash=pw_info.p2_singleton_puzzle_hash,
-        owner_public_key=G1Element(),
-    )
-
-    await update_pool_config(root_path=root_path, pool_config_list=[new_config])
-    config: list[PoolWalletConfig] = load_pool_config(root_path)
-    wanted_config = next((x for x in config if x.launcher_id == pw_info.launcher_id), None)
-    assert wanted_config is not None
-    assert wanted_config.payout_instructions == zero_address
+    with PoolingShareState.acquire(
+        root_path=root_path, p2_singleton_puzzle_hash=pw_info.p2_singleton_puzzle_hash
+    ) as pool_config:
+        pool_config.launcher_id = pw_info.launcher_id
+        pool_config.pool_url = "http://pool.example.com"
+        pool_config.payout_instructions = zero_address
+        pool_config.target_puzzle_hash = bytes32(32 * b"0")
+        pool_config.owner_public_key = G1Element()
 
     await ChangePayoutInstructionsPlotNFTCMD(
         context=ChikCliContext(root_path=root_path),
@@ -912,10 +907,10 @@ async def test_plotnft_cli_change_payout(
     out, _err = capsys.readouterr()
     assert f"Payout Instructions for launcher id: {pw_info.launcher_id.hex()} successfully updated" in out
 
-    config = load_pool_config(root_path)
-    wanted_config = next((x for x in config if x.launcher_id == pw_info.launcher_id), None)
-    assert wanted_config is not None
-    assert wanted_config.payout_instructions == burn_ph.hex()
+    with PoolingShareState.acquire(
+        root_path=root_path, p2_singleton_puzzle_hash=pw_info.p2_singleton_puzzle_hash
+    ) as pool_config:
+        assert pool_config.payout_instructions == burn_ph.hex()
 
 
 @pytest.mark.parametrize(
@@ -991,9 +986,7 @@ async def test_plotnft_cli_misc(mocker: MockerFixture, consensus_mode: Consensus
         )
 
     # Test fall-through raise in create
-    mocker.patch.object(
-        test_rpc_client, "create_new_pool_wallet", create=True, side_effect=ValueError("Injected error")
-    )
+    mocker.patch.object(test_rpc_client, "create_new_wallet", create=True, side_effect=ValueError("Injected error"))
     with pytest.raises(CliRpcConnectionError, match="Error creating plot NFT: Injected error"):
         await create(
             wallet_info=WalletClientInfo(client=cast(WalletRpcClient, test_rpc_client), fingerprint=0, config=dict()),

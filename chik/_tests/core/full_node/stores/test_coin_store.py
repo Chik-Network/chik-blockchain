@@ -3,11 +3,10 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 import aiosqlite
 import pytest
-from chik_rs import CoinState, FullBlock, additions_and_removals, get_flags_for_height_and_constants
+from chik_rs import CoinRecord, CoinState, FullBlock, additions_and_removals, get_flags_for_height_and_constants
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
@@ -16,21 +15,21 @@ from chik._tests.util.coin_store import add_coin_records_to_db
 from chik._tests.util.db_connection import DBConnection
 from chik._tests.util.misc import Marks, datacases
 from chik.consensus.block_body_validation import ForkInfo
+from chik.consensus.block_height_map import BlockHeightMap
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.consensus.blockchain import AddBlockResult, Blockchain
 from chik.consensus.coinbase import create_farmer_coin, create_pool_coin
-from chik.full_node.block_height_map import BlockHeightMap
 from chik.full_node.block_store import BlockStore
 from chik.full_node.coin_store import CoinStore
 from chik.full_node.hint_store import HintStore
 from chik.simulator.block_tools import BlockTools, test_constants
 from chik.simulator.wallet_tools import WalletTool
 from chik.types.blockchain_format.coin import Coin
-from chik.types.coin_record import CoinRecord
 from chik.types.mempool_item import UnspentLineageInfo
 from chik.util.casts import int_to_bytes
 from chik.util.db_wrapper import DBWrapper2
 from chik.util.hash import std_hash
+from chik.util.inline_executor import InlineExecutor
 
 constants = test_constants
 
@@ -68,7 +67,6 @@ async def test_basic_coin_store(db_version: int, softfork_height: uint32, bt: Bl
         10,
         [],
         farmer_reward_puzzle_hash=reward_ph,
-        pool_reward_puzzle_hash=reward_ph,
     )
 
     coins_to_spend: list[Coin] = []
@@ -87,7 +85,6 @@ async def test_basic_coin_store(db_version: int, softfork_height: uint32, bt: Bl
             10,
             blocks,
             farmer_reward_puzzle_hash=reward_ph,
-            pool_reward_puzzle_hash=reward_ph,
             transaction_data=spend_bundle,
         )
 
@@ -236,7 +233,7 @@ async def test_rollback(db_version: int, bt: BlockTools) -> None:
     async with DBConnection(db_version) as db_wrapper:
         coin_store = await CoinStore.create(db_wrapper)
 
-        selected_coin: Optional[CoinRecord] = None
+        selected_coin: CoinRecord | None = None
         all_coins: list[Coin] = []
 
         for block in blocks:
@@ -318,9 +315,9 @@ async def test_basic_reorg(tmp_dir: Path, db_version: int, bt: BlockTools) -> No
         coin_store = await CoinStore.create(db_wrapper)
         store = await BlockStore.create(db_wrapper)
         height_map = await BlockHeightMap.create(tmp_dir, db_wrapper)
-        b: Blockchain = await Blockchain.create(coin_store, store, height_map, bt.constants, 2)
+        b: Blockchain = await Blockchain.create(coin_store, store, height_map, bt.constants, InlineExecutor())
         try:
-            records: list[Optional[CoinRecord]] = []
+            records: list[CoinRecord | None] = []
 
             for block in blocks:
                 await _validate_and_add_block(b, block)
@@ -375,24 +372,22 @@ async def test_get_puzzle_hash(tmp_dir: Path, db_version: int, bt: BlockTools) -
     async with DBConnection(db_version) as db_wrapper:
         num_blocks = 20
         farmer_ph = bytes32(32 * b"0")
-        pool_ph = bytes32(32 * b"1")
         blocks = bt.get_consecutive_blocks(
             num_blocks,
             farmer_reward_puzzle_hash=farmer_ph,
-            pool_reward_puzzle_hash=pool_ph,
             guarantee_transaction_block=True,
         )
         coin_store = await CoinStore.create(db_wrapper)
         store = await BlockStore.create(db_wrapper)
         height_map = await BlockHeightMap.create(tmp_dir, db_wrapper)
-        b: Blockchain = await Blockchain.create(coin_store, store, height_map, bt.constants, 2)
+        b: Blockchain = await Blockchain.create(coin_store, store, height_map, bt.constants, InlineExecutor())
         for block in blocks:
             await _validate_and_add_block(b, block)
         peak = b.get_peak()
         assert peak is not None
         assert peak.height == num_blocks - 1
 
-        coins_farmer = await coin_store.get_coin_records_by_puzzle_hash(True, pool_ph)
+        coins_farmer = await coin_store.get_coin_records_by_puzzle_hash(True, bt.pool_ph)
         coins_pool = await coin_store.get_coin_records_by_puzzle_hash(True, farmer_ph)
 
         assert len(coins_farmer) == num_blocks - 2
@@ -570,7 +565,7 @@ async def test_coin_state_batches(
                 continue
             expected_crs.append(cr)
 
-        height: Optional[uint32] = uint32(0)
+        height: uint32 | None = uint32(0)
         all_coin_states: list[CoinState] = []
         remaining_phs = random_coin_records.puzzle_hashes.copy()
 
@@ -892,6 +887,82 @@ async def test_add_coin_records_to_db() -> None:
             resulting_record = await coin_store.get_coin_record(record.coin.name())
             assert resulting_record is not None
             assert resulting_record == record
+
+
+@pytest.mark.anyio
+async def test_get_coin_records_by_parent_ids_max_items() -> None:
+    parent_id = bytes32(std_hash(b"parent"))
+    async with DBConnection(2) as db_wrapper:
+        coin_store = await CoinStore.create(db_wrapper)
+        records = [
+            CoinRecord(
+                coin=Coin(parent_id, std_hash(i.to_bytes(4, byteorder="big")), uint64(i + 1)),
+                confirmed_block_index=uint32(1),
+                spent_block_index=uint32(0),
+                coinbase=False,
+                timestamp=uint64(10000),
+            )
+            for i in range(200)
+        ]
+        await add_coin_records_to_db(coin_store, records)
+
+        all_results = await coin_store.get_coin_records_by_parent_ids(True, [parent_id])
+        assert len(all_results) == 200
+
+        for limit in [0, 1, 50, 200]:
+            results = await coin_store.get_coin_records_by_parent_ids(True, [parent_id], max_items=limit)
+            assert len(results) == limit
+
+        results = await coin_store.get_coin_records_by_parent_ids(True, [parent_id], max_items=10000)
+        assert len(results) == 200
+
+
+@pytest.mark.anyio
+async def test_get_coin_records_by_parent_ids_max_items_across_batches(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Force multiple batches so we verify the global limit is enforced across batches.
+    monkeypatch.setattr("chik.full_node.coin_store.SQLITE_MAX_VARIABLE_NUMBER", 5)
+    parent_ids = [bytes32(std_hash(i.to_bytes(4, byteorder="big"))) for i in range(8)]
+    async with DBConnection(2) as db_wrapper:
+        coin_store = await CoinStore.create(db_wrapper)
+        records = [
+            CoinRecord(
+                coin=Coin(parent_id, std_hash(b"shared-ph"), uint64(i + 1)),
+                confirmed_block_index=uint32(1),
+                spent_block_index=uint32(0),
+                coinbase=False,
+                timestamp=uint64(10000),
+            )
+            for i, parent_id in enumerate(parent_ids)
+        ]
+        await add_coin_records_to_db(coin_store, records)
+
+        results = await coin_store.get_coin_records_by_parent_ids(True, parent_ids, max_items=7)
+        assert len(results) == 7
+
+
+@pytest.mark.anyio
+async def test_get_coin_records_by_parent_ids_respects_spent_filter_under_limit() -> None:
+    parent_id = bytes32(std_hash(b"spent-filter-parent"))
+    async with DBConnection(2) as db_wrapper:
+        coin_store = await CoinStore.create(db_wrapper)
+        records = [
+            CoinRecord(
+                coin=Coin(parent_id, std_hash(i.to_bytes(4, byteorder="big")), uint64(i + 1)),
+                confirmed_block_index=uint32(1),
+                spent_block_index=uint32(5) if i % 2 == 0 else uint32(0),
+                coinbase=False,
+                timestamp=uint64(10000),
+            )
+            for i in range(10)
+        ]
+        await add_coin_records_to_db(coin_store, records)
+
+        unspent_only = await coin_store.get_coin_records_by_parent_ids(False, [parent_id], max_items=3)
+        assert len(unspent_only) == 3
+        assert all(record.spent_block_index == 0 for record in unspent_only)
+
+        unspent_only_full = await coin_store.get_coin_records_by_parent_ids(False, [parent_id], max_items=10000)
+        assert len(unspent_only_full) == 5
 
 
 async def get_spent_index(conn: aiosqlite.Connection, coin_name: bytes32) -> int:

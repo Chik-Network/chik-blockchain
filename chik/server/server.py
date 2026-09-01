@@ -5,11 +5,11 @@ import logging
 import ssl
 import time
 import traceback
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from ipaddress import IPv4Network, IPv6Network, ip_network
 from pathlib import Path
-from typing import Any, Callable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from aiohttp import (
     ClientResponseError,
@@ -31,16 +31,23 @@ from chik.protocols.outbound_message import Message, NodeType
 from chik.protocols.protocol_message_types import ProtocolMessageTypes
 from chik.protocols.protocol_state_machine import message_requires_reply
 from chik.protocols.protocol_timing import INVALID_PROTOCOL_BAN_SECONDS
-from chik.server.api_protocol import ApiProtocol
+from chik.protocols.shared_protocol import Capability
+from chik.server.api_protocol import ApiMetadata, ApiProtocol
 from chik.server.introducer_peers import IntroducerPeers
 from chik.server.ssl_context import private_ssl_paths, public_ssl_paths
 from chik.server.ws_connection import ConnectionCallback, WSChikConnection
 from chik.ssl.ssl_check import verify_ssl_certs_and_keys
 from chik.types.peer_info import PeerInfo
 from chik.util.errors import Err, ProtocolError
+from chik.util.ip_address import IPAddress
 from chik.util.network import WebServer, is_in_network, is_localhost, is_trusted_peer
 from chik.util.streamable import Streamable
 from chik.util.task_referencer import create_referenced_task
+
+if TYPE_CHECKING:
+    from chik.full_node.full_node import FullNode
+else:
+    FullNode = object
 
 max_message_size = 50 * 1024 * 1024  # 50MB
 
@@ -52,33 +59,21 @@ def ssl_context_for_server(
     key_path: Path,
     *,
     check_permissions: bool = True,
-    log: Optional[logging.Logger] = None,
+    log: logging.Logger | None = None,
 ) -> ssl.SSLContext:
     if check_permissions:
         verify_ssl_certs_and_keys([ca_cert, cert_path], [ca_key, key_path], log)
 
     ssl_context = ssl._create_unverified_context(purpose=ssl.Purpose.CLIENT_AUTH, cafile=str(ca_cert))  # noqa: S323
     ssl_context.check_hostname = False
-    ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
-    ssl_context.set_ciphers(
-        "ECDHE-ECDSA-AES256-GCM-SHA384:"
-        "ECDHE-RSA-AES256-GCM-SHA384:"
-        "ECDHE-ECDSA-CHACHA20-POLY1305:"
-        "ECDHE-RSA-CHACHA20-POLY1305:"
-        "ECDHE-ECDSA-AES128-GCM-SHA256:"
-        "ECDHE-RSA-AES128-GCM-SHA256:"
-        "ECDHE-ECDSA-AES256-SHA384:"
-        "ECDHE-RSA-AES256-SHA384:"
-        "ECDHE-ECDSA-AES128-SHA256:"
-        "ECDHE-RSA-AES128-SHA256"
-    )
+    ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
     ssl_context.load_cert_chain(certfile=str(cert_path), keyfile=str(key_path))
     ssl_context.verify_mode = ssl.CERT_REQUIRED
     return ssl_context
 
 
 def ssl_context_for_root(
-    ca_cert_file: str, *, check_permissions: bool = True, log: Optional[logging.Logger] = None
+    ca_cert_file: str, *, check_permissions: bool = True, log: logging.Logger | None = None
 ) -> ssl.SSLContext:
     if check_permissions:
         verify_ssl_certs_and_keys([Path(ca_cert_file)], [], log)
@@ -94,7 +89,7 @@ def ssl_context_for_client(
     key_path: Path,
     *,
     check_permissions: bool = True,
-    log: Optional[logging.Logger] = None,
+    log: logging.Logger | None = None,
 ) -> ssl.SSLContext:
     if check_permissions:
         verify_ssl_certs_and_keys([ca_cert, cert_path], [ca_key, key_path], log)
@@ -116,7 +111,7 @@ def calculate_node_id(cert_path: Path) -> bytes32:
 @final
 @dataclass
 class ChikServer:
-    _port: Optional[int]
+    _port: int | None
     _local_type: NodeType
     _local_capabilities_for_handshake: list[tuple[uint16, str]]
     _ping_interval: int
@@ -131,23 +126,23 @@ class ChikServer:
     ssl_context: ssl.SSLContext
     ssl_client_context: ssl.SSLContext
     node_id: bytes32
-    exempt_peer_networks: list[Union[IPv4Network, IPv6Network]]
-    class_for_type: dict[NodeType, type[ApiProtocol]]
+    exempt_peer_networks: list[IPv4Network | IPv6Network]
+    stub_metadata_for_type: dict[NodeType, ApiMetadata]
     all_connections: dict[bytes32, WSChikConnection] = field(default_factory=dict)
-    on_connect: Optional[ConnectionCallback] = None
+    on_connect: ConnectionCallback | None = None
     shut_down_event: asyncio.Event = field(default_factory=asyncio.Event)
-    introducer_peers: Optional[IntroducerPeers] = None
-    gc_task: Optional[asyncio.Task[None]] = None
-    webserver: Optional[WebServer] = None
-    connection_close_task: Optional[asyncio.Task[None]] = None
-    received_message_callback: Optional[ConnectionCallback] = None
+    introducer_peers: IntroducerPeers | None = None
+    gc_task: asyncio.Task[None] | None = None
+    webserver: WebServer | None = None
+    connection_close_task: asyncio.Task[None] | None = None
+    received_message_callback: ConnectionCallback | None = None
     banned_peers: dict[str, float] = field(default_factory=dict)
     invalid_protocol_ban_seconds: int = INVALID_PROTOCOL_BAN_SECONDS
 
     @classmethod
     def create(
         cls,
-        port: Optional[int],
+        port: int | None,
         node: Any,
         api: ApiProtocol,
         local_type: NodeType,
@@ -160,7 +155,7 @@ class ChikServer:
         config: dict[str, Any],
         private_ca_crt_key: tuple[Path, Path],
         chik_ca_crt_key: tuple[Path, Path],
-        class_for_type: dict[NodeType, type[ApiProtocol]],
+        stub_metadata_for_type: dict[NodeType, ApiMetadata],
         name: str = __name__,
     ) -> ChikServer:
         log = logging.getLogger(name)
@@ -173,7 +168,12 @@ class ChikServer:
         public_cert_path, public_key_path = None, None
 
         authenticated_client_types = {NodeType.HARVESTER}
-        authenticated_server_types = {NodeType.HARVESTER, NodeType.FARMER, NodeType.WALLET, NodeType.DATA_LAYER}
+        authenticated_server_types = {
+            NodeType.HARVESTER,
+            NodeType.FARMER,
+            NodeType.WALLET,
+            NodeType.DATA_LAYER,
+        }
 
         if local_type in authenticated_client_types:
             # Authenticated clients
@@ -236,7 +236,7 @@ class ChikServer:
             node_id=calculate_node_id(node_id_cert_path),
             exempt_peer_networks=[ip_network(net, strict=False) for net in config.get("exempt_peer_networks", [])],
             introducer_peers=IntroducerPeers() if local_type is NodeType.INTRODUCER else None,
-            class_for_type=class_for_type,
+            stub_metadata_for_type=stub_metadata_for_type,
         )
 
     def set_received_message_callback(self, callback: ConnectionCallback) -> None:
@@ -260,13 +260,14 @@ class ChikServer:
                     if is_crawler is not None:
                         if time.time() - connection.creation_time > 5:
                             to_remove.append(connection)
-                    else:
-                        if time.time() - connection.last_message_time > 1800:
-                            to_remove.append(connection)
+                    elif time.time() - connection.last_message_time > 1800:
+                        to_remove.append(connection)
             for connection in to_remove:
                 self.log.debug(f"Garbage collecting connection {connection.peer_info.host} due to inactivity")
                 if connection.closed:
-                    self.all_connections.pop(connection.peer_node_id)
+                    present_connection = self.all_connections.get(connection.peer_node_id)
+                    if present_connection is connection:
+                        self.all_connections.pop(connection.peer_node_id)
                 else:
                     await connection.close()
 
@@ -281,7 +282,7 @@ class ChikServer:
     async def start(
         self,
         prefer_ipv6: bool,
-        on_connect: Optional[ConnectionCallback] = None,
+        on_connect: ConnectionCallback | None = None,
     ) -> None:
         if self.webserver is not None:
             raise RuntimeError("ChikServer already started")
@@ -322,7 +323,7 @@ class ChikServer:
         peer_id = bytes32(der_cert.fingerprint(hashes.SHA256()))
         if peer_id == self.node_id:
             return ws
-        connection: Optional[WSChikConnection] = None
+        connection: WSChikConnection | None = None
         try:
             connection = WSChikConnection.create(
                 local_type=self._local_type,
@@ -337,23 +338,54 @@ class ChikServer:
                 inbound_rate_limit_percent=self._inbound_rate_limit_percent,
                 outbound_rate_limit_percent=self._outbound_rate_limit_percent,
                 local_capabilities_for_handshake=self._local_capabilities_for_handshake,
-                class_for_type=self.class_for_type,
+                stub_metadata_for_type=self.stub_metadata_for_type,
+                exempt_peer_networks=self.exempt_peer_networks,
             )
-            await connection.perform_handshake(self._network_id, self.get_port(), self._local_type)
+            peer_host = request.remote
+            handshake_timeout = (
+                None
+                if is_localhost(peer_host) or is_in_network(peer_host, self.exempt_peer_networks)
+                else float(self.config.get("peer_connect_timeout", 30))
+            )
+            await asyncio.wait_for(
+                connection.perform_handshake(self._network_id, self.get_port(), self._local_type),
+                timeout=handshake_timeout,
+            )
             assert connection.connection_type is not None, "handshake failed to set connection type, still None"
 
+            # Full nodes should only accept peers, post hard fork 2, that
+            # signal support for it.
+            if self._local_type == NodeType.FULL_NODE:
+                full_node: FullNode = self.node
+                peak_height = full_node.blockchain.get_peak_height()
+                if (
+                    peak_height is not None
+                    and peak_height >= full_node.constants.HARD_FORK2_HEIGHT
+                    and Capability.HARD_FORK_2 not in connection.peer_capabilities
+                ):
+                    self.log.info(
+                        f"Disconnecting peer {connection.peer_node_id} with version "
+                        f"{connection.version} not supporting the 3.0 hard fork."
+                    )
+                    raise ProtocolError(Err.INVALID_HANDSHAKE)
+
             # Limit inbound connections to config's specifications.
-            if not self.accept_inbound_connections(connection.connection_type) and not is_in_network(
-                connection.peer_info.host, self.exempt_peer_networks
-            ):
+            if not self.should_accept_inbound(connection.connection_type, connection.peer_info.host):
                 self.log.info(
-                    f"Not accepting inbound connection: {connection.get_peer_logging()}.Inbound limit reached."
+                    f"Not accepting inbound connection: {connection.get_peer_logging()} "
+                    f"of type {connection.connection_type.name}. Inbound limit reached."
                 )
                 await connection.close()
             else:
                 await self.connection_added(connection, self.on_connect)
                 if self.introducer_peers is not None and connection.connection_type is NodeType.FULL_NODE:
                     self.introducer_peers.add(connection.get_peer_info())
+        except asyncio.TimeoutError:
+            if connection is not None:
+                await connection.close(
+                    self.invalid_protocol_ban_seconds, WSCloseCode.PROTOCOL_ERROR, Err.INVALID_HANDSHAKE
+                )
+            self.log.warning(f"Handshake timeout from {request.remote}")
         except ProtocolError as e:
             if connection is not None:
                 await connection.close(self.invalid_protocol_ban_seconds, WSCloseCode.PROTOCOL_ERROR, e.code)
@@ -380,7 +412,7 @@ class ChikServer:
         return ws
 
     async def connection_added(
-        self, connection: WSChikConnection, on_connect: Optional[ConnectionCallback] = None
+        self, connection: WSChikConnection, on_connect: ConnectionCallback | None = None
     ) -> None:
         # If we already had a connection to this peer_id, close the old one. This is secure because peer_ids are based
         # on TLS public keys
@@ -412,8 +444,9 @@ class ChikServer:
     async def start_client(
         self,
         target_node: PeerInfo,
-        on_connect: Optional[ConnectionCallback] = None,
+        on_connect: ConnectionCallback | None = None,
         is_feeler: bool = False,
+        server_hostname: str | None = None,
     ) -> bool:
         """
         Tries to connect to the target node, adding one connection into the pipeline, if successful.
@@ -428,7 +461,7 @@ class ChikServer:
             return False
 
         session = None
-        connection: Optional[WSChikConnection] = None
+        connection: WSChikConnection | None = None
         try:
             # Crawler/DNS introducer usually uses a lower timeout than the default
             timeout_value = float(self.config.get("peer_connect_timeout", 30))
@@ -437,6 +470,13 @@ class ChikServer:
             ip = f"[{target_node.ip}]" if target_node.ip.is_v6 else f"{target_node.ip}"
             url = f"wss://{ip}:{target_node.port}/ws"
             self.log.debug(f"Connecting: {url}, Peer info: {target_node}")
+            if server_hostname is not None:
+                try:
+                    IPAddress.create(server_hostname)
+                    # the server_hostname is actually an IP address so we don't need to set anything in ws_connect
+                    server_hostname = None
+                except ValueError:
+                    pass
             try:
                 ws = await session.ws_connect(
                     url,
@@ -445,6 +485,8 @@ class ChikServer:
                     heartbeat=60,
                     ssl=self.ssl_client_context,
                     max_msg_size=max_message_size,
+                    server_hostname=server_hostname,
+                    headers={"Host": f"{server_hostname}:{target_node.port}"} if server_hostname else None,
                 )
             except ServerDisconnectedError:
                 self.log.debug(f"Server disconnected error connecting to {url}. Perhaps we are banned by the peer.")
@@ -488,10 +530,19 @@ class ChikServer:
                 inbound_rate_limit_percent=self._inbound_rate_limit_percent,
                 outbound_rate_limit_percent=self._outbound_rate_limit_percent,
                 local_capabilities_for_handshake=self._local_capabilities_for_handshake,
-                class_for_type=self.class_for_type,
+                stub_metadata_for_type=self.stub_metadata_for_type,
                 session=session,
+                exempt_peer_networks=self.exempt_peer_networks,
             )
-            await connection.perform_handshake(self._network_id, server_port, self._local_type)
+            handshake_timeout: float | None = (
+                None
+                if is_localhost(target_node.host) or is_in_network(target_node.host, self.exempt_peer_networks)
+                else float(self.config.get("outbound_handshake_timeout", 120))
+            )
+            await asyncio.wait_for(
+                connection.perform_handshake(self._network_id, server_port, self._local_type),
+                timeout=handshake_timeout,
+            )
             await self.connection_added(connection, on_connect)
             # the session has been adopted by the connection, don't close it at
             # the end of the function
@@ -510,6 +561,10 @@ class ChikServer:
                 self.log.debug(f"Feeler connection error. {e}")
             else:
                 self.log.info(f"{e}")
+        except asyncio.TimeoutError:
+            if connection is not None:
+                await connection.close()
+            self.log.debug(f"Handshake timeout connecting to {target_node}")
         except ProtocolError as e:
             if connection is not None:
                 await connection.close(self.invalid_protocol_ban_seconds, WSCloseCode.PROTOCOL_ERROR, e.code)
@@ -548,18 +603,23 @@ class ChikServer:
         # in this case we still want to do the banning logic and remove the connection from the list
         # but the other cleanup should already have been done so we skip that
 
-        if is_localhost(connection.peer_info.host) and ban_time != 0:
-            self.log.warning(f"Trying to ban localhost for {ban_time}, but will not ban")
-            ban_time = 0
         if ban_time > 0:
-            ban_until: float = time.time() + ban_time
-            self.log.warning(f"Banning {connection.peer_info.host} for {ban_time} seconds")
-            if connection.peer_info.host in self.banned_peers:
-                self.banned_peers[connection.peer_info.host] = max(
-                    ban_until, self.banned_peers[connection.peer_info.host]
+            if is_localhost(connection.peer_info.host):
+                self.log.warning(f"Trying to ban localhost for {ban_time}, but will not ban")
+                ban_time = 0
+            elif self.is_trusted_peer(connection, self.config.get("trusted_peers", {})):
+                self.log.warning(
+                    f"Trying to ban trusted peer {connection.peer_info.host} for {ban_time}, but will not ban"
                 )
-            else:
-                self.banned_peers[connection.peer_info.host] = ban_until
+                ban_time = 0
+            elif is_in_network(connection.peer_info.host, self.exempt_peer_networks):
+                self.log.warning(
+                    f"Trying to ban exempt peer {connection.peer_info.host} for {ban_time}, but will not ban"
+                )
+                ban_time = 0
+
+        if ban_time > 0:
+            self.ban_peer(connection.peer_info.host, ban_time)
 
         present_connection = self.all_connections.get(connection.peer_node_id)
         if present_connection is connection:
@@ -597,7 +657,7 @@ class ChikServer:
         self,
         messages: list[Message],
         node_type: NodeType,
-        exclude: Optional[bytes32] = None,
+        exclude: bytes32 | None = None,
     ) -> None:
         await self.validate_broadcast_message_type(messages, node_type)
         for _, connection in self.all_connections.items():
@@ -610,7 +670,7 @@ class ChikServer:
         messages: list[Message],
         node_type: NodeType,
         predicate: Callable[[WSChikConnection], bool],
-        exclude: Optional[bytes32] = None,
+        exclude: bytes32 | None = None,
     ) -> None:
         await self.validate_broadcast_message_type(messages, node_type)
         for _, connection in self.all_connections.items():
@@ -625,8 +685,8 @@ class ChikServer:
                 await connection.send_message(message)
 
     async def call_api_of_specific(
-        self, request_method: Callable[..., Awaitable[Optional[Message]]], message_data: Streamable, node_id: bytes32
-    ) -> Optional[Any]:
+        self, request_method: Callable[..., Awaitable[Message | None]], message_data: Streamable, node_id: bytes32
+    ) -> Any | None:
         if node_id in self.all_connections:
             connection = self.all_connections[node_id]
             return await connection.call_api(request_method, message_data)
@@ -634,7 +694,7 @@ class ChikServer:
         return None
 
     def get_connections(
-        self, node_type: Optional[NodeType] = None, *, outbound: Optional[bool] = None
+        self, node_type: NodeType | None = None, *, outbound: bool | None = None
     ) -> list[WSChikConnection]:
         result = []
         for _, connection in self.all_connections.items():
@@ -670,7 +730,7 @@ class ChikServer:
             await self.webserver.await_closed()
             self.webserver = None
 
-    async def get_peer_info(self) -> Optional[PeerInfo]:
+    async def get_peer_info(self) -> PeerInfo | None:
         ip = None
 
         try:
@@ -713,6 +773,7 @@ class ChikServer:
         return uint16(self._port)
 
     def accept_inbound_connections(self, node_type: NodeType) -> bool:
+        """Check if there are available inbound slots for this node type per config.yaml limits."""
         if not self._local_type == NodeType.FULL_NODE:
             return True
         inbound_count = len(self.get_connections(node_type, outbound=False))
@@ -724,9 +785,18 @@ class ChikServer:
             return inbound_count < cast(int, self.config.get("max_inbound_wallet", 20))
         if node_type == NodeType.FARMER:
             return inbound_count < cast(int, self.config.get("max_inbound_farmer", 10))
-        if node_type == NodeType.TIMELORD:
-            return inbound_count < cast(int, self.config.get("max_inbound_timelord", 5))
-        return True
+        return False
+
+    def should_accept_inbound(self, connection_type: NodeType, peer_host: str) -> bool:
+        """Check if an inbound connection should be accepted, considering config limits,
+        exempt peer networks, and localhost exceptions for timelords."""
+        if self.accept_inbound_connections(connection_type):
+            return True
+        if is_in_network(peer_host, self.exempt_peer_networks):
+            return True
+        if connection_type == NodeType.TIMELORD and is_localhost(peer_host):
+            return True
+        return False
 
     def is_trusted_peer(self, peer: WSChikConnection, trusted_peers: dict[str, Any]) -> bool:
         return is_trusted_peer(
@@ -739,3 +809,11 @@ class ChikServer:
 
     def set_capabilities(self, capabilities: list[tuple[uint16, str]]) -> None:
         self._local_capabilities_for_handshake = capabilities
+
+    def ban_peer(self, host: str, ban_time: int) -> None:
+        ban_until: float = time.time() + ban_time
+        self.log.warning(f"Banning {host} for {ban_time} seconds")
+        if host in self.banned_peers:
+            self.banned_peers[host] = max(ban_until, self.banned_peers[host])
+        else:
+            self.banned_peers[host] = ban_until

@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import struct
 from pathlib import Path
-from typing import Optional
 
 import pytest
 from chik_rs import SubEpochSummary
@@ -11,7 +10,7 @@ from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32
 
 from chik._tests.util.db_connection import DBConnection
-from chik.full_node.block_height_map import BlockHeightMap, SesCache
+from chik.consensus.block_height_map import BlockHeightMap, SesCache
 from chik.util.db_wrapper import DBWrapper2
 from chik.util.files import write_file_async
 
@@ -23,11 +22,11 @@ def gen_block_hash(height: int) -> bytes32:
 def gen_ses(height: int) -> SubEpochSummary:
     prev_ses = gen_block_hash(height + 0xFA0000)
     reward_chain_hash = gen_block_hash(height + 0xFC0000)
-    return SubEpochSummary(prev_ses, reward_chain_hash, uint8(0), None, None)
+    return SubEpochSummary(prev_ses, reward_chain_hash, uint8(0), None, None, None)
 
 
 async def new_block(
-    db: DBWrapper2, block_hash: bytes32, parent: bytes32, height: int, is_peak: bool, ses: Optional[SubEpochSummary]
+    db: DBWrapper2, block_hash: bytes32, parent: bytes32, height: int, is_peak: bool, ses: SubEpochSummary | None
 ) -> None:
     async with db.writer_maybe_transaction() as conn:
         cursor = await conn.execute(
@@ -67,7 +66,7 @@ async def setup_db(db: DBWrapper2) -> None:
 # and the chain_id will be mixed in to the hashes, to form a separate chain at
 # the same heights as the main chain
 async def setup_chain(
-    db: DBWrapper2, length: int, *, chain_id: int = 0, ses_every: Optional[int] = None, start_height: int = 0
+    db: DBWrapper2, length: int, *, chain_id: int = 0, ses_every: int | None = None, start_height: int = 0
 ) -> None:
     height = start_height
     peak_hash = gen_block_hash(height + chain_id * 65536)
@@ -554,3 +553,34 @@ async def test_peak_only_chain(tmp_dir: Path, db_version: int) -> None:
 
         with pytest.raises(AssertionError) as _:
             height_map.get_hash(uint32(0))
+
+
+@pytest.mark.anyio
+async def test_ensure_capacity(tmp_dir: Path, db_version: int) -> None:
+    async with DBConnection(db_version) as db_wrapper:
+        await setup_db(db_wrapper)
+        await setup_chain(db_wrapper, 5)
+
+        height_map = await BlockHeightMap.create(tmp_dir, db_wrapper)
+        assert height_map.contains_height(uint32(5))
+        assert not height_map.contains_height(uint32(6))
+
+        height_map.ensure_capacity(8)
+        assert height_map.contains_height(uint32(8))
+
+        height_map.update_height(uint32(6), gen_block_hash(6), None)
+        assert height_map.get_hash(uint32(6)) == gen_block_hash(6)
+
+
+@pytest.mark.anyio
+async def test_update_height_auto_extends(tmp_dir: Path, db_version: int) -> None:
+    async with DBConnection(db_version) as db_wrapper:
+        await setup_db(db_wrapper)
+        await setup_chain(db_wrapper, 5)
+
+        height_map = await BlockHeightMap.create(tmp_dir, db_wrapper)
+        assert not height_map.contains_height(uint32(10))
+
+        height_map.update_height(uint32(10), gen_block_hash(10), None)
+        assert height_map.contains_height(uint32(10))
+        assert height_map.get_hash(uint32(10)) == gen_block_hash(10)

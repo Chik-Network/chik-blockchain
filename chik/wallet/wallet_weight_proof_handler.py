@@ -6,7 +6,7 @@ import tempfile
 import time
 from concurrent.futures.process import ProcessPoolExecutor
 from multiprocessing.context import BaseContext
-from typing import IO, Optional
+from typing import IO
 
 from chik_rs import BlockRecord, ConsensusConstants
 from chik_rs.sized_ints import uint32
@@ -43,7 +43,7 @@ class WalletWeightProofHandler:
         self._executor.shutdown(wait=True)
 
     async def validate_weight_proof(
-        self, weight_proof: WeightProof, skip_segment_validation: bool = False, old_proof: Optional[WeightProof] = None
+        self, weight_proof: WeightProof, skip_segment_validation: bool = False, old_proof: WeightProof | None = None
     ) -> list[BlockRecord]:
         start_time = time.time()
         summaries, sub_epoch_weight_list = _validate_sub_epoch_summaries(self._constants, weight_proof)
@@ -68,7 +68,7 @@ class WalletWeightProofHandler:
         return block_records
 
 
-def get_wp_fork_point(constants: ConsensusConstants, old_wp: Optional[WeightProof], new_wp: WeightProof) -> uint32:
+def get_wp_fork_point(constants: ConsensusConstants, old_wp: WeightProof | None, new_wp: WeightProof) -> uint32:
     """
     iterate through sub epoch summaries to find fork point. This method is conservative, it does not return the
     actual fork point, it can return a height that is before the actual fork point.
@@ -88,7 +88,7 @@ def get_wp_fork_point(constants: ConsensusConstants, old_wp: Optional[WeightProo
         count = idx + 1
         overflow = new_wp.sub_epochs[idx + 1].num_blocks_overflow
 
-    if new_wp.recent_chain_data[0].height < old_wp.recent_chain_data[-1].height:
+    if new_wp.recent_chain_data[0].height <= old_wp.recent_chain_data[-1].height:
         # Try to find an exact fork point
         new_wp_index = 0
         old_wp_index = 0
@@ -106,7 +106,7 @@ def get_wp_fork_point(constants: ConsensusConstants, old_wp: Optional[WeightProo
     return uint32((constants.SUB_EPOCH_BLOCKS * count) + overflow)
 
 
-def get_fork_ses_idx(old_wp: Optional[WeightProof], new_wp: WeightProof) -> int:
+def get_fork_ses_idx(old_wp: WeightProof | None, new_wp: WeightProof) -> int:
     """
     iterate through sub epoch summaries to find fork point. This method is conservative, it does not return the
     actual fork point, it can return a height that is before the actual fork point.
@@ -114,13 +114,8 @@ def get_fork_ses_idx(old_wp: Optional[WeightProof], new_wp: WeightProof) -> int:
 
     if old_wp is None:
         return uint32(0)
-    ses_index = 0
-    for idx, new_ses in enumerate(new_wp.sub_epochs):
-        if new_ses.reward_chain_hash != old_wp.sub_epochs[idx].reward_chain_hash:
-            ses_index = idx
-            break
-
-        if idx == len(old_wp.sub_epochs) - 1:
-            ses_index = idx
-            break
-    return ses_index
+    idx = 0
+    for idx, (old_ses, new_ses) in enumerate(zip(old_wp.sub_epochs, new_wp.sub_epochs)):
+        if old_ses.reward_chain_hash != new_ses.reward_chain_hash:
+            return idx
+    return idx

@@ -95,6 +95,9 @@ if [ -e "$THE_PATH" ]; then
 else
   if [ -e venv/bin/python ] && test "$UBUNTU_DEBIAN"; then
     echo "Installing chikvdf dependencies on Ubuntu/Debian"
+    # Update package lists before install
+    echo "apt-get update"
+    sudo apt-get update
     # Install remaining needed development tools - assumes venv and prior run of install.sh
     echo "apt-get install libgmp-dev libboost-python-dev $PYTHON_DEV_DEPENDENCY libboost-system-dev build-essential -y"
     sudo apt-get install libgmp-dev libboost-python-dev "$PYTHON_DEV_DEPENDENCY" libboost-system-dev build-essential -y
@@ -117,11 +120,7 @@ else
       brew install --formula --quiet cmake
     fi
     # The most recent boost version causes compile errors.
-    brew install --formula --quiet boost@1.85 gmp
-    # boost@1.85 is keg-only, which means it was not symlinked into /usr/local,
-    # because this is an alternate version of another formula.
-    export LDFLAGS="-L/usr/local/opt/boost@1.85/lib"
-    export CPPFLAGS="-I/usr/local/opt/boost@1.85/include"
+    brew install --formula --quiet boost gmp
     echo "Installing chikvdf from source."
     # User needs to provide required packages
     echo venv/bin/python -m pip install --force --no-binary chikvdf "$CHIKVDF_VERSION"

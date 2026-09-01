@@ -3,7 +3,6 @@ from __future__ import annotations
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import click
 
@@ -37,7 +36,7 @@ def beta_cmd() -> None:
 @click.option("-p", "--path", help="The beta mode root path", type=str, required=False)
 @click.option("-i", "--interval", help="System metrics will be logged based on this interval", type=int, required=False)
 @click.pass_context
-def configure(ctx: click.Context, path: Optional[str], interval: Optional[int]) -> None:
+def configure(ctx: click.Context, path: str | None, interval: int | None) -> None:
     root_path = ChikCliContext.set_default(ctx).root_path
     with lock_and_load_config(root_path, "config.yaml") as config:
         if "beta" not in config:
@@ -79,7 +78,7 @@ def configure(ctx: click.Context, path: Optional[str], interval: Optional[int]) 
 )
 @click.option("-p", "--path", help="The beta mode root path", type=str, required=False)
 @click.pass_context
-def enable_cmd(ctx: click.Context, force: bool, path: Optional[str]) -> None:
+def enable_cmd(ctx: click.Context, force: bool, path: str | None) -> None:
     root_path = ChikCliContext.set_default(ctx).root_path
     with lock_and_load_config(root_path, "config.yaml") as config:
         if config.get("beta", {}).get("enabled", False):
@@ -92,10 +91,14 @@ def enable_cmd(ctx: click.Context, force: bool, path: Optional[str]) -> None:
         current_path = config.get("beta", {}).get("path")
         current_path = None if current_path is None else Path(current_path)
 
-        if path is None and current_path is None:
-            beta_root_path = prompt_for_beta_path(current_path or default_beta_root_path())
+        path_to_use: Path | None = None if path is None else Path(path)
+        if path_to_use is None:
+            path_to_use = current_path
+
+        if path_to_use is None:
+            beta_root_path = prompt_for_beta_path(default_beta_root_path())
         else:
-            beta_root_path = Path(path or current_path)
+            beta_root_path = path_to_use
             validate_beta_path(beta_root_path)
 
         update_beta_config(True, beta_root_path, metrics_log_interval_default, config)

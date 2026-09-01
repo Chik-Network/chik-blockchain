@@ -5,10 +5,10 @@ import os
 import sys
 from pathlib import Path, PureWindowsPath
 from random import randint
-from typing import Any, Optional
+from typing import Any
 
 from aiohttp import ClientConnectorError
-from chik_rs import PrivateKey
+from chik_rs import CoinRecord, PrivateKey
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
 
@@ -17,7 +17,6 @@ from chik.cmds.start_funcs import async_start
 from chik.protocols.outbound_message import NodeType
 from chik.server.resolve_peer_info import set_peer_info
 from chik.simulator.simulator_full_node_rpc_client import SimulatorFullNodeRpcClient
-from chik.types.coin_record import CoinRecord
 from chik.util.bech32m import decode_puzzle_hash, encode_puzzle_hash
 from chik.util.config import load_config, save_config
 from chik.util.errors import KeychainFingerprintExists
@@ -44,9 +43,9 @@ def get_ph_from_fingerprint(fingerprint: int, key_id: int = 1) -> bytes32:
 def create_chik_directory(
     chik_root: Path,
     fingerprint: int,
-    farming_address: Optional[str],
-    plot_directory: Optional[str],
-    auto_farm: Optional[bool],
+    farming_address: str | None,
+    plot_directory: str | None,
+    auto_farm: bool | None,
     docker_mode: bool,
 ) -> dict[str, Any]:
     """
@@ -157,14 +156,14 @@ def display_key_info(fingerprint: int, prefix: str) -> None:
     wallet_address: str = encode_puzzle_hash(puzzle_hash_for_pk(first_wallet_sk.get_g1()), prefix)
     print(f"First wallet address: {wallet_address}")
     assert seed is not None
-    print("Master private key (m):", bytes(sk).hex())
+    print("Master private key (m):", sk.as_hex_string())
     print("First wallet secret key (m/12381/8444/2/0):", master_sk_to_wallet_sk(sk, uint32(0)))
     mnemonic = bytes_to_mnemonic(seed)
     print("  Mnemonic seed (24 secret words):")
     print(f"{mnemonic} \n")
 
 
-def generate_and_return_fingerprint(mnemonic: Optional[str] = None) -> int:
+def generate_and_return_fingerprint(mnemonic: str | None = None) -> int:
     """
     Generate and add new PrivateKey and return its fingerprint.
     """
@@ -185,8 +184,8 @@ def generate_and_return_fingerprint(mnemonic: Optional[str] = None) -> int:
 
 
 def select_fingerprint(
-    fingerprint: Optional[int] = None, mnemonic_string: Optional[str] = None, auto_generate_key: bool = False
-) -> Optional[int]:
+    fingerprint: int | None = None, mnemonic_string: str | None = None, auto_generate_key: bool = False
+) -> int | None:
     """
     Either select an existing fingerprint or create one and return it.
     """
@@ -254,18 +253,23 @@ async def generate_plots(config: dict[str, Any], root_path: Path, fingerprint: i
     os.environ["CHIK_ROOT"] = str(root_path)  # change env variable, to make it match what the daemon would set it to
 
     # create block tools and use local keychain
-    bt = BlockTools(
+    with BlockTools(
         test_constants,
         root_path,
         automated_testing=False,
         plot_dir=config["simulator"].get("plot_directory", "plots"),
         keychain=Keychain(),
-    )
-    await bt.setup_keys(fingerprint=fingerprint, reward_ph=farming_puzzle_hash)
-    existing_plots = await bt.setup_plots(
-        num_og_plots=PLOTS, num_pool_plots=0, num_non_keychain_plots=0, plot_size=PLOT_SIZE, bitfield=bitfield
-    )
-    print(f"{'New plots generated.' if existing_plots else 'Using Existing Plots'}\n")
+    ) as bt:
+        await bt.setup_keys(fingerprint=fingerprint, reward_ph=farming_puzzle_hash)
+        existing_plots = await bt.setup_plots(
+            num_og_plots=PLOTS,
+            num_pool_plots=0,
+            num_non_keychain_plots=0,
+            plot_size=PLOT_SIZE,
+            num_v2_plots=PLOTS,
+            bitfield=bitfield,
+        )
+        print(f"{'New plots generated.' if existing_plots else 'Using Existing Plots'}\n")
 
 
 async def get_current_height(root_path: Path) -> int:
@@ -279,11 +283,11 @@ async def get_current_height(root_path: Path) -> int:
 
 async def async_config_wizard(
     root_path: Path,
-    fingerprint: Optional[int],
-    farming_address: Optional[str],
-    plot_directory: Optional[str],
-    mnemonic_string: Optional[str],
-    auto_farm: Optional[bool],
+    fingerprint: int | None,
+    farming_address: str | None,
+    plot_directory: str | None,
+    mnemonic_string: str | None,
+    auto_farm: bool | None,
     docker_mode: bool,
     bitfield: bool,
 ) -> None:
@@ -391,9 +395,9 @@ async def print_wallets(config: dict[str, Any], node_client: SimulatorFullNodeRp
 
 
 async def print_status(
-    rpc_port: Optional[int],
+    rpc_port: int | None,
     root_path: Path,
-    fingerprint: Optional[int],
+    fingerprint: int | None,
     show_key: bool,
     show_coins: bool,
     include_reward_coins: bool,
@@ -440,7 +444,7 @@ async def print_status(
 
 
 async def revert_block_height(
-    rpc_port: Optional[int],
+    rpc_port: int | None,
     root_path: Path,
     num_blocks: int,
     num_new_blocks: int,
@@ -469,7 +473,7 @@ async def revert_block_height(
 
 
 async def farm_blocks(
-    rpc_port: Optional[int],
+    rpc_port: int | None,
     root_path: Path,
     num_blocks: int,
     transaction_blocks: bool,
@@ -495,7 +499,7 @@ async def farm_blocks(
         print(f"Block Height is now: {block_height}")
 
 
-async def set_auto_farm(rpc_port: Optional[int], root_path: Path, set_autofarm: bool) -> None:
+async def set_auto_farm(rpc_port: int | None, root_path: Path, set_autofarm: bool) -> None:
     """
     This function can be used to enable or disable Auto Farming.
     """

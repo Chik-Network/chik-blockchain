@@ -8,18 +8,21 @@ import pytest
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64
 
+from chik._tests.conftest import ConsensusMode
 from chik._tests.util.rpc import validate_get_routes
 from chik._tests.util.setup_nodes import SimulatorsAndWalletsServices
 from chik._tests.util.time_out_assert import time_out_assert
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.data_layer.data_layer_util import DLProof, HashOnlyProof, ProofLayer, StoreProofsHashes
-from chik.data_layer.data_layer_wallet import Mirror
+from chik.data_layer.data_layer_wallet import DataLayerSummary, Mirror, SingletonDependencies, SingletonSummary
 from chik.simulator.simulator_protocol import FarmNewBlockProtocol
 from chik.types.peer_info import PeerInfo
 from chik.wallet.db_wallet.db_wallet_puzzles import create_mirror_puzzle
+from chik.wallet.puzzle_drivers import Solver
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 from chik.wallet.wallet_request_types import (
     CreateNewDL,
+    CreateOfferForIDs,
     DLDeleteMirror,
     DLGetMirrors,
     DLGetMirrorsResponse,
@@ -32,6 +35,7 @@ from chik.wallet.wallet_request_types import (
     DLUpdateMultiple,
     DLUpdateMultipleUpdates,
     DLUpdateRoot,
+    GetOfferSummary,
     LauncherRootPair,
 )
 from chik.wallet.wallet_rpc_client import WalletRpcClient
@@ -40,6 +44,7 @@ log = logging.getLogger(__name__)
 
 
 class TestWalletRpc:
+    @pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
     @pytest.mark.parametrize("trusted", [True, False])
     @pytest.mark.anyio
     async def test_wallet_make_transaction(
@@ -74,6 +79,7 @@ class TestWalletRpc:
             calculate_pool_reward(uint32(i)) + calculate_base_farmer_reward(uint32(i)) for i in range(1, num_blocks)
         )
 
+        await full_node_api.wait_for_wallet_synced(wallet_node)
         await time_out_assert(15, wallet.get_confirmed_balance, initial_funds)
         await time_out_assert(15, wallet.get_unconfirmed_balance, initial_funds)
 
@@ -108,15 +114,16 @@ class TestWalletRpc:
             for i in range(5):
                 await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(bytes32.zeros))
                 await asyncio.sleep(0.5)
+            await full_node_api.wait_for_wallet_synced(wallet_node)
 
             async def is_singleton_confirmed(rpc_client: WalletRpcClient, lid: bytes32) -> bool:
-                rec = (await rpc_client.dl_latest_singleton(DLLatestSingleton(lid))).singleton
+                rec = (await rpc_client.dl_latest_singleton(DLLatestSingleton(launcher_id=lid))).singleton
                 if rec is None:
                     return False
                 return rec.confirmed
 
             await time_out_assert(15, is_singleton_confirmed, True, client, launcher_id)
-            singleton_record = (await client.dl_latest_singleton(DLLatestSingleton(launcher_id))).singleton
+            singleton_record = (await client.dl_latest_singleton(DLLatestSingleton(launcher_id=launcher_id))).singleton
             assert singleton_record is not None
             assert singleton_record.root == merkle_root
 
@@ -128,23 +135,29 @@ class TestWalletRpc:
             for i in range(5):
                 await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(bytes32.zeros))
                 await asyncio.sleep(0.5)
+            await full_node_api.wait_for_wallet_synced(wallet_node)
 
-            new_singleton_record = (await client.dl_latest_singleton(DLLatestSingleton(launcher_id))).singleton
+            new_singleton_record = (
+                await client.dl_latest_singleton(DLLatestSingleton(launcher_id=launcher_id))
+            ).singleton
             assert new_singleton_record is not None
             assert new_singleton_record.root == new_root
             assert new_singleton_record.confirmed
 
-            assert (await client.dl_history(DLHistory(launcher_id))).history == [new_singleton_record, singleton_record]
+            assert (await client.dl_history(DLHistory(launcher_id=launcher_id))).history == [
+                new_singleton_record,
+                singleton_record,
+            ]
 
             # Test tracking a launcher id that does not exist
             with pytest.raises(ValueError):
-                await client_2.dl_track_new(DLTrackNew(bytes32([1] * 32)))
+                await client_2.dl_track_new(DLTrackNew(launcher_id=bytes32([1] * 32)))
 
-            await client_2.dl_track_new(DLTrackNew(launcher_id))
+            await client_2.dl_track_new(DLTrackNew(launcher_id=launcher_id))
 
             async def is_singleton_generation(rpc_client: WalletRpcClient, lid: bytes32, generation: int) -> bool:
                 if await is_singleton_confirmed(rpc_client, lid):
-                    rec = (await rpc_client.dl_latest_singleton(DLLatestSingleton(lid))).singleton
+                    rec = (await rpc_client.dl_latest_singleton(DLLatestSingleton(launcher_id=lid))).singleton
                     if rec is None:
                         raise Exception(f"No latest singleton for: {lid!r}")
                     return rec.generation == generation
@@ -153,28 +166,28 @@ class TestWalletRpc:
 
             await time_out_assert(15, is_singleton_generation, True, client_2, launcher_id, 1)
 
-            assert (await client_2.dl_history(DLHistory(launcher_id))).history == [
+            assert (await client_2.dl_history(DLHistory(launcher_id=launcher_id))).history == [
                 new_singleton_record,
                 singleton_record,
             ]
 
-            assert (await client.dl_history(DLHistory(launcher_id, min_generation=uint32(1)))).history == [
+            assert (await client.dl_history(DLHistory(launcher_id=launcher_id, min_generation=uint32(1)))).history == [
                 new_singleton_record
             ]
-            assert (await client.dl_history(DLHistory(launcher_id, max_generation=uint32(0)))).history == [
+            assert (await client.dl_history(DLHistory(launcher_id=launcher_id, max_generation=uint32(0)))).history == [
                 singleton_record
             ]
-            assert (await client.dl_history(DLHistory(launcher_id, num_results=uint32(1)))).history == [
+            assert (await client.dl_history(DLHistory(launcher_id=launcher_id, num_results=uint32(1)))).history == [
                 new_singleton_record
             ]
-            assert (await client.dl_history(DLHistory(launcher_id, num_results=uint32(2)))).history == [
+            assert (await client.dl_history(DLHistory(launcher_id=launcher_id, num_results=uint32(2)))).history == [
                 new_singleton_record,
                 singleton_record,
             ]
             assert (
                 await client.dl_history(
                     DLHistory(
-                        launcher_id,
+                        launcher_id=launcher_id,
                         min_generation=uint32(1),
                         max_generation=uint32(1),
                     )
@@ -183,7 +196,7 @@ class TestWalletRpc:
             assert (
                 await client.dl_history(
                     DLHistory(
-                        launcher_id,
+                        launcher_id=launcher_id,
                         max_generation=uint32(0),
                         num_results=uint32(1),
                     )
@@ -192,7 +205,7 @@ class TestWalletRpc:
             assert (
                 await client.dl_history(
                     DLHistory(
-                        launcher_id,
+                        launcher_id=launcher_id,
                         min_generation=uint32(1),
                         num_results=uint32(1),
                     )
@@ -201,7 +214,7 @@ class TestWalletRpc:
             assert (
                 await client.dl_history(
                     DLHistory(
-                        launcher_id,
+                        launcher_id=launcher_id,
                         min_generation=uint32(1),
                         max_generation=uint32(1),
                         num_results=uint32(1),
@@ -209,13 +222,14 @@ class TestWalletRpc:
                 )
             ).history == [new_singleton_record]
 
-            assert (await client.dl_singletons_by_root(DLSingletonsByRoot(launcher_id, new_root))).singletons == [
-                new_singleton_record
-            ]
+            assert (
+                await client.dl_singletons_by_root(DLSingletonsByRoot(launcher_id=launcher_id, root=new_root))
+            ).singletons == [new_singleton_record]
 
             launcher_id_2 = (
                 await client.create_new_dl(CreateNewDL(root=merkle_root, fee=uint64(50), push=True), DEFAULT_TX_CONFIG)
             ).launcher_id
+            await full_node_api.wait_for_wallet_synced(wallet_node)
             launcher_id_3 = (
                 await client.create_new_dl(CreateNewDL(root=merkle_root, fee=uint64(50), push=True), DEFAULT_TX_CONFIG)
             ).launcher_id
@@ -223,6 +237,7 @@ class TestWalletRpc:
             for i in range(5):
                 await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(bytes32.zeros))
                 await asyncio.sleep(0.5)
+            await full_node_api.wait_for_wallet_synced(wallet_node)
 
             await time_out_assert(15, is_singleton_confirmed, True, client, launcher_id_2)
             await time_out_assert(15, is_singleton_confirmed, True, client, launcher_id_3)
@@ -231,10 +246,10 @@ class TestWalletRpc:
             await client.dl_update_multiple(
                 DLUpdateMultiple(
                     updates=DLUpdateMultipleUpdates(
-                        [
-                            LauncherRootPair(launcher_id, next_root),
-                            LauncherRootPair(launcher_id_2, next_root),
-                            LauncherRootPair(launcher_id_3, next_root),
+                        launcher_root_pairs=[
+                            LauncherRootPair(launcher_id=launcher_id, new_root=next_root),
+                            LauncherRootPair(launcher_id=launcher_id_2, new_root=next_root),
+                            LauncherRootPair(launcher_id=launcher_id_3, new_root=next_root),
                         ]
                     ),
                     fee=uint64(0),
@@ -245,18 +260,19 @@ class TestWalletRpc:
             for i in range(5):
                 await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(bytes32.zeros))
                 await asyncio.sleep(0.5)
+            await full_node_api.wait_for_wallet_synced(wallet_node)
 
             await time_out_assert(15, is_singleton_confirmed, True, client, launcher_id)
             await time_out_assert(15, is_singleton_confirmed, True, client, launcher_id_2)
             await time_out_assert(15, is_singleton_confirmed, True, client, launcher_id_3)
 
             for lid in [launcher_id, launcher_id_2, launcher_id_3]:
-                rec = (await client.dl_latest_singleton(DLLatestSingleton(lid))).singleton
+                rec = (await client.dl_latest_singleton(DLLatestSingleton(launcher_id=lid))).singleton
                 assert rec is not None
                 assert rec.root == next_root
 
-            await client_2.dl_stop_tracking(DLStopTracking(launcher_id))
-            assert (await client_2.dl_latest_singleton(DLLatestSingleton(lid))).singleton is None
+            await client_2.dl_stop_tracking(DLStopTracking(launcher_id=launcher_id))
+            assert (await client_2.dl_latest_singleton(DLLatestSingleton(launcher_id=lid))).singleton is None
 
             owned_singletons = (await client.dl_owned_singletons()).singletons
             owned_launcher_ids = sorted(singleton.launcher_id for singleton in owned_singletons)
@@ -280,6 +296,7 @@ class TestWalletRpc:
             for i in range(5):
                 await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(bytes32.zeros))
                 await asyncio.sleep(0.5)
+            await full_node_api.wait_for_wallet_synced(wallet_node)
             additions = []
             for tx in txs:
                 if tx.spend_bundle is not None:
@@ -293,15 +310,53 @@ class TestWalletRpc:
                 True,
                 uint32(height + 1),
             )
-            await time_out_assert(15, client.dl_get_mirrors, DLGetMirrorsResponse([mirror]), DLGetMirrors(launcher_id))
+            await time_out_assert(
+                15, client.dl_get_mirrors, DLGetMirrorsResponse(mirrors=[mirror]), DLGetMirrors(launcher_id=launcher_id)
+            )
             await client.dl_delete_mirror(
                 DLDeleteMirror(coin_id=mirror_coin.name(), fee=uint64(2000000000000), push=True), DEFAULT_TX_CONFIG
             )
             for i in range(5):
                 await full_node_api.farm_new_transaction_block(FarmNewBlockProtocol(bytes32.zeros))
                 await asyncio.sleep(0.5)
-            await time_out_assert(15, client.dl_get_mirrors, DLGetMirrorsResponse([]), DLGetMirrors(launcher_id))
+            await time_out_assert(
+                15, client.dl_get_mirrors, DLGetMirrorsResponse(mirrors=[]), DLGetMirrors(launcher_id=launcher_id)
+            )
 
+            offer_creation_response = await client.create_offer_for_ids(
+                CreateOfferForIDs(
+                    offer={launcher_id.hex(): "-1", launcher_id_2.hex(): "1"},
+                    driver_dict={},
+                    solver=Solver(
+                        {
+                            "0x" + launcher_id.hex(): {
+                                "new_root": "0x" + bytes32.zeros.hex(),
+                                "dependencies": [
+                                    {
+                                        "launcher_id": "0x" + launcher_id_2.hex(),
+                                        "values_to_prove": ["0x" + bytes32.zeros.hex()],
+                                    }
+                                ],
+                            }
+                        }
+                    ),
+                ),
+                tx_config=DEFAULT_TX_CONFIG,
+            )
+
+            assert (
+                await client.get_offer_summary(GetOfferSummary(offer=offer_creation_response.offer.to_bech32()))
+            ).data_layer_summary == DataLayerSummary(
+                [
+                    SingletonSummary(
+                        launcher_id=launcher_id,
+                        new_root=bytes32.zeros,
+                        dependencies=[SingletonDependencies(launcher_id_2, [bytes(32)])],
+                    )
+                ]
+            )
+
+    @pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
     @pytest.mark.parametrize("trusted", [True, False])
     @pytest.mark.anyio
     async def test_wallet_dl_verify_proof(
@@ -339,18 +394,17 @@ class TestWalletRpc:
             wallet_node.config["trusted_peers"] = {}
 
         assert wallet_service.rpc_server is not None
-        client = await WalletRpcClient.create(
+        async with WalletRpcClient.create_as_context(
             self_hostname,
             wallet_service.rpc_server.listen_port,
             wallet_service.root_path,
             wallet_service.config,
-        )
+        ) as client:
+            with pytest.raises(ValueError, match="No peer connected"):
+                await wallet_service.rpc_server.rpc_api.dl_verify_proof(fake_gpr.to_json_dict())
 
-        with pytest.raises(ValueError, match="No peer connected"):
-            await wallet_service.rpc_server.rpc_api.dl_verify_proof(fake_gpr.to_json_dict())
+            await wallet_node.server.start_client(PeerInfo(self_hostname, full_node_server.get_port()), None)
+            await validate_get_routes(client, wallet_service.rpc_server.rpc_api)
 
-        await wallet_node.server.start_client(PeerInfo(self_hostname, full_node_server.get_port()), None)
-        await validate_get_routes(client, wallet_service.rpc_server.rpc_api)
-
-        with pytest.raises(ValueError, match=f"Invalid Proof: No DL singleton found at coin id: {fake_coin_id}"):
-            await client.dl_verify_proof(fake_gpr)
+            with pytest.raises(ValueError, match=f"Invalid Proof: No DL singleton found at coin id: {fake_coin_id}"):
+                await client.dl_verify_proof(fake_gpr)

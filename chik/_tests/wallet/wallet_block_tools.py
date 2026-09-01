@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Optional
+from typing import Any
 
 from chik_rs import (
     BlockRecord,
@@ -22,10 +22,11 @@ from chik_rs import (
     compute_merkle_set_root,
 )
 from chik_rs.sized_bytes import bytes32, bytes100
-from chik_rs.sized_ints import uint8, uint32, uint64, uint128
+from chik_rs.sized_ints import uint8, uint16, uint32, uint64, uint128
 from chikbip158 import PyBIP158
 
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
+from chik.consensus.blockchain_mmr import BlockchainMMRManager
 from chik.consensus.coinbase import create_farmer_coin, create_pool_coin
 from chik.consensus.full_block_to_block_record import block_to_block_record
 from chik.full_node.bundle_tools import simple_solution_generator
@@ -42,7 +43,11 @@ DEFAULT_PROOF_OF_SPACE = ProofOfSpace(
     G1Element(),
     None,
     G1Element(),
-    uint8(20),
+    uint8(0),  # version 1
+    uint16(0),  # plot_index
+    uint8(0),  # group_id
+    uint8(0),  # strength
+    uint8(20),  # size
     bytes(32 * 5),
 )
 DEFAULT_VDF_INFO = VDFInfo(bytes32.zeros, uint64(1), ClassgroupElement(bytes100.zeros))
@@ -58,12 +63,12 @@ class WalletBlockTools(BlockTools):
     def get_consecutive_blocks(
         self,
         num_blocks: int,
-        block_list_input: Optional[list[FullBlock]] = None,
+        block_list_input: list[FullBlock] | None = None,
         *,
-        farmer_reward_puzzle_hash: Optional[bytes32] = None,
-        pool_reward_puzzle_hash: Optional[bytes32] = None,
-        transaction_data: Optional[SpendBundle] = None,
-        genesis_timestamp: Optional[uint64] = None,
+        farmer_reward_puzzle_hash: bytes32 | None = None,
+        pool_reward_puzzle_hash: bytes32 | None = None,
+        transaction_data: SpendBundle | None = None,
+        genesis_timestamp: uint64 | None = None,
         **kwargs: Any,  # We're overriding so there's many arguments no longer used.
     ) -> list[FullBlock]:
         assert num_blocks > 0
@@ -86,7 +91,7 @@ class WalletBlockTools(BlockTools):
             height_to_hash, _, blocks = load_block_list(block_list_input, constants)
 
         if len(block_list_input) > 0:
-            latest_block: Optional[BlockRecord] = blocks[block_list_input[-1].header_hash]
+            latest_block: BlockRecord | None = blocks[block_list_input[-1].header_hash]
             assert latest_block is not None
             assert latest_block.timestamp is not None
             last_timestamp = latest_block.timestamp
@@ -97,7 +102,7 @@ class WalletBlockTools(BlockTools):
         for _ in range(num_blocks):
             additions = []
             removals = []
-            block_generator: Optional[BlockGenerator] = None
+            block_generator: BlockGenerator | None = None
             if transaction_data is not None and len(block_list_input) > 0:
                 additions = compute_additions_unchecked(transaction_data)
                 removals = transaction_data.removals()
@@ -149,7 +154,7 @@ def load_block_list(
                 sub_slot_iters = full_block.finished_sub_slots[0].challenge_chain.new_sub_slot_iters
         blocks[full_block.header_hash] = block_to_block_record(
             constants,
-            BlockCache(blocks),
+            BlockCache(blocks, BlockchainMMRManager(constants.GENESIS_CHALLENGE)),
             uint64(1),
             full_block,
             sub_slot_iters,
@@ -161,7 +166,7 @@ def load_block_list(
 def finish_block(
     constants: ConsensusConstants,
     unfinished_block: UnfinishedBlock,
-    prev_block: Optional[BlockRecord],
+    prev_block: BlockRecord | None,
     blocks: dict[bytes32, BlockRecord],
 ) -> tuple[FullBlock, BlockRecord]:
     if prev_block is None:
@@ -187,6 +192,7 @@ def finish_block(
             G2Element(),
             DEFAULT_VDF_INFO,
             DEFAULT_VDF_INFO,
+            None,  # header_mmr_root
             prev_block is not None,
         ),
         DEFAULT_VDF_PROOF,
@@ -201,7 +207,13 @@ def finish_block(
         [],
     )
 
-    block_record = block_to_block_record(constants, BlockCache(blocks), uint64(1), full_block, uint64(1))
+    block_record = block_to_block_record(
+        constants,
+        BlockCache(blocks, BlockchainMMRManager(constants.GENESIS_CHALLENGE)),
+        uint64(1),
+        full_block,
+        uint64(1),
+    )
     return full_block, block_record
 
 
@@ -211,8 +223,8 @@ def get_full_block_and_block_record(
     last_timestamp: uint64,
     farmer_reward_puzzlehash: bytes32,
     pool_target: PoolTarget,
-    prev_block: Optional[BlockRecord],
-    block_generator: Optional[BlockGenerator],
+    prev_block: BlockRecord | None,
+    block_generator: BlockGenerator | None,
     additions: list[Coin],
     removals: list[Coin],
 ) -> tuple[FullBlock, BlockRecord, float]:

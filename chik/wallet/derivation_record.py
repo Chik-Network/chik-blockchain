@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Union
 
 from chik_rs import G1Element
 from chik_rs.sized_bytes import bytes32
@@ -20,7 +19,7 @@ class DerivationRecord:
 
     index: uint32
     puzzle_hash: bytes32
-    _pubkey: Union[G1Element, bytes]
+    _pubkey: G1Element | bytes
     wallet_type: WalletType
     wallet_id: uint32
     hardened: bool

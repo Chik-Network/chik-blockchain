@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import importlib_resources
 from cryptography import x509
@@ -24,8 +24,9 @@ _all_private_node_names: list[str] = [
     "crawler",
     "data_layer",
     "daemon",
+    "solver",
 ]
-_all_public_node_names: list[str] = ["full_node", "wallet", "farmer", "introducer", "timelord", "data_layer"]
+_all_public_node_names: list[str] = ["full_node", "wallet", "farmer", "introducer", "timelord", "data_layer", "solver"]
 
 
 def get_chik_ca_crt_key() -> tuple[Any, Any]:
@@ -36,7 +37,7 @@ def get_chik_ca_crt_key() -> tuple[Any, Any]:
 
 
 def get_mozilla_ca_crt() -> str:
-    mozilla_path = Path(__file__).parent.parent.parent.absolute() / "mozilla-ca/cacert.pem"
+    mozilla_path = Path(__file__).parent.absolute() / "cacert.pem"
     return str(mozilla_path)
 
 
@@ -90,7 +91,7 @@ def generate_ca_signed_cert(ca_crt: bytes, ca_key: bytes, cert_out: Path, key_ou
             x509.SubjectAlternativeName([x509.DNSName("chiknetwork.com")]),
             critical=False,
         )
-        .sign(root_key, hashes.SHA256(), default_backend())
+        .sign(root_key, hashes.SHA256(), default_backend())  # type: ignore[arg-type]
     )
 
     cert_pem = cert.public_bytes(encoding=serialization.Encoding.PEM)
@@ -137,8 +138,8 @@ def make_ca_cert(cert_path: Path, key_path: Path):
 def create_all_ssl(
     root_path: Path,
     *,
-    private_ca_crt_and_key: Optional[tuple[bytes, bytes]] = None,
-    node_certs_and_keys: Optional[dict[str, dict]] = None,
+    private_ca_crt_and_key: tuple[bytes, bytes] | None = None,
+    node_certs_and_keys: dict[str, dict] | None = None,
     private_node_names: list[str] = _all_private_node_names,
     public_node_names: list[str] = _all_public_node_names,
     overwrite: bool = True,
@@ -221,7 +222,7 @@ def generate_ssl_for_nodes(
     prefix: str,
     nodes: list[str],
     overwrite: bool = True,
-    node_certs_and_keys: Optional[dict[str, dict]] = None,
+    node_certs_and_keys: dict[str, dict] | None = None,
 ):
     for node_name in nodes:
         node_dir = ssl_dir / node_name

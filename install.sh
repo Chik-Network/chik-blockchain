@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -o errexit
 
 USAGE_TEXT="\
@@ -57,11 +56,9 @@ if [ "$(uname -m)" = "armv7l" ]; then
   echo "Exiting."
   exit 1
 fi
-# Get submodules
-git submodule update --init mozilla-ca
 
 # You can specify preferred python version by exporting `INSTALL_PYTHON_VERSION`
-# e.g. `export INSTALL_PYTHON_VERSION=3.9`
+# e.g. `export INSTALL_PYTHON_VERSION=3.10`
 INSTALL_PYTHON_PATH=
 PYTHON_MAJOR_VER=
 PYTHON_MINOR_VER=
@@ -74,7 +71,7 @@ OPENSSL_VERSION_INT=
 find_python() {
   set +e
   unset BEST_VERSION
-  for V in 312 3.12 311 3.11 310 3.10 39 3.9 3; do
+  for V in 314 3.14 313 3.13 312 3.12 311 3.11 310 3.10 3; do
     if command -v python$V >/dev/null; then
       if [ "$BEST_VERSION" = "" ]; then
         BEST_VERSION=$V
@@ -137,8 +134,8 @@ if ! command -v "$INSTALL_PYTHON_PATH" >/dev/null; then
   exit 1
 fi
 
-if [ "$PYTHON_MAJOR_VER" -ne "3" ] || [ "$PYTHON_MINOR_VER" -lt "7" ] || [ "$PYTHON_MINOR_VER" -ge "13" ]; then
-  echo "Chik requires Python version >= 3.9 and  < 3.13.0" >&2
+if [ "$PYTHON_MAJOR_VER" -ne "3" ] || [ "$PYTHON_MINOR_VER" -lt "10" ] || [ "$PYTHON_MINOR_VER" -ge "15" ]; then
+  echo "Chik requires Python version >= 3.10 and < 3.15.0" >&2
   echo "Current Python version = $INSTALL_PYTHON_VERSION" >&2
   # If Arch, direct to Arch Wiki
   if type pacman >/dev/null 2>&1 && [ -f "/etc/arch-release" ]; then
@@ -173,6 +170,13 @@ fi
 .penv/bin/poetry env use "${INSTALL_PYTHON_PATH}"
 # shellcheck disable=SC2086
 .penv/bin/poetry sync ${EXTRAS}
+
+# On macOS, files/directories can be marked with the "hidden" flag.
+# This clears the flag if it can.
+if [ "$(uname)" = "Darwin" ] && command -v chflags >/dev/null 2>&1; then
+  # Don't fail install if this can't be changed (permissions/FS limitations, etc.)
+  chflags -R nohidden .venv 2>/dev/null || true
+fi
 
 if [ -e venv ]; then
   if [ -d venv ] && [ ! -L venv ]; then

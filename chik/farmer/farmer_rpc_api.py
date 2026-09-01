@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import dataclasses
 import operator
-from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional, cast
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
@@ -11,7 +12,10 @@ from typing_extensions import Protocol
 from chik.farmer.farmer import Farmer
 from chik.plot_sync.receiver import Receiver
 from chik.protocols.harvester_protocol import Plot
+from chik.protocols.outbound_message import NodeType
 from chik.rpc.rpc_server import Endpoint, EndpointResult
+from chik.types.peer_info import PeerInfo
+from chik.util.network import resolve
 from chik.util.paginator import Paginator
 from chik.util.streamable import Streamable, streamable
 from chik.util.ws_message import WsRpcMessage, create_payload_dict
@@ -30,7 +34,7 @@ class PaginatedRequestData(Protocol):
 @dataclasses.dataclass(frozen=True)
 class FilterItem(Streamable):
     key: str
-    value: Optional[str]
+    value: str | None
 
 
 @streamable
@@ -102,9 +106,10 @@ class FarmerRpcApi:
             "/get_harvester_plots_keys_missing": self.get_harvester_plots_keys_missing,
             "/get_harvester_plots_duplicates": self.get_harvester_plots_duplicates,
             "/get_pool_login_link": self.get_pool_login_link,
+            "/connect_to_solver": self.connect_to_solver,
         }
 
-    async def _state_changed(self, change: str, change_data: Optional[dict[str, Any]]) -> list[WsRpcMessage]:
+    async def _state_changed(self, change: str, change_data: dict[str, Any] | None) -> list[WsRpcMessage]:
         payloads = []
 
         if change_data is None:
@@ -359,7 +364,23 @@ class FarmerRpcApi:
 
     async def get_pool_login_link(self, request: dict[str, Any]) -> EndpointResult:
         launcher_id: bytes32 = bytes32.from_hexstr(request["launcher_id"])
-        login_link: Optional[str] = await self.service.generate_login_link(launcher_id)
+        login_link: str | None = await self.service.generate_login_link(launcher_id)
         if login_link is None:
             raise ValueError(f"Failed to generate login link for {launcher_id.hex()}")
         return {"login_link": login_link}
+
+    async def connect_to_solver(self, request: dict[str, Any]) -> EndpointResult:
+        for connection in self.service.server.get_connections(NodeType.SOLVER):
+            host = connection.peer_info.host
+            port = connection.peer_server_port
+            await connection.close()
+            self.service.log.info(f"Disconnected from solver at {host}:{port}")
+        host = request["host"]
+        port = request["port"]
+        target_node = PeerInfo(await resolve(host), port)
+        on_connect = getattr(self.service, "on_connect", None)
+        if await self.service.server.start_client(target_node, on_connect):
+            self.service.log.info(f"Connected to solver at {host}:{port}")
+            return {"success": True}
+        else:
+            return {"success": False, "error": f"Could not connect to solver at {host}:{port}"}
