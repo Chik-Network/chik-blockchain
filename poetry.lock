@@ -1368,12 +1368,13 @@ optional = false
 python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "chik_base-0.1.7.tar.gz", hash = "sha256:d7bc3ab3c550ea2d0defb488d1e480b12abcf2c8966de616e6dc2e49e33e8456"},
+    {file = "chik_base-0.1.7-py3-none-any.whl", hash = "sha256:f0dfd672a966d06856176a6be0e09eca578a6b12009e082900d45e0a62e741f1"},
+    {file = "chik_base-0.1.7.tar.gz", hash = "sha256:625d6f9b3bc0552a16253d7122be412879fc24b73fe11f018d7057dbccc35d8c"},
 ]
 
 [package.dependencies]
-chik_rs = ">=0.5.2"
-klvm_rs = "0.2.5"
+chik-rs = ">=0.5.2"
+klvm-rs = "0.2.5"
 
 [package.extras]
 dev = ["black (>=23.1.0)", "pytest (>=7.2.1)", "ruff (>=0.0.252)"]
@@ -1386,8 +1387,8 @@ optional = false
 python-versions = "<4.0,>=3.8"
 groups = ["main"]
 files = [
-    {file = "chik_puzzles_py-0.20.3-py3-none-any.whl", hash = "sha256:cf55c342ec7827d244aea9f3d3e2fc7079807de6ab6c82d93c5d612c7f2ac1d2"},
-    {file = "chik_puzzles_py-0.20.3.tar.gz", hash = "sha256:059c314c8ac6bb8f6f89bdb9855e55b716475b61ba953801e5fff22683534193"},
+    {file = "chik_puzzles_py-0.20.3-py3-none-any.whl", hash = "sha256:7299daccf9e0b21696e5516b3abc05c92a1361538ef8ece9db172900e61e01e8"},
+    {file = "chik_puzzles_py-0.20.3.tar.gz", hash = "sha256:5b2eec8791c5c0e07db3c654fa2ff99b3ed9361ab267f166910b06ff43a78332"},
 ]
 
 [package.dependencies]
@@ -1403,32 +1404,32 @@ optional = false
 python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "chik_rs-0.45.1-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:4d63eb55e17596ce0d9dd1d225b1daa6027b334e6ae7234f51d42d1d4afda83e"},
-    {file = "chik_rs-0.45.1-cp310-cp310-macosx_13_0_x86_64.whl", hash = "sha256:017502d79160707ae1dab52f80e4fa8e17b37095573327389a0b63c7b5cc02eb"},
-    {file = "chik_rs-0.45.1-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:dc2cea0a6d1c4a2153d404e99587b4d0cd4f4e4d416c58a0c7c83e4ea0b03bb3"},
-    {file = "chik_rs-0.45.1-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:0223ac26676a7b3d107dc391c49be60c0ca3daf05ffd56eade36bba5516962fa"},
-    {file = "chik_rs-0.45.1-cp310-cp310-win_amd64.whl", hash = "sha256:9b6480a0302fc0489c3eaccfedbc0f222359342782dcc60e4a9c7d4d0fda6c76"},
-    {file = "chik_rs-0.45.1-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:d4cb38215355ebe567f0ea822b121bd629e1077c4586816606360baa61a4ed56"},
-    {file = "chik_rs-0.45.1-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:3d163f9b3b75a2d1c2b7eb2c08afdadc2ae16567ee2dec617697d918698879f3"},
-    {file = "chik_rs-0.45.1-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:71396e2fca4cccd8b23c355bfc22a89e1a438b92a08c27be36bbc33108eaf618"},
-    {file = "chik_rs-0.45.1-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:a63f6176290d34a4bba42f2dceb32fcfaf68fc48b498bb2e3ac829ceaf363344"},
-    {file = "chik_rs-0.45.1-cp311-cp311-win_amd64.whl", hash = "sha256:a11586d52d172baa1176173a092615507e3745c8148b12ebac38ff5c3f03ab9d"},
-    {file = "chik_rs-0.45.1-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:b96d927bea82c946ebde6592b3368af0698911067808a29b76ce7c9c3abf057a"},
-    {file = "chik_rs-0.45.1-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:c65a007067899206bbb2f65c1dde685e9ed0345143899dde71c333c8f8cb1a81"},
-    {file = "chik_rs-0.45.1-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:e426f011b142d5edf467833d409ef5c03e8546414c1735fb119b440f0893a15c"},
-    {file = "chik_rs-0.45.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:be21b496b0180b7da79860b18226a3332dc158d3cc012505b5e7d67185d88b06"},
-    {file = "chik_rs-0.45.1-cp312-cp312-win_amd64.whl", hash = "sha256:204d95460aed639734d372b6f8e1873065783c728b14904a1df207fe9a657307"},
-    {file = "chik_rs-0.45.1-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:a9e28464bb5cfb8c346ebc066e1c249472110de0f53e83836e2b7576b5cb49f0"},
-    {file = "chik_rs-0.45.1-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:2f7d371120627f9be92ff3e8aa0923dd27062434dd7a1ab9c4d309d32e89bbaf"},
-    {file = "chik_rs-0.45.1-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:05baf3427221fc39dac4e2f9a0b66ecc58a0ab686ff15fb8792f0c658bec1d22"},
-    {file = "chik_rs-0.45.1-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:d94fcce7ddd7f8d7b16fbf8be0ccbe4ee0264dcc36e22995f5aac74680870929"},
-    {file = "chik_rs-0.45.1-cp313-cp313-win_amd64.whl", hash = "sha256:a76cc93741a8d559594ec862ce622813a5dfde1eab56bc264c708b0bfd76deaa"},
-    {file = "chik_rs-0.45.1-cp314-cp314-macosx_13_0_arm64.whl", hash = "sha256:b410b8c6b8e74de334501e1af1ee0d9a9380249d7eb85fef56f238cfa992e509"},
-    {file = "chik_rs-0.45.1-cp314-cp314-macosx_13_0_x86_64.whl", hash = "sha256:5d6000c92b6b287e6c92e6b240039f5f5ea3ab2bee2a3a3e1a6c067cef5c3de4"},
-    {file = "chik_rs-0.45.1-cp314-cp314-manylinux_2_28_aarch64.whl", hash = "sha256:4967677d01752727a11edc544c5bb0e05a4df2ceb4ff305aa69a8d659b48d9fc"},
-    {file = "chik_rs-0.45.1-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:bb0c916fa52ffe6f390bb4891d92d1eafa061fb04889204c34604f9f46304eee"},
-    {file = "chik_rs-0.45.1-cp314-cp314-win_amd64.whl", hash = "sha256:b2beaa2fc6f522748cafce8d4d9bb6b3fb231a8728c9154c096bccf7d354d524"},
-    {file = "chik_rs-0.45.1.tar.gz", hash = "sha256:d8385ed711839361a691942c5c24e98fabe9a1eec289caa8b1b71a4c83f4b20e"},
+    {file = "chik_rs-0.45.1-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:46f1807bf5862e70f5772654628b55a86d2b23c77cad63acf6f1af9cf6f8b096"},
+    {file = "chik_rs-0.45.1-cp310-cp310-macosx_13_0_x86_64.whl", hash = "sha256:11a49c1daa92a01aa69209e68ef499e0eeb232a1dadc3453464213641ac2adde"},
+    {file = "chik_rs-0.45.1-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:73300c1e5fee7c17058033f6a560c77fbffb769bc054078cf6e474d2dd338c1e"},
+    {file = "chik_rs-0.45.1-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:8693362b4225df86e52f730800b48cf186c5c26bf88d4c78110d0916e8001388"},
+    {file = "chik_rs-0.45.1-cp310-cp310-win_amd64.whl", hash = "sha256:b97bf7e046d5086d0e13b936dc90f505f43b6edc0acea2f16fc2c575a0abee66"},
+    {file = "chik_rs-0.45.1-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:653477994f0df7b9e76093b6b21dfa1482940914eef6bd2f3e3db5139cae6f43"},
+    {file = "chik_rs-0.45.1-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:fb712868298f9104543c8190e754d6bcb11f1b05e114440b33b5bc453acc11ec"},
+    {file = "chik_rs-0.45.1-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:9b59d61d527122c421cb9108edc4842e19c85a1b6258ccf86b87d6087fa93590"},
+    {file = "chik_rs-0.45.1-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:e01981ac7bae7e4991328a08f283d77f77372b4b8659538c8973730f045a2981"},
+    {file = "chik_rs-0.45.1-cp311-cp311-win_amd64.whl", hash = "sha256:affc61dda7727aeb5d6e9a10fb8323b1b9991997245a5b295fa4539de6603f05"},
+    {file = "chik_rs-0.45.1-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:87503a7da19ff22c150646c3e3bb2e315dedc3d98db2a3e9a2ff8586d06cfcf5"},
+    {file = "chik_rs-0.45.1-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:8b4fe1a28da8b3a4a1947d3ee62b0f5e36fa467b719daa519a55571aeac9ff51"},
+    {file = "chik_rs-0.45.1-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:54ddc036f93ba63b2d2cf4aa36a2fac9cbfaaf953090df680c55e37f9c9b8407"},
+    {file = "chik_rs-0.45.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:20bfde8bc35402ea89b0a96bfeac4039a13eb6ad5b700f9fb2d94bb93f54a915"},
+    {file = "chik_rs-0.45.1-cp312-cp312-win_amd64.whl", hash = "sha256:fef70a57543dfaa8c408e0f80dc0792e40fb387435116b04e3b74db3b58db48d"},
+    {file = "chik_rs-0.45.1-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:3719a7fee92feef0c295ab7b2120f9ef8cef5768ba3528bbc93ec5f16bb8cc74"},
+    {file = "chik_rs-0.45.1-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:71667fe187d92d1722aec689c092d661f006cd608b7d75eaf457430f38a90617"},
+    {file = "chik_rs-0.45.1-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:d3651b0e2d061414d1bc1fdc10237b7606fbc83ef2d9de86068e54296e6ab748"},
+    {file = "chik_rs-0.45.1-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:688fae2dbdeb8299ac76de9cf033dc4c2447723ef46985e2d586d67131e8f1cc"},
+    {file = "chik_rs-0.45.1-cp313-cp313-win_amd64.whl", hash = "sha256:e32dada4daaf5de7a2451e48ca209c8996f81e9cee5cb766fd5cad30bd9a11f3"},
+    {file = "chik_rs-0.45.1-cp314-cp314-macosx_13_0_arm64.whl", hash = "sha256:7e5b682c4049913785ad7dfd843857c04e05c6a8c2148572b93fb4a7b58b1e8b"},
+    {file = "chik_rs-0.45.1-cp314-cp314-macosx_13_0_x86_64.whl", hash = "sha256:c5fc3af27c284cfc798aa1dee56fdcc8ad68999be5eed09a4b7ded9ff95a1bae"},
+    {file = "chik_rs-0.45.1-cp314-cp314-manylinux_2_28_aarch64.whl", hash = "sha256:8359308c94a72c6a9b670a991e755b2188af2dc05099cc5a437a0083a5da3086"},
+    {file = "chik_rs-0.45.1-cp314-cp314-manylinux_2_28_x86_64.whl", hash = "sha256:34674d87293ce379de29e749010ac05babd305f3cf2c659fa1f7c84d608649db"},
+    {file = "chik_rs-0.45.1-cp314-cp314-win_amd64.whl", hash = "sha256:221eb6b86e11c08acc29363046b3e48207fe594851bdb28152623e2fc3dfd497"},
+    {file = "chik_rs-0.45.1.tar.gz", hash = "sha256:030b3b68ae3f751726f148660c61243e374c624c1ee2e10cbd8e6c1a82fafcc7"},
 ]
 
 [package.dependencies]
@@ -1442,32 +1443,32 @@ optional = false
 python-versions = ">=3.7"
 groups = ["main"]
 files = [
-    {file = "chikbip158-1.5.4-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:d96a36de34236b76d04d441049a70a5af2ab80ced0c519f05faaee91df69645c"},
-    {file = "chikbip158-1.5.4-cp310-cp310-macosx_13_0_x86_64.whl", hash = "sha256:d187970581f7bef69112056260aecce226298c2fa40ebf30b4daea9cd950f4bf"},
-    {file = "chikbip158-1.5.4-cp310-cp310-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:408f0eab71b942df4117c9282b9bba574eaeb3f738470673303703fbcd5e1279"},
-    {file = "chikbip158-1.5.4-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:69e276668bec757bb1792b3ff019a39234b1e4bd3b86d75d9d0fa9dec3bc03e4"},
-    {file = "chikbip158-1.5.4-cp310-cp310-win_amd64.whl", hash = "sha256:26e82ad3e2cabe7e64d80b861fe67a91e2542d391ff25ba5dcb4ef080dbd4dc2"},
-    {file = "chikbip158-1.5.4-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:c30fe8e82b88451debd12c80627d45303f30e662af0268f3ae578bc9a846c92f"},
-    {file = "chikbip158-1.5.4-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:9e3e9783ade69c48b4a6ef5cec31559489a8f996017ef3473dc9dfcd4ffc1dd5"},
-    {file = "chikbip158-1.5.4-cp311-cp311-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:44fb755cd07c79c1ce1849b14c5faad2b0c630936d12ff7bdb598c1e6859d6d3"},
-    {file = "chikbip158-1.5.4-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e1109feb1c7066fa880f1cce732664eafa73462a417735b9adb59dbbb1ec61de"},
-    {file = "chikbip158-1.5.4-cp311-cp311-win_amd64.whl", hash = "sha256:b7e46759ed0e938fe6430e49bc8428f8bfbf5b438d7d6594c8b23a2b804e5a81"},
-    {file = "chikbip158-1.5.4-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:065e9028d6c969a7f0a9abf4398c7d676bcf99bea07cf6f6d67553ed46cca30f"},
-    {file = "chikbip158-1.5.4-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:01353b5e53e12a11aaa00415d4b58ba7527831bbb11a1ae88ec31257b876268b"},
-    {file = "chikbip158-1.5.4-cp312-cp312-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f1aa417fa86facb37ead53ed6fa01e0e42fb3b8ad15fcb9c930d928231fd93f5"},
-    {file = "chikbip158-1.5.4-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:1063715ec17206685bea27d4599a6705665a15a1abe042362fc48a04ba353a76"},
-    {file = "chikbip158-1.5.4-cp312-cp312-win_amd64.whl", hash = "sha256:bd30b16177ae743d4836016f3fb4d229513c430542a3ad1635780b6af46c5894"},
-    {file = "chikbip158-1.5.4-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:e434e69014d3ec28bce25fd6d55af318d71b5142cc8241c1a079706a07145083"},
-    {file = "chikbip158-1.5.4-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:84e60be01841177f204acb001fdcdca87613fb91f9e0aa681aa02accfe6634d6"},
-    {file = "chikbip158-1.5.4-cp313-cp313-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ae19762ce5d946c89044e3a3994b4a62b3902dd45dd30013b6d990efaa01876e"},
-    {file = "chikbip158-1.5.4-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9feed0a08b2ef98a068eb3aa91eaf6a59ba5e6389af47ab0884ac5e49cafd30f"},
-    {file = "chikbip158-1.5.4-cp313-cp313-win_amd64.whl", hash = "sha256:c6a2b5c162fc49cf5cdb2f911c5d69a1fa6baf6e1022d09cbe228495e607cb80"},
-    {file = "chikbip158-1.5.4-cp314-cp314-macosx_13_0_arm64.whl", hash = "sha256:8498e07a8e10ae3f60602dfcd1b46f008a41ed839c7016ac98adb636582c2bd8"},
-    {file = "chikbip158-1.5.4-cp314-cp314-macosx_13_0_x86_64.whl", hash = "sha256:9bbbb5e94b7cbaf08c9e36c2b2442653e2efd21f1ceda464d2d50d3c0592c128"},
-    {file = "chikbip158-1.5.4-cp314-cp314-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:5ca9f7e79f33d7b75aa3c778398337425d5236cfbbc4a945d72ec1aea31ea3b2"},
-    {file = "chikbip158-1.5.4-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e6cee4028337c9e91b65d7c83af4b774a264277d264c4e3171366b1cfe3f9df7"},
-    {file = "chikbip158-1.5.4-cp314-cp314-win_amd64.whl", hash = "sha256:e75d047cc114670f76971a58f550d2fa0d6543176be00a7923312af7c951c7be"},
-    {file = "chikbip158-1.5.4.tar.gz", hash = "sha256:8920fc5d90161e222014fe56db1e29be70f504ae3e2cdbd95a4a26782614e420"},
+    {file = "chikbip158-1.5.4-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:a5376da23d1e52d45d4ce3a44349f0a22c9eb0373bd1e7b6dd551168831c93f8"},
+    {file = "chikbip158-1.5.4-cp310-cp310-macosx_13_0_x86_64.whl", hash = "sha256:b703ab311415002446bed8e82be07c3bba32e98ed02bdf2c405e93df5c49c8bb"},
+    {file = "chikbip158-1.5.4-cp310-cp310-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:94730d4781846a3f649f51e5394871310156ccf348f9979b9b66d1ec731387ab"},
+    {file = "chikbip158-1.5.4-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f29c2ddd4bfa9c243b421948902ebbb869fd98c4c27f2e3896c062487938d88f"},
+    {file = "chikbip158-1.5.4-cp310-cp310-win_amd64.whl", hash = "sha256:241aa432909942b077b1c5e27ea14ba474b431a6cc32b5e95b68ad6593678b74"},
+    {file = "chikbip158-1.5.4-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:99abcb909718c62e097c9777a9b54de7a1272407530702aa3fc0e2414ba8c8c6"},
+    {file = "chikbip158-1.5.4-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:066ba796574ac1d06c7dc9d82d7cab8269a642c6604aabb5f2c70dffd4f23cc5"},
+    {file = "chikbip158-1.5.4-cp311-cp311-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:7eca41c8fb47955c34acb6b2e843ede69d768ec77740fb32fd8833b1ccbfe175"},
+    {file = "chikbip158-1.5.4-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:dc220bf3c692d98c9ce9f67372f5d07a919973bb949e3d74601818f51d2a327a"},
+    {file = "chikbip158-1.5.4-cp311-cp311-win_amd64.whl", hash = "sha256:db735f80e260c19e86a12ddb670897878a3a062b418cf198380136ac309ee77f"},
+    {file = "chikbip158-1.5.4-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:06614740f64a2d964ae6adc675dfd3ca01d68818e0ceef34105a5655adc1e3a3"},
+    {file = "chikbip158-1.5.4-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:d3deadf504f44e49315aa05c89a1a1c680af16b99f42af11aec28dd7ec6fad39"},
+    {file = "chikbip158-1.5.4-cp312-cp312-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4a2b796c6185b8b9c69dff36f00b15b9ea1cd198500ea2dacb649aa7b36df25f"},
+    {file = "chikbip158-1.5.4-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b9f8617ab6f8b9cb2979d45f8a9213808f4d81aa051b94853a8aa6a066125a1f"},
+    {file = "chikbip158-1.5.4-cp312-cp312-win_amd64.whl", hash = "sha256:4889877c7161abc1784bea20e35b5a207ee1c66f8c861ae1ccacb0206101e897"},
+    {file = "chikbip158-1.5.4-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:3d123e40dde0b5d478a73acb2241827e33094d91519200cd91c1e55995065e7e"},
+    {file = "chikbip158-1.5.4-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:b4da8a0312dfb02ff5584acc54ce05c10714f47a5e0ac03d12dfdd66540400b6"},
+    {file = "chikbip158-1.5.4-cp313-cp313-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:af408f0b973b8e1b81f1cc66c9fa637324c747b8e1ce0ff0239f624d7e7bc5d4"},
+    {file = "chikbip158-1.5.4-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:aba9f4fc273853c8c38a581321e2d78c71d0692cb4915f5751b1842dc2ca013d"},
+    {file = "chikbip158-1.5.4-cp313-cp313-win_amd64.whl", hash = "sha256:cb9da2594f1e0a54b473ea59f743b03d7507d86262c8e6b73f6ae427be0c13d3"},
+    {file = "chikbip158-1.5.4-cp314-cp314-macosx_13_0_arm64.whl", hash = "sha256:0d7cfd0b150ce7ea47db1170b683a0776640c1042436f96b1ac0ccad65c03896"},
+    {file = "chikbip158-1.5.4-cp314-cp314-macosx_13_0_x86_64.whl", hash = "sha256:115c8cf9842ba15ead5e3c315caafa245fd8304dae6e187d9b4fbc91f09db573"},
+    {file = "chikbip158-1.5.4-cp314-cp314-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:c7f6936e0032a182f5d79824712ed87847d658e07d4a9f5421579b0f64aa0191"},
+    {file = "chikbip158-1.5.4-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ee6b8aeab30fb0a512c55c1260d0bc71a97d2d55fde3bb6166d6cc02f72cdc4c"},
+    {file = "chikbip158-1.5.4-cp314-cp314-win_amd64.whl", hash = "sha256:54cb5b7efed58d58ace7b7ba69232c209e45799934a42ca411b2f5586b03eddb"},
+    {file = "chikbip158-1.5.4.tar.gz", hash = "sha256:71c9e181e7e58b26c75a39d506c23ea90cf7bebfe6934625fd100170f311536f"},
 ]
 
 [[package]]
@@ -1478,13 +1479,13 @@ optional = false
 python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "chiklisp-0.4.5-cp310-abi3-macosx_15_0_arm64.whl", hash = "sha256:99dbf31492d9b8284a81794e506dd3db6857ca63d7f7a01df91498f648060a41"},
-    {file = "chiklisp-0.4.5-cp310-abi3-macosx_15_0_x86_64.whl", hash = "sha256:7d177817d8038e1d34b1bef2413906bf2d19c382ee34b04e760535c1afdcaa9e"},
-    {file = "chiklisp-0.4.5-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:a5781b9673a1cc09951729bb4c09d576f9c08f1933345abbadf157c239f4a935"},
-    {file = "chiklisp-0.4.5-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:b20e77fc4e410dda0b845b89cb3ae13bb093cdfb2029e11a2576448a5ec66ae7"},
-    {file = "chiklisp-0.4.5-cp310-abi3-musllinux_1_1_x86_64.whl", hash = "sha256:41814df17849aa834920655325804bc1e035afc99ba8c7d6d6cee7a6ad3078f5"},
-    {file = "chiklisp-0.4.5-cp310-abi3-win_amd64.whl", hash = "sha256:1b59e085d50e3c980c924718d39b504fef7f1d9a03cb1d58da3d4fce67b43240"},
-    {file = "chiklisp-0.4.5.tar.gz", hash = "sha256:3496be2ac4b9fa13d9c76a6f2395e82cc48e02b65504d821f4e52875a98cfc97"},
+    {file = "chiklisp-0.4.5-cp310-abi3-macosx_15_0_arm64.whl", hash = "sha256:0ed8b8cf355143ae4a8bfcc169957690a0bca807c3353cfca3a76ddc2c03a2d0"},
+    {file = "chiklisp-0.4.5-cp310-abi3-macosx_15_0_x86_64.whl", hash = "sha256:43c1b0006ccfd3835c6c5b7d71d282e61f12069eccf8fcfa6852a0d389287883"},
+    {file = "chiklisp-0.4.5-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:808be070d58c3be3a060bc3070538c87f7c2f69d29281ad1f7e7491b64feec44"},
+    {file = "chiklisp-0.4.5-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:0e43ad3054f0c21fcabb4173c24f4014c9d8834e5c89c6d215327f02f71df79d"},
+    {file = "chiklisp-0.4.5-cp310-abi3-musllinux_1_1_x86_64.whl", hash = "sha256:dd4fa94d3292af798917c3487aaac4de0026bab1a603d2391f98f61caada6751"},
+    {file = "chiklisp-0.4.5-cp310-abi3-win_amd64.whl", hash = "sha256:96acb7177613e66c62acb78f8fdc2e53576c9bb948b71e30678a76a789c1dff8"},
+    {file = "chiklisp-0.4.5.tar.gz", hash = "sha256:dd7d01db2fa60f0216d2da669263d81bed32123c1f3eeaee34cc3c834363a058"},
 ]
 
 [[package]]
@@ -1495,12 +1496,13 @@ optional = false
 python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "chiklisp_loader-0.1.2.tar.gz", hash = "sha256:085080fc7d4a3fab90fe93db3c599391b869047846608da1ae92b54b4100e8a6"},
+    {file = "chiklisp_loader-0.1.2-py3-none-any.whl", hash = "sha256:db53b7c6ccdf5e8fffe8f50f32613a2ce82b94e004389441a1871924ee77ee36"},
+    {file = "chiklisp_loader-0.1.2.tar.gz", hash = "sha256:9298faa96d2ce49b09c99db7addb0e982b0b022377f6015f44ffbdd57e0bf28e"},
 ]
 
 [package.dependencies]
-klvm_rs = "*"
-importlib_resources = "*"
+importlib-resources = "*"
+klvm-rs = "*"
 
 [[package]]
 name = "chiklisp-puzzles"
@@ -1510,11 +1512,12 @@ optional = false
 python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "chiklisp_puzzles-0.1.1.tar.gz", hash = "sha256:d474fa44d070da6a44e236bbabb6baefb38ff6b24049399924d2d9e638fa66a8"},
+    {file = "chiklisp_puzzles-0.1.1-py3-none-any.whl", hash = "sha256:ffa3059b011d2b3692a7ace2a1864f948238c3793ae7d16da454034d3a3bb0e4"},
+    {file = "chiklisp_puzzles-0.1.1.tar.gz", hash = "sha256:221893b09ee51069af1f4baafbb668c1797273b4beda40a03a197f64ce3b5088"},
 ]
 
 [package.dependencies]
-chiklisp_loader = ">=0.1.2"
+chiklisp-loader = ">=0.1.2"
 
 [[package]]
 name = "chikpos"
@@ -1524,32 +1527,32 @@ optional = false
 python-versions = ">=3.7"
 groups = ["main"]
 files = [
-    {file = "chikpos-2.0.12-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:77bb86858b3cf6ecd2f4cb5f02dbc14828329acf3db63ad0762c5079e31d3a40"},
-    {file = "chikpos-2.0.12-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:6af55fe0acb300fd77771d6a7b8efc552703a549aef0600c9720bb5814f54821"},
-    {file = "chikpos-2.0.12-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:d9526e8546da2886f9d00c9c38b38f308822fa3ba63b9a093fc083eb4fe683ef"},
-    {file = "chikpos-2.0.12-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:a57802bea0ef12e9b77123ad9b87263df498a5f7c5800587520ba2e068d40e83"},
-    {file = "chikpos-2.0.12-cp310-cp310-win_amd64.whl", hash = "sha256:0f5d19337a81e757a8bf4c8df69bbd17d01928ec4db676dde35ca17f831f5de9"},
-    {file = "chikpos-2.0.12-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:a8f98594e43e34daa2cb2f1aa838bd6742e784dc61efe243959044e8cb5f6353"},
-    {file = "chikpos-2.0.12-cp311-cp311-macosx_11_0_x86_64.whl", hash = "sha256:91fa0147e6bd2d4b4c46e4f75667c78cdb0f8b47b30f2761eb981bf1bf429b38"},
-    {file = "chikpos-2.0.12-cp311-cp311-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4e47288e64965b3a036db8a262b60c5d3625d888a81f154e138e129199032227"},
-    {file = "chikpos-2.0.12-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:453c1cb4c00abe82ec885a1aa6fa11be87e791f94c84942b4daeeffb032cd5de"},
-    {file = "chikpos-2.0.12-cp311-cp311-win_amd64.whl", hash = "sha256:57d9a4f9161940dc0e8e9a434efa3949908ebcc99854a6ce1bf3a670b395dc03"},
-    {file = "chikpos-2.0.12-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:0ced8d301d825075e304ead7ba87a847dfa52a2eaccfb037e7ae036942561eb0"},
-    {file = "chikpos-2.0.12-cp312-cp312-macosx_11_0_x86_64.whl", hash = "sha256:6f146c99804eb885f7acaa06fec501b094c4a6b1a91708cb07cdcfe5a429a54b"},
-    {file = "chikpos-2.0.12-cp312-cp312-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f3a4ed32de760b081d2e596070d8f7808c71512f0e48d9ddb15693fc4bd58af4"},
-    {file = "chikpos-2.0.12-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:57723032157087d3c3eb2b23759ed68603ae032709faa61133a00ed553d74190"},
-    {file = "chikpos-2.0.12-cp312-cp312-win_amd64.whl", hash = "sha256:b5da38c1b368e85cd8b3d81a4c7e8bed3245c8e05c5519d82c39004158043981"},
-    {file = "chikpos-2.0.12-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:cad8464e8111d5e19489bf311578fc7307e4389d43f9fbfa6bb80e28fd8c205b"},
-    {file = "chikpos-2.0.12-cp313-cp313-macosx_11_0_x86_64.whl", hash = "sha256:a13e6771ee3a5e27c5aa9d7dcccbe85229967f77ccfa32e7ea45515bc4cce9bb"},
-    {file = "chikpos-2.0.12-cp313-cp313-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:dd49c778ba2231f656852216ca65faa58b65609f841e5fcc5a353172e23f19a0"},
-    {file = "chikpos-2.0.12-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:cfc0a0768f703f8fecc2098a46288a5008fbee19094c55365109abf73187e2bc"},
-    {file = "chikpos-2.0.12-cp313-cp313-win_amd64.whl", hash = "sha256:8eb98dd6d564bbc495da0be2678c087489702284622840b9f937b576acf5dc20"},
-    {file = "chikpos-2.0.12-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:798c49b3db353f344ee7bd8c32c9d15a44db65c7da71a58dec067850e03a1c6b"},
-    {file = "chikpos-2.0.12-cp314-cp314-macosx_11_0_x86_64.whl", hash = "sha256:9cc285d43879221119b37571d1fec83ad320aa66abc074b34295e9041ba76cbc"},
-    {file = "chikpos-2.0.12-cp314-cp314-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:61623cae9f304fb0c5c09c3351f6085367d5321e4f0650b2aa56b71ee7b55c9c"},
-    {file = "chikpos-2.0.12-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:624ca1f624b1f9e1b1b4749519c1dcd388afff977030d480a11d9e727d372f1b"},
-    {file = "chikpos-2.0.12-cp314-cp314-win_amd64.whl", hash = "sha256:8f048b9b87ad5ef324a9026700a1e6652eb52cd82ba9576cbba10734e395d29f"},
-    {file = "chikpos-2.0.12.tar.gz", hash = "sha256:70d00a5687cdef4ffe38221b2ea1d782af3679ebcec9b84d9272c0bab8b0eba2"},
+    {file = "chikpos-2.0.12-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:d6b0a5b4833ef055349844d11ba32aa2deb67d4f55a4386a8174e66aede31742"},
+    {file = "chikpos-2.0.12-cp310-cp310-macosx_11_0_x86_64.whl", hash = "sha256:8be3e858d663ede970441d9ba87ef616ecfe79dcda73e389a750fb8e654cf4d7"},
+    {file = "chikpos-2.0.12-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:2eaf967a7c0e017a2556664787c12715aa909fd1b3b4078ad8f6190eef3f2b84"},
+    {file = "chikpos-2.0.12-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:d4b8b05c8d1d6688da1287d3247e2b968c9c83b6da4597568e1c31ddc29b0e96"},
+    {file = "chikpos-2.0.12-cp310-cp310-win_amd64.whl", hash = "sha256:675bd5460bef1808d8e52ae967a58031782028f635119b991328f3bba6b72c22"},
+    {file = "chikpos-2.0.12-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:74aaa42c306d2c40d9f8a1d30f956b88cdcfc69fa104338a009cf766bf5c80a0"},
+    {file = "chikpos-2.0.12-cp311-cp311-macosx_11_0_x86_64.whl", hash = "sha256:81512fa19ceecc3e9187d1ab6b2c163c09cd5dbd668d857cd4fb62ee0bbbcb85"},
+    {file = "chikpos-2.0.12-cp311-cp311-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:9ef8d438da82bb0765c89ba8cd8310064c70ecbf0ecfa77954bb6919110660b4"},
+    {file = "chikpos-2.0.12-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:948cb724095fbd22f25222227827721eb9a580b44144292d0d5c33b67b779b8e"},
+    {file = "chikpos-2.0.12-cp311-cp311-win_amd64.whl", hash = "sha256:237d024fed10991a1baf0a9551a3076d6743c29493d96833dcd3acac2898bce7"},
+    {file = "chikpos-2.0.12-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:1c130d2ece8d3308027b57269c237c4d348b7bc89ad20e3c5c7b2db5a990d3ec"},
+    {file = "chikpos-2.0.12-cp312-cp312-macosx_11_0_x86_64.whl", hash = "sha256:5cdd33d917d1a409a619481d265818a91951f08b7f720c418a4d60fe696927a8"},
+    {file = "chikpos-2.0.12-cp312-cp312-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b54c6fd47c254fe34945340c6d77d173802e7808e05d0b5933a232c9af35db8c"},
+    {file = "chikpos-2.0.12-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7de6a7249fed971c8ba8bd2edc04a6c651a84b6a54ca284fe8c86af462a08831"},
+    {file = "chikpos-2.0.12-cp312-cp312-win_amd64.whl", hash = "sha256:806a2cef3859ddfc4dffdee187af8c28f40cd8962fbc29c1be84f02740ee7765"},
+    {file = "chikpos-2.0.12-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:d48616afb9ed7c51a447dd7368cc907ceeb933bce0a87c356f2635a5674df169"},
+    {file = "chikpos-2.0.12-cp313-cp313-macosx_11_0_x86_64.whl", hash = "sha256:ec25a094c3ce0ac0347c1bc6cacda74d0f00b6f4f7085f961a08928e7b9b44e3"},
+    {file = "chikpos-2.0.12-cp313-cp313-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:7f5dde5b39954517ff8fcdfea87cb7b3aa3b144ac87cb39d5b944f755363580e"},
+    {file = "chikpos-2.0.12-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:da76001f5a1499c1b48bdb3fbd080603e30ac236d86617d7e33fe32cb67e394f"},
+    {file = "chikpos-2.0.12-cp313-cp313-win_amd64.whl", hash = "sha256:7b5ac81df27eca358a1dd9a3fa30bd00ab1b0ce74a8d8ce88518bca21ec88d98"},
+    {file = "chikpos-2.0.12-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:5af1323f9838300ccbd0fd65b7ed783a836dd80a787b92cf8a082fcdaa3e4bf6"},
+    {file = "chikpos-2.0.12-cp314-cp314-macosx_11_0_x86_64.whl", hash = "sha256:8cfa42eab8205e3f23c0288519dda5800dd280ef852b180915d4de3c11670a25"},
+    {file = "chikpos-2.0.12-cp314-cp314-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d7573dee5b94d959f8648d1561a760891f4dca7ba01ef57ed988e463a70d1c9d"},
+    {file = "chikpos-2.0.12-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0b29360f4d9f804d846bff7d4d28adabf54af412ad7542afff4fa4fbccb3587b"},
+    {file = "chikpos-2.0.12-cp314-cp314-win_amd64.whl", hash = "sha256:61171d159a95ef00e2781c98f4b4c4ff6007a85377a741656ae980eac4d210e5"},
+    {file = "chikpos-2.0.12.tar.gz", hash = "sha256:793e63582a8ed6993c9ed50d8c4906f4f2cd6ec9bab71a9d1e5deefc6c286e5f"},
 ]
 
 [[package]]
@@ -1560,32 +1563,32 @@ optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "chikvdf-1.1.14-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:bd9ef18dceaccef61b29e6c550db8756a6d9823abed7bf22c6eeba2c1224c5fa"},
-    {file = "chikvdf-1.1.14-cp310-cp310-macosx_13_0_x86_64.whl", hash = "sha256:c93e667850536e8c2253a550503040f73a9f84277f2821b20837777defa9d056"},
-    {file = "chikvdf-1.1.14-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:ee73e758af0fc53757cead84fc02f82f25397e34993bba72fed54bb6037488f6"},
-    {file = "chikvdf-1.1.14-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:e448e3ace2a452f087daa912e0a660086934238217a0a7838232950715c64ea4"},
-    {file = "chikvdf-1.1.14-cp310-cp310-win_amd64.whl", hash = "sha256:1384f6f3db8e5f72ac090447490cb9217851a2424028ace60c446fff78b25198"},
-    {file = "chikvdf-1.1.14-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:59ececcb4504ebf30c75f20242393edbd6f5e9b4153ab6ca8e9ebe8b8ba32e0e"},
-    {file = "chikvdf-1.1.14-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:2f3664dd96ed09b009d9c69bb26d6994c134e5fe2bc36f5e7efe89ace57bf349"},
-    {file = "chikvdf-1.1.14-cp311-cp311-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:8d81e724f66bce0bba403f4dce378164915da81ad830c2f4c92934a8e27247fe"},
-    {file = "chikvdf-1.1.14-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:676b40ff23626567bc9f2edb076141044d8f22b060253b84b0341d705733fcc5"},
-    {file = "chikvdf-1.1.14-cp311-cp311-win_amd64.whl", hash = "sha256:109e48e83bc38ff95d6be5cc83c361d8b5fbc87d993a0dbfda89535f0be0b5dd"},
-    {file = "chikvdf-1.1.14-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:8df4cf96e2abb949a26b5a00690c30a661b7202c7ae5c561d6a19fbe81da0ee1"},
-    {file = "chikvdf-1.1.14-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:1edb579e81825930a7efa5b1e54d6803fdc2046d24f70c578bcefdcf18216f19"},
-    {file = "chikvdf-1.1.14-cp312-cp312-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:daf8e4ee51371b7257d12da31c0301b8b0b4fd2987068444523c146b02c5d09d"},
-    {file = "chikvdf-1.1.14-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b0a582d5da7f8e790d61550e689302c26f3d91a628204b7a30e33ea9ec6b24ec"},
-    {file = "chikvdf-1.1.14-cp312-cp312-win_amd64.whl", hash = "sha256:af77654dbc7903f958c266fda29cb3fbd1d8dfca23a85c9e5ac7f0fd4c9119e9"},
-    {file = "chikvdf-1.1.14-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:8a40cdfee990899bf2dff755e4a8dcc7549e111c1cdac40aa5bbfda4984e2170"},
-    {file = "chikvdf-1.1.14-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:63ca26e2dbbbff56dbf1a022bb8d76d5a3bf7a50407c22519cec39821a53a6ca"},
-    {file = "chikvdf-1.1.14-cp313-cp313-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4509949ec9fd7576608cc6fe869a142d685cd4a98fbb1dcf0ccad5cfce8f5181"},
-    {file = "chikvdf-1.1.14-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ff07aaf872de2faec5e43b05a37e1007e2b2d9b14db4798bedccfc80e0657463"},
-    {file = "chikvdf-1.1.14-cp313-cp313-win_amd64.whl", hash = "sha256:d67c6f9aa2a6d872bf2837f11732a70aa81d36443a26649a15baa3dacd6ed1b4"},
-    {file = "chikvdf-1.1.14-cp314-cp314-macosx_13_0_arm64.whl", hash = "sha256:677fe7816208c4c30caafb19442c7a8f0549aa358569424b9b88802dbc9221e3"},
-    {file = "chikvdf-1.1.14-cp314-cp314-macosx_13_0_x86_64.whl", hash = "sha256:2890269dd87c6c1b924c09432aa3ee91ce9842b1f240dfc131088e5015b0e524"},
-    {file = "chikvdf-1.1.14-cp314-cp314-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4df7e402dc0854a9533676db6f2c4e3ac57104770bd5ac44db654b8f9c75d34e"},
-    {file = "chikvdf-1.1.14-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e5d5e5ba8c45cad3222e66518e41b524ab7fa17cef9beb43421d75ce838ce12f"},
-    {file = "chikvdf-1.1.14-cp314-cp314-win_amd64.whl", hash = "sha256:15776a02497077164e4984bcf8de3837db69c57ce9d6459094e0d0783061ca64"},
-    {file = "chikvdf-1.1.14.tar.gz", hash = "sha256:a5869be40d1b51608f7e348a5a7b26383fc658d348807e44d67056c761dee2ad"},
+    {file = "chikvdf-1.1.14-cp310-cp310-macosx_13_0_arm64.whl", hash = "sha256:0d66275e20a939174e51d1ff3000845c990b4c65699cd152d4468ffc7e7c4f7d"},
+    {file = "chikvdf-1.1.14-cp310-cp310-macosx_13_0_x86_64.whl", hash = "sha256:4572a8f65f71b0ff676a0c67ac0846569c535bef81c2a83ee11b8499c3ceeb56"},
+    {file = "chikvdf-1.1.14-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:d0088544fd2a6631a3cc15117c5ebebf0a034aafe8ab6dc58d625cdcc4c89f5f"},
+    {file = "chikvdf-1.1.14-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:866177d6d9b086b5ca730a456f4a9562f6b5536263f39399432839288cb1e0c5"},
+    {file = "chikvdf-1.1.14-cp310-cp310-win_amd64.whl", hash = "sha256:4e0a6e184d75463ca80fd2e39ec7c110d4bbcb7913124ef3c48cd382f025dba8"},
+    {file = "chikvdf-1.1.14-cp311-cp311-macosx_13_0_arm64.whl", hash = "sha256:98913eea1b90cca629f3e1500a664264e4b27a6ec00771116003fce730928ead"},
+    {file = "chikvdf-1.1.14-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:9f2add45d762b065b7e7a9df27064196ce9e436e4219d9c63c3e37171baa681d"},
+    {file = "chikvdf-1.1.14-cp311-cp311-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e2cc56ce55395c9e22ccb0e5ee9e7d8b3d134d187995cbe533f95b01bf2606b1"},
+    {file = "chikvdf-1.1.14-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:df24d388b1a5f79c067c1c3c1066f136b0fdb082580ae410ff7041ecd89563f2"},
+    {file = "chikvdf-1.1.14-cp311-cp311-win_amd64.whl", hash = "sha256:1645e532f6eadd7a83ba3ec42b568e0afe26add8fc4b4ac5a5f7dc917ffd8319"},
+    {file = "chikvdf-1.1.14-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:5b96eedc33685c51352c76831f865e7e66eda088d9e3f6fd9c199182cf138c0a"},
+    {file = "chikvdf-1.1.14-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:d4e16cb050cced2326fb525aeec0c097d617c61921bb2cc50bb062131310cd6f"},
+    {file = "chikvdf-1.1.14-cp312-cp312-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:8066d60b1ccffcf15788d9e131e0dfd1237e4675ded2c54ad1dda2cf909afb39"},
+    {file = "chikvdf-1.1.14-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5c5198fd90348a8e32003f48adbcbd07b97503989b8663350e27eabdb0372454"},
+    {file = "chikvdf-1.1.14-cp312-cp312-win_amd64.whl", hash = "sha256:f01d2537633092b69e23ab42bb99c93678235bdec0c0b829b7d07f090fa45e57"},
+    {file = "chikvdf-1.1.14-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:6fadc66e9e1ed6f91b6d687b98730cd932dd4e9f547c372b442a0080959db255"},
+    {file = "chikvdf-1.1.14-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:acc1e2343d57a5d2a828d9666fefcb0c2178b1a7f1a3a2bcad30ae320eace626"},
+    {file = "chikvdf-1.1.14-cp313-cp313-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:c926c0b7a9eb14439b70ccc986f91659993d2d48475236886cfb7265d86b1f00"},
+    {file = "chikvdf-1.1.14-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6582f160fc214bb94460d00579f1a62f77bfbc0da2c90f1dc97e24eb0e03972a"},
+    {file = "chikvdf-1.1.14-cp313-cp313-win_amd64.whl", hash = "sha256:90d2c3be0c56d0a8614f68f226f4f99fe9e9c2d3b313fec1437853bf3ec4cbc2"},
+    {file = "chikvdf-1.1.14-cp314-cp314-macosx_13_0_arm64.whl", hash = "sha256:983488b149f7db9419d77745b021f209958234b1d2083d483fd18b849a1a4eda"},
+    {file = "chikvdf-1.1.14-cp314-cp314-macosx_13_0_x86_64.whl", hash = "sha256:981e3956fddebf9999192bd97d7dceea67aad74f25462ea9b11f0b8cb5924002"},
+    {file = "chikvdf-1.1.14-cp314-cp314-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b43a7ff01f121271a2529fe04c2e132faab867ab27a103c36990a2db14081298"},
+    {file = "chikvdf-1.1.14-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6d06e1e577b68c8142a6ac0476ac3af110e8ba5a68496a29ea27066daed720f9"},
+    {file = "chikvdf-1.1.14-cp314-cp314-win_amd64.whl", hash = "sha256:e1d215d84f723fd8cf763d29eea4da31e507128e88c2ece41fb81544866156c6"},
+    {file = "chikvdf-1.1.14.tar.gz", hash = "sha256:87ed6225e5cec60184fbad066dd772956c9bee9e5e19f6d20954b091490eed93"},
 ]
 
 [[package]]
@@ -1602,80 +1605,6 @@ files = [
 
 [package.dependencies]
 colorama = {version = "*", markers = "platform_system == \"Windows\""}
-
-[[package]]
-name = "klvm"
-version = "0.9.15"
-description = "[Contract Language | Chiklisp] Virtual Machine"
-optional = false
-python-versions = "<4,>=3.8.1"
-groups = ["main"]
-files = [
-    {file = "klvm-0.9.15-py3-none-any.whl", hash = "sha256:3f4b37ce496bf08beeb95f727352e536068c77310977f3b2f815985fcb232b3c"},
-    {file = "klvm-0.9.15.tar.gz", hash = "sha256:e6551d5be734b46aeac86dc84b16c31290ae96126873dacfc3a05b939dea703d"},
-]
-
-[package.dependencies]
-chik_rs = ">=0.2.13"
-importlib_metadata = ">=8.7,<9.0"
-typing-extensions = ">=4.0,<5.0"
-
-[package.extras]
-dev = ["klvm_tools (>=0.4.4)", "mypy", "pytest", "setuptools", "types-setuptools"]
-
-[[package]]
-name = "klvm-rs"
-version = "0.2.5"
-description = "Implementation of `klvm` for Chik Network's cryptocurrency"
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "klvm_rs-0.2.5-cp37-abi3-macosx_10_14_x86_64.whl", hash = "sha256:980933a048779a9e587194385bd86b806fa05931b92ec75350bb433344a23ba8"},
-    {file = "klvm_rs-0.2.5-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:38cffe8a97acb6aebef758be8bce18a007e79328c76e732b2cf9e1a4f22c02c7"},
-    {file = "klvm_rs-0.2.5-cp37-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e7c48294f4211159fbfc40a62655713f03867104f9892d875f3dae2515bdd6b8"},
-    {file = "klvm_rs-0.2.5-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:403b8c82ee5c0137792fd975649b1d1fc92170669d787e501978242a72ac0361"},
-    {file = "klvm_rs-0.2.5-cp37-abi3-win_amd64.whl", hash = "sha256:77a2f5f626dc0cd5196c97fb689ceac9f853f85b7d622d630840aa597a97e4f0"},
-    {file = "klvm_rs-0.2.5.tar.gz", hash = "sha256:af26493752dc2e5e7ebdb7bdfa10160c5d9e1b39df3f238cd1641ef98e8c446f"},
-]
-
-[[package]]
-name = "klvm-tools"
-version = "0.4.10"
-description = "KLVM compiler."
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "klvm_tools-0.4.10-py3-none-any.whl", hash = "sha256:8c8d9289494a67867108f91d4fcfa56a93580a6927f9d69e2d91fec259030d79"},
-    {file = "klvm_tools-0.4.10.tar.gz", hash = "sha256:7a35a127b84b34e6103320c5dd82d34214c50bbdcaec7160702f27372c1467f4"},
-]
-
-[package.dependencies]
-klvm = ">=0.9.2"
-klvm-tools-rs = ">=0.1.37"
-importlib-metadata = "*"
-setuptools = "*"
-
-[package.extras]
-dev = ["pytest"]
-
-[[package]]
-name = "klvm-tools-rs"
-version = "0.1.48"
-description = "tools for working with chiklisp language; compiler, repl, python and wasm bindings"
-optional = false
-python-versions = "*"
-groups = ["main"]
-files = [
-    {file = "klvm_tools_rs-0.1.48-cp38-abi3-macosx_13_0_arm64.whl", hash = "sha256:8360760d67857a7864c20ce0b9d33f38e2df9f177d62a5603c44361daeb534d2"},
-    {file = "klvm_tools_rs-0.1.48-cp38-abi3-macosx_13_0_x86_64.whl", hash = "sha256:7fb1538c3427c12f2bc636114a8776399e0a525dce47544181d3b979735db32c"},
-    {file = "klvm_tools_rs-0.1.48-cp38-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:2dd11e50d3073d45f6ed5ec1900907773d512b4a406f24bd05169ee49fe7eda5"},
-    {file = "klvm_tools_rs-0.1.48-cp38-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:55b4902636b9ea8f284ad00d80aa912910383e83c499c0f88588ff9f3e76bf8d"},
-    {file = "klvm_tools_rs-0.1.48-cp38-abi3-musllinux_1_1_x86_64.whl", hash = "sha256:23e858080db6bd3e3cda65b212bef00d072e181247970940fe77d1e9ec528e69"},
-    {file = "klvm_tools_rs-0.1.48-cp38-abi3-win_amd64.whl", hash = "sha256:5e7dd96b08ffa8a768fd4f78dc0d8fe2b6e4f2958604cc5955ee9813592e6385"},
-    {file = "klvm_tools_rs-0.1.48.tar.gz", hash = "sha256:03f60301c22d0cb190cdb29b540d72ef1c73f1d4a0c9bd93505b8d74c93fc026"},
-]
 
 [[package]]
 name = "colorama"
@@ -2226,13 +2155,13 @@ optional = false
 python-versions = "*"
 groups = ["main"]
 files = [
-    {file = "hsmk-0.3.2-py3-none-any.whl", hash = "sha256:b6facaf7f3673b6a479ba18c7078892bee8b9b9c4b4a1efb9c785b43a6d6886c"},
-    {file = "hsmk-0.3.2.tar.gz", hash = "sha256:7b6ce24d8825680a18e7546b4573e594029f265dcccfb16e3c3fe373faee4b71"},
+    {file = "hsmk-0.3.2-py3-none-any.whl", hash = "sha256:962ca2d564172f5de75e5df0458b0102069c7d4efe9fafa719527ff565456132"},
+    {file = "hsmk-0.3.2.tar.gz", hash = "sha256:643d3ebcbb059fb6b3b2ee90fa13227ac84e0e37ab3f3b880d1d469a73e1f5fa"},
 ]
 
 [package.dependencies]
-chik_base = ">=0.1.5"
-chiklisp_puzzles = ">=0.1.1"
+chik-base = ">=0.1.5"
+chiklisp-puzzles = ">=0.1.1"
 segno = "1.4.1"
 
 [package.extras]
@@ -2485,6 +2414,79 @@ argon2_cffi = "*"
 "jaraco.classes" = "*"
 keyring = ">=20.0.0"
 pycryptodome = "*"
+
+[[package]]
+name = "klvm"
+version = "0.9.15"
+description = "[Contract Language | Chiklisp] Virtual Machine"
+optional = false
+python-versions = "<4,>=3.8.1"
+groups = ["main"]
+files = [
+    {file = "klvm-0.9.15-py3-none-any.whl", hash = "sha256:b6d28e9fae7f252cd7b396d0a5d6ea199dc88878d60a1adb7d65a42d00c1d392"},
+    {file = "klvm-0.9.15.tar.gz", hash = "sha256:bf71cfa57068c81b20cf9e4f4adb78876cd9e029d3733835e219f2476f48231e"},
+]
+
+[package.dependencies]
+chik_rs = ">=0.2.13"
+importlib_metadata = ">=8.7,<9.0"
+typing-extensions = ">=4.0,<5.0"
+
+[package.extras]
+dev = ["klvm_tools (>=0.4.4)", "mypy", "pytest", "setuptools", "types-setuptools"]
+
+[[package]]
+name = "klvm-rs"
+version = "0.2.5"
+description = "Implementation of `klvm` for Chik Network's cryptocurrency"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "klvm_rs-0.2.5-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:46cb52ea50fd967e738e53ca32f7b92c8de9002c939b9287892c3bb68b2145dd"},
+    {file = "klvm_rs-0.2.5-cp37-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d1d2726063e99100883cea7531646f5c43bff2f11707e7cc24962850b7e99750"},
+    {file = "klvm_rs-0.2.5-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:79f474fe844d65f13cf4f9c08d8940786d4c4a415c59b7d858bf1cae8a6bdb8f"},
+    {file = "klvm_rs-0.2.5-cp37-abi3-win_amd64.whl", hash = "sha256:bb70f24d2a17abb51ba4ddc95884bb83385be660d0ccc930bf7bb30b01330d28"},
+    {file = "klvm_rs-0.2.5.tar.gz", hash = "sha256:f0bbe33a5461aad76bba8b836f0117717a801615897be8421ca17fe15beee37c"},
+]
+
+[[package]]
+name = "klvm-tools"
+version = "0.4.10"
+description = "KLVM compiler."
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "klvm_tools-0.4.10-py3-none-any.whl", hash = "sha256:1ebaae6626afe98ab929e47f17f9cb4d3e904799c60f25a99a4a0964844d0814"},
+    {file = "klvm_tools-0.4.10.tar.gz", hash = "sha256:b726d215c08af2c6204fa6983f2775ac3df226eb56513aab6678510c998f389c"},
+]
+
+[package.dependencies]
+importlib_metadata = "*"
+klvm = ">=0.9.2"
+klvm_tools_rs = ">=0.1.37"
+setuptools = "*"
+
+[package.extras]
+dev = ["pytest"]
+
+[[package]]
+name = "klvm-tools-rs"
+version = "0.1.48"
+description = "tools for working with chiklisp language; compiler, repl, python and wasm bindings"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "klvm_tools_rs-0.1.48-cp38-abi3-macosx_13_0_arm64.whl", hash = "sha256:b4aaf463810fa9a91b08c2dec9c79244c1967c0eeed0be14ee0127604047b09f"},
+    {file = "klvm_tools_rs-0.1.48-cp38-abi3-macosx_13_0_x86_64.whl", hash = "sha256:81ddae2151f4a7e81bcfc76d1e7b07ff3b298d270f7e968511c2d85f1f35d600"},
+    {file = "klvm_tools_rs-0.1.48-cp38-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:c67f941e1884f60b396ce71f0ad13e5f35b4a027a385ff600d7f9bf8d4634599"},
+    {file = "klvm_tools_rs-0.1.48-cp38-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:ba587fd70f144d6839ec7101690cc877d566d83cbcf7ec4b72bd846c9a5745c9"},
+    {file = "klvm_tools_rs-0.1.48-cp38-abi3-musllinux_1_1_x86_64.whl", hash = "sha256:9170cc626e13690bed347a80fd2e80d758b0f4d7cbc94dcb22c99a574dfe8335"},
+    {file = "klvm_tools_rs-0.1.48-cp38-abi3-win_amd64.whl", hash = "sha256:c40cb62c7de525020caf763a4162d58618182f0ff2c44ec184006d103144ec03"},
+    {file = "klvm_tools_rs-0.1.48.tar.gz", hash = "sha256:c06843139beb107c4415ef04e2aa180605c1e7a32571115713d5afa58f06fd21"},
+]
 
 [[package]]
 name = "librt"
@@ -5243,4 +5245,4 @@ upnp = ["miniupnpc"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4"
-content-hash = "3fd36f257ddd69f7e5330dafa9a665e49e4a7783703255523b0b006dd23afd4c"
+content-hash = "c74272a009972ada62615ccf80a9e38516a6d6bfd53e441bb92f4d4bd5d81fa1"
