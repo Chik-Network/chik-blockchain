@@ -58,7 +58,7 @@ chikvdf = ">=1.1.10"  # timelord and vdf verification
 click = ">=8.4.0"  # For the CLI
 clvk = ">=0.9.14"
 clvk_tools = ">=0.4.9"  # Currying Program.to other conveniences
-chiklisp = ">=0.4.1"  # Rust implementation of ChikLisp compiler
+chiklisp = ">=0.5.1"  # Rust implementation of ChikLisp compiler
 colorama = ">=0.4.6"  # Colorizes terminal output
 colorlog = ">=6.9.0"  # Adds color to logs
 concurrent_log_handler = ">=0.9.25"  # Concurrently log and rotate logs
