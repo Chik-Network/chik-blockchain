@@ -8,7 +8,7 @@ from chik_rs import Coin, CoinSpend, G1Element, G2Element, PrivateKey
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
-from chik._tests.klvm.test_puzzles import secret_exponent_for_index
+from chik._tests.clvk.test_puzzles import secret_exponent_for_index
 from chik._tests.util.spend_sim import CostLogger, SimClient, SpendSim, sim_and_client
 from chik.pools.plotnft_drivers import (
     GetNextPlotNFTError,

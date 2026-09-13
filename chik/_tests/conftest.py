@@ -1,4 +1,4 @@
-# ruff: noqa: E402 # See imports after multiprocessing.set_start_method
+# ruff: file-ignore[module-import-not-at-top-of-file] # See imports after multiprocessing.set_start_method
 from __future__ import annotations
 
 import asyncio
@@ -760,7 +760,7 @@ async def wallet_nodes(blockchain_constants, consensus_mode):
     async with setup_simulators_and_wallets(
         2,
         1,
-        blockchain_constants.replace(MEMPOOL_BLOCK_BUFFER=1, MAX_BLOCK_COST_KLVM=400000000),
+        blockchain_constants.replace(MEMPOOL_BLOCK_BUFFER=1, MAX_BLOCK_COST_CLVK=400000000),
     ) as new:
         (nodes, _wallets, bt) = make_old_setup_simulators_and_wallets(new=new)
         full_node_1 = nodes[0]
@@ -880,7 +880,7 @@ async def two_nodes_two_wallets_with_same_keys(bt) -> AsyncIterator[OldSimulator
 @pytest.fixture
 async def wallet_nodes_perf(blockchain_constants: ConsensusConstants):
     async with setup_simulators_and_wallets(
-        1, 1, blockchain_constants, config_overrides={"MEMPOOL_BLOCK_BUFFER": 1, "MAX_BLOCK_COST_KLVM": 11000000000}
+        1, 1, blockchain_constants, config_overrides={"MEMPOOL_BLOCK_BUFFER": 1, "MAX_BLOCK_COST_CLVK": 11000000000}
     ) as new:
         (nodes, _wallets, bt) = make_old_setup_simulators_and_wallets(new=new)
         full_node_1 = nodes[0]
@@ -1575,4 +1575,5 @@ async def wallet_environments(
                     for service, rpc_client, wallet_state in zip(wallet_services, wallet_rpc_clients, wallet_states)
                 ],
                 tx_config,
+                request.param.get("reorg_exempt", False),
             )

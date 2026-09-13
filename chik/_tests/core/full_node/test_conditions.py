@@ -10,7 +10,7 @@ import logging
 import pytest
 from chik_rs import AugSchemeMPL, CoinRecord, FullBlock, G2Element, SpendBundle
 from chik_rs.sized_ints import uint32, uint64
-from klvm_tools.binutils import assemble
+from clvk_tools.binutils import assemble
 
 from chik._tests.blockchain.blockchain_test_utils import _validate_and_add_block
 from chik._tests.conftest import ConsensusMode

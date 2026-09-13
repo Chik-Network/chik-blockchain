@@ -37,5 +37,5 @@ class NewBlockGenerator(BlockGenerator):
     additions: list[Coin] = field(default_factory=list)
     # all coins being spent by the block generator
     removals: list[Coin] = field(default_factory=list)
-    # the total cost of the block generator, KLVM + bytes + conditions
+    # the total cost of the block generator, CLVK + bytes + conditions
     cost: uint64 = field(default=uint64(0))

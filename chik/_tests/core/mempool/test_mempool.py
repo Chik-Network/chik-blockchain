@@ -7,6 +7,7 @@ from collections.abc import Callable
 
 import pytest
 from chik_rs import (
+    ELIGIBLE_FOR_DEDUP,
     ENABLE_KECCAK_OPS_OUTSIDE_GUARD,
     AugSchemeMPL,
     CoinSpend,
@@ -21,8 +22,8 @@ from chik_rs import (
 from chik_rs import get_puzzle_and_solution_for_coin2 as get_puzzle_and_solution_for_coin
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
-from klvm_tools import binutils
-from klvm_tools.binutils import assemble
+from clvk_tools import binutils
+from clvk_tools.binutils import assemble
 
 from chik._tests.blockchain.blockchain_test_utils import _validate_and_add_block
 from chik._tests.connection_utils import add_dummy_connection, connect_and_get_peer
@@ -44,9 +45,17 @@ from chik._tests.util.time_out_assert import time_out_assert
 from chik.consensus.condition_costs import ConditionCost
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.full_node.bitcoin_fee_estimator import create_bitcoin_fee_estimator
+from chik.full_node.eligible_coin_spends import DedupCoinSpend, IdenticalSpendDedup
 from chik.full_node.fee_estimation import EmptyMempoolInfo, MempoolInfo
 from chik.full_node.full_node_api import FullNodeAPI
-from chik.full_node.mempool import MAX_SPENDS_PER_BLOCK, Mempool
+from chik.full_node.mempool import (
+    MAX_BLOCK_ATOMS,
+    MAX_BLOCK_PAIRS,
+    MAX_SKIPPED_ITEMS,
+    MAX_SPENDS_PER_BLOCK,
+    PRIORITY_TX_THRESHOLD,
+    Mempool,
+)
 from chik.full_node.mempool_manager import MEMPOOL_MIN_FEE_INCREASE, LineageInfoCache
 from chik.full_node.pending_tx_cache import ConflictTxCache, PendingTxCache
 from chik.protocols import full_node_protocol, wallet_protocol
@@ -63,14 +72,14 @@ from chik.simulator.wallet_tools import WalletTool
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.klvm_cost import KLVMCost
+from chik.types.clvk_cost import CLVKCost
 from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
 from chik.types.fee_rate import FeeRate
 from chik.types.generator_types import BlockGenerator
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
-from chik.types.mempool_item import MempoolItem, UnspentLineageInfo
+from chik.types.mempool_item import BundleCoinSpend, MempoolItem, UnspentLineageInfo
 from chik.util.casts import int_to_bytes
 from chik.util.errors import Err, ValidationError
 from chik.util.hash import std_hash
@@ -88,7 +97,7 @@ def new_mi(mi: MempoolInfo, max_mempool_cost: int, min_replace_fee_per_cost: int
     return dataclasses.replace(
         mi,
         minimum_fee_per_cost_to_replace=FeeRate(uint64(min_replace_fee_per_cost)),
-        max_size_in_cost=KLVMCost(uint64(max_mempool_cost)),
+        max_size_in_cost=CLVKCost(uint64(max_mempool_cost)),
     )
 
 
@@ -371,10 +380,10 @@ class TestMempool:
         _ = await next_block(full_node_1, wallet_a, bt)
         _ = await next_block(full_node_1, wallet_a, bt)
 
-        max_block_cost_klvm = uint64(40000000)
-        max_mempool_cost = max_block_cost_klvm * 5
+        max_block_cost_clvk = uint64(40000000)
+        max_mempool_cost = max_block_cost_clvk * 5
         mempool_info = new_mi(EmptyMempoolInfo, max_mempool_cost, uint64(5))
-        fee_estimator = create_bitcoin_fee_estimator(max_block_cost_klvm)
+        fee_estimator = create_bitcoin_fee_estimator(max_block_cost_clvk)
         mempool = Mempool(mempool_info, fee_estimator)
         assert mempool.get_min_fee_rate(104000) == 0
 
@@ -2229,7 +2238,7 @@ class TestMempoolManager:
 # the following tests generate generator programs and run them through get_name_puzzle_conditions()
 
 COST_PER_BYTE = 12000
-MAX_BLOCK_COST_KLVM = 11000000000
+MAX_BLOCK_COST_CLVK = 11000000000
 
 
 def generator_condition_tester(
@@ -2237,11 +2246,11 @@ def generator_condition_tester(
     *,
     mempool_mode: bool = False,
     quote: bool = True,
-    max_cost: int = MAX_BLOCK_COST_KLVM,
+    max_cost: int = MAX_BLOCK_COST_CLVK,
     height: uint32,
     coin_amount: int = 123,
 ) -> NPCResult:
-    prg = f"(q ((0x0101010101010101010101010101010101010101010101010101010101010101 {'(q ' if quote else ''} {conditions} {')' if quote else ''} {coin_amount} (() (q . ())))))"  # noqa
+    prg = f"(q ((0x0101010101010101010101010101010101010101010101010101010101010101 {'(q ' if quote else ''} {conditions} {')' if quote else ''} {coin_amount} (() (q . ())))))"  # ruff: ignore[line-too-long]
     print(f"program: {prg}")
     program = SerializedProgram.from_bytes(binutils.assemble(prg).as_bin())
     generator = BlockGenerator(program, [])
@@ -2498,12 +2507,12 @@ class TestGeneratorConditions:
         puzzle_hash = "abababababababababababababababab"
         program = SerializedProgram.from_bytes(
             binutils.assemble(
-                f'(q ((0x0101010101010101010101010101010101010101010101010101010101010101 (q (51 "{puzzle_hash}" 10)) 123 (() (q . ())))(0x0101010101010101010101010101010101010101010101010101010101010102 (q (51 "{puzzle_hash}" 10)) 123 (() (q . ()))) ))'  # noqa
+                f'(q ((0x0101010101010101010101010101010101010101010101010101010101010101 (q (51 "{puzzle_hash}" 10)) 123 (() (q . ())))(0x0101010101010101010101010101010101010101010101010101010101010102 (q (51 "{puzzle_hash}" 10)) 123 (() (q . ()))) ))'  # ruff: ignore[line-too-long]
             ).as_bin()
         )
         generator = BlockGenerator(program, [])
         npc_result: NPCResult = get_name_puzzle_conditions(
-            generator, MAX_BLOCK_COST_KLVM, mempool_mode=False, height=softfork_height, constants=test_constants
+            generator, MAX_BLOCK_COST_CLVK, mempool_mode=False, height=softfork_height, constants=test_constants
         )
         assert npc_result.error is None
         assert npc_result.conds is not None
@@ -2622,7 +2631,7 @@ class TestGeneratorConditions:
 # )
 # with A=28 and B specified as {num}
 
-SINGLE_ARG_INT_COND = "(a (q 2 4 (c 2 (c (c (q . {opcode}) (c (concat (a 6 (c 2 (c (q . {filler}) (c 5 ())))) (q . {val})) ())) (c 11 ())))) (c (q (a (i 11 (q 4 5 (a 4 (c 2 (c 5 (c (- 11 (q . 1)) ()))))) ()) 1) 2 (i 11 (q 2 6 (c 2 (c (concat 5 5) (c (- 11 (q . 1)) ())))) (q . 5)) 1) (q 28 {num})))"  # noqa
+SINGLE_ARG_INT_COND = "(a (q 2 4 (c 2 (c (c (q . {opcode}) (c (concat (a 6 (c 2 (c (q . {filler}) (c 5 ())))) (q . {val})) ())) (c 11 ())))) (c (q (a (i 11 (q 4 5 (a 4 (c 2 (c 5 (c (- 11 (q . 1)) ()))))) ()) 1) 2 (i 11 (q 2 6 (c 2 (c (concat 5 5) (c (- 11 (q . 1)) ())))) (q . 5)) 1) (q 28 {num})))"  # ruff: ignore[line-too-long]
 
 # this program:
 # (mod (A B)
@@ -2637,7 +2646,7 @@ SINGLE_ARG_INT_COND = "(a (q 2 4 (c 2 (c (c (q . {opcode}) (c (concat (a 6 (c 2 
 # truncates the first byte of the large string being passed down for each
 # iteration, in an attempt to defeat any caching of integers by node ID.
 # substr is cheap, and no memory is copied, so we can perform a lot of these
-SINGLE_ARG_INT_SUBSTR_COND = "(a (q 2 4 (c 2 (c (concat (a 6 (c 2 (c (q . {filler}) (c 5 ())))) (q . {val})) (c 11 ())))) (c (q (a (i 11 (q 4 (c (q . {opcode}) (c 5 ())) (a 4 (c 2 (c (substr 5 (q . 1)) (c (- 11 (q . 1)) ()))))) ()) 1) 2 (i 11 (q 2 6 (c 2 (c (concat 5 5) (c (- 11 (q . 1)) ())))) (q . 5)) 1) (q 28 {num})))"  # noqa
+SINGLE_ARG_INT_SUBSTR_COND = "(a (q 2 4 (c 2 (c (concat (a 6 (c 2 (c (q . {filler}) (c 5 ())))) (q . {val})) (c 11 ())))) (c (q (a (i 11 (q 4 (c (q . {opcode}) (c 5 ())) (a 4 (c 2 (c (substr 5 (q . 1)) (c (- 11 (q . 1)) ()))))) ()) 1) 2 (i 11 (q 2 6 (c 2 (c (concat 5 5) (c (- 11 (q . 1)) ())))) (q . 5)) 1) (q 28 {num})))"  # ruff: ignore[line-too-long]
 
 # this program:
 # (mod (A B)
@@ -2649,7 +2658,7 @@ SINGLE_ARG_INT_SUBSTR_COND = "(a (q 2 4 (c 2 (c (concat (a 6 (c 2 (c (q . {fille
 #  )
 #  (iter (concat (large_string 0x00 A) (q . 0xffffffff)) B)
 # )
-SINGLE_ARG_INT_SUBSTR_TAIL_COND = "(a (q 2 4 (c 2 (c (concat (a 6 (c 2 (c (q . {filler}) (c 5 ())))) (q . {val})) (c 11 ())))) (c (q (a (i 11 (q 4 (c (q . {opcode}) (c 5 ())) (a 4 (c 2 (c (substr 5 () (- (strlen 5) (q . 1))) (c (- 11 (q . 1)) ()))))) ()) 1) 2 (i 11 (q 2 6 (c 2 (c (concat 5 5) (c (- 11 (q . 1)) ())))) (q . 5)) 1) (q 25 {num})))"  # noqa
+SINGLE_ARG_INT_SUBSTR_TAIL_COND = "(a (q 2 4 (c 2 (c (concat (a 6 (c 2 (c (q . {filler}) (c 5 ())))) (q . {val})) (c 11 ())))) (c (q (a (i 11 (q 4 (c (q . {opcode}) (c 5 ())) (a 4 (c 2 (c (substr 5 () (- (strlen 5) (q . 1))) (c (- 11 (q . 1)) ()))))) ()) 1) 2 (i 11 (q 2 6 (c 2 (c (concat 5 5) (c (- 11 (q . 1)) ())))) (q . 5)) 1) (q 25 {num})))"  # ruff: ignore[line-too-long]
 
 # (mod (A B)
 #  (defun large_string (V N)
@@ -2660,7 +2669,7 @@ SINGLE_ARG_INT_SUBSTR_TAIL_COND = "(a (q 2 4 (c 2 (c (concat (a 6 (c 2 (c (q . {
 #  )
 #  (iter (large_string 0x00 A) B)
 # )
-SINGLE_ARG_INT_LADDER_COND = "(a (q 2 4 (c 2 (c (a 6 (c 2 (c (q . {filler}) (c 5 ())))) (c 11 ())))) (c (q (a (i 11 (q 4 (c (q . {opcode}) (c (concat 5 11) ())) (a 4 (c 2 (c 5 (c (- 11 (q . 1)) ()))))) ()) 1) 2 (i 11 (q 2 6 (c 2 (c (concat 5 5) (c (- 11 (q . 1)) ())))) (q . 5)) 1) (q 24 {num})))"  # noqa
+SINGLE_ARG_INT_LADDER_COND = "(a (q 2 4 (c 2 (c (a 6 (c 2 (c (q . {filler}) (c 5 ())))) (c 11 ())))) (c (q (a (i 11 (q 4 (c (q . {opcode}) (c (concat 5 11) ())) (a 4 (c 2 (c 5 (c (- 11 (q . 1)) ()))))) ()) 1) 2 (i 11 (q 2 6 (c 2 (c (concat 5 5) (c (- 11 (q . 1)) ())))) (q . 5)) 1) (q 24 {num})))"  # ruff: ignore[line-too-long]
 
 # this program:
 # (mod (A B)
@@ -2674,7 +2683,7 @@ SINGLE_ARG_INT_LADDER_COND = "(a (q 2 4 (c 2 (c (a 6 (c 2 (c (q . {filler}) (c 5
 # )
 # with B set to {num}
 
-CREATE_ANNOUNCE_COND = "(a (q 2 4 (c 2 (c (c (q . {opcode}) (c (a 6 (c 2 (c 5 ()))) ())) (c 11 ())))) (c (q (a (i 11 (q 4 5 (a 4 (c 2 (c 5 (c (- 11 (q . 1)) ()))))) ()) 1) 23 (q . 97) 5) (q 8184 {num})))"  # noqa
+CREATE_ANNOUNCE_COND = "(a (q 2 4 (c 2 (c (c (q . {opcode}) (c (a 6 (c 2 (c 5 ()))) ())) (c 11 ())))) (c (q (a (i 11 (q 4 5 (a 4 (c 2 (c 5 (c (- 11 (q . 1)) ()))))) ()) 1) 23 (q . 97) 5) (q 8184 {num})))"  # ruff: ignore[line-too-long]
 
 # this program:
 # (mod (A)
@@ -2683,7 +2692,7 @@ CREATE_ANNOUNCE_COND = "(a (q 2 4 (c 2 (c (c (q . {opcode}) (c (a 6 (c 2 (c 5 ()
 #  )
 #  (iter (q 51 "abababababababababababababababab" 1) A)
 # )
-CREATE_COIN = '(a (q 2 2 (c 2 (c (q 51 "abababababababababababababababab" 1) (c 5 ())))) (c (q 2 (i 11 (q 4 5 (a 2 (c 2 (c 5 (c (- 11 (q . 1)) ()))))) ()) 1) (q {num})))'  # noqa
+CREATE_COIN = '(a (q 2 2 (c 2 (c (q 51 "abababababababababababababababab" 1) (c 5 ())))) (c (q 2 (i 11 (q 4 5 (a 2 (c 2 (c 5 (c (- 11 (q . 1)) ()))))) ()) 1) (q {num})))'  # ruff: ignore[line-too-long]
 
 # this program:
 # (mod (A)
@@ -2699,7 +2708,7 @@ CREATE_COIN = '(a (q 2 2 (c 2 (c (q 51 "abababababababababababababababab" 1) (c 
 #   (iter (q 51 "abababababababababababababababab") A)
 # )
 # creates {num} CREATE_COIN conditions, each with a different amount
-CREATE_UNIQUE_COINS = '(a (q 2 6 (c 2 (c (q 51 "abababababababababababababababab") (c 5 ())))) (c (q (a (i 5 (q 4 9 (a 4 (c 2 (c 13 (c 11 ()))))) (q 4 11 ())) 1) 2 (i 11 (q 4 (a 4 (c 2 (c 5 (c 11 ())))) (a 6 (c 2 (c 5 (c (- 11 (q . 1)) ()))))) ()) 1) (q {num})))'  # noqa
+CREATE_UNIQUE_COINS = '(a (q 2 6 (c 2 (c (q 51 "abababababababababababababababab") (c 5 ())))) (c (q (a (i 5 (q 4 9 (a 4 (c 2 (c 13 (c 11 ()))))) (q 4 11 ())) 1) 2 (i 11 (q 4 (a 4 (c 2 (c 5 (c 11 ())))) (a 6 (c 2 (c 5 (c (- 11 (q . 1)) ()))))) ()) 1) (q {num})))'  # ruff: ignore[line-too-long]
 
 
 # some of the malicious tests will fail post soft-fork, this function helps test
@@ -2860,7 +2869,7 @@ class TestMaliciousGenerators:
         assert npc_result.conds is not None
         assert len(npc_result.conds.spends) == 1
         # coin announcements are not propagated to python, but validated in rust
-        # TODO: optimize klvm to make this run in < 1 second
+        # TODO: optimize clvk to make this run in < 1 second
 
     def test_create_coin_duplicates(self, softfork_height: uint32, benchmark_runner: BenchmarkRunner) -> None:
         # CREATE_COIN
@@ -3025,9 +3034,9 @@ def test_full_mempool(items: list[int], add: int, expected: list[int]) -> None:
     fee_estimator = create_bitcoin_fee_estimator(uint64(11000000000))
 
     mempool_info = MempoolInfo(
-        KLVMCost(uint64(100)),
+        CLVKCost(uint64(100)),
         FeeRate(uint64(1000000)),
-        KLVMCost(uint64(100)),
+        CLVKCost(uint64(100)),
     )
     mempool = Mempool(mempool_info, fee_estimator)
     invariant_check_mempool(mempool)
@@ -3087,9 +3096,9 @@ def test_limit_expiring_transactions(height: bool, items: list[int], expected: l
     fee_estimator = create_bitcoin_fee_estimator(uint64(11000000000))
 
     mempool_info = MempoolInfo(
-        KLVMCost(uint64(100 * SCALE)),
+        CLVKCost(uint64(100 * SCALE)),
         FeeRate(uint64(1000000)),
-        KLVMCost(uint64(50 * SCALE)),
+        CLVKCost(uint64(50 * SCALE)),
     )
     mempool = Mempool(mempool_info, fee_estimator)
     mempool.new_tx_block(uint32(10), uint64(100000))
@@ -3183,11 +3192,11 @@ def make_test_spendbundle(coin: Coin, *, fee: int = 0, with_higher_cost: bool = 
 
 
 def construct_mempool() -> Mempool:
-    fee_estimator = create_bitcoin_fee_estimator(test_constants.MAX_BLOCK_COST_KLVM)
+    fee_estimator = create_bitcoin_fee_estimator(test_constants.MAX_BLOCK_COST_CLVK)
     mempool_info = MempoolInfo(
-        KLVMCost(uint64(test_constants.MAX_BLOCK_COST_KLVM * 3)),
+        CLVKCost(uint64(test_constants.MAX_BLOCK_COST_CLVK * 3)),
         FeeRate(uint64(1000000)),
-        KLVMCost(test_constants.MAX_BLOCK_COST_KLVM),
+        CLVKCost(test_constants.MAX_BLOCK_COST_CLVK),
     )
     return Mempool(mempool_info, fee_estimator)
 
@@ -3274,7 +3283,7 @@ def test_get_puzzle_and_solution_for_coin_failure() -> None:
             get_puzzle_and_solution_for_coin(
                 SerializedProgram.to(None),
                 [],
-                test_constants.MAX_BLOCK_COST_KLVM,
+                test_constants.MAX_BLOCK_COST_CLVK,
                 TEST_COIN,
                 get_flags_for_height_and_constants(0, test_constants),
             )
@@ -3317,12 +3326,12 @@ create_coins_loop: str = (
 @pytest.mark.parametrize("old", [True, False])
 def test_create_block_generator_custom_spend(puzzle: str, solution: str, old: bool) -> None:
     mempool_info = MempoolInfo(
-        KLVMCost(uint64(11000000000 * 3)),
+        CLVKCost(uint64(11000000000 * 3)),
         FeeRate(uint64(1000000)),
-        KLVMCost(uint64(11000000000)),
+        CLVKCost(uint64(11000000000)),
     )
 
-    fee_estimator = create_bitcoin_fee_estimator(test_constants.MAX_BLOCK_COST_KLVM)
+    fee_estimator = create_bitcoin_fee_estimator(test_constants.MAX_BLOCK_COST_CLVK)
     solution_str = SerializedProgram.fromhex(solution)
     puzzle_reveal = SerializedProgram.fromhex(puzzle)
     puzzle_hash = puzzle_reveal.get_tree_hash()
@@ -3355,7 +3364,7 @@ def test_create_block_generator_custom_spend(puzzle: str, solution: str, old: bo
     err, _err_msg, conds = run_block_generator2(
         bytes(generator.program),
         generator.generator_refs,
-        test_constants.MAX_BLOCK_COST_KLVM,
+        test_constants.MAX_BLOCK_COST_CLVK,
         flags,
         generator.signature,
         None,
@@ -3402,7 +3411,7 @@ def test_create_block_generator(old: bool) -> None:
     err, _err_msg, conds = run_block_generator2(
         bytes(generator.program),
         generator.generator_refs,
-        test_constants.MAX_BLOCK_COST_KLVM,
+        test_constants.MAX_BLOCK_COST_CLVK,
         0,
         generator.signature,
         None,
@@ -3430,9 +3439,9 @@ def test_max_spends_per_block(old: bool) -> None:
     max_cost = uint64(11_000_000_000)
     fee_estimator = create_bitcoin_fee_estimator(max_cost)
     mempool_info = MempoolInfo(
-        KLVMCost(uint64(max_cost * 10)),
+        CLVKCost(uint64(max_cost * 10)),
         FeeRate(uint64(1000000)),
-        KLVMCost(max_cost),
+        CLVKCost(max_cost),
     )
     mempool = Mempool(mempool_info, fee_estimator)
 
@@ -3472,15 +3481,130 @@ def test_max_spends_per_block(old: bool) -> None:
 
 
 @pytest.mark.parametrize("old", [True, False])
-def test_max_spends_per_block_with_dedup(old: bool) -> None:
-    from chik_rs import ELIGIBLE_FOR_DEDUP
-
+@pytest.mark.parametrize("limit", ["atoms", "pairs"])
+def test_block_atom_and_pair_limits(old: bool, limit: str) -> None:
     max_cost = uint64(11_000_000_000)
     fee_estimator = create_bitcoin_fee_estimator(max_cost)
     mempool_info = MempoolInfo(
-        KLVMCost(uint64(max_cost * 10)),
+        CLVKCost(uint64(max_cost * 10)),
         FeeRate(uint64(1000000)),
-        KLVMCost(max_cost),
+        CLVKCost(max_cost),
+    )
+    mempool = Mempool(mempool_info, fee_estimator)
+
+    # Each item accrues a third of the block limit, so exactly 3 items fit
+    # (the limit is inclusive), and any further item must be skipped. The other
+    # limit (cost, spends, and the counterpart of atoms/pairs) is kept small so
+    # only the limit under test is binding.
+    block_limit = MAX_BLOCK_ATOMS if limit == "atoms" else MAX_BLOCK_PAIRS
+    per_item = block_limit // 3
+    atom_counts = [per_item] if limit == "atoms" else None
+    pair_counts = [per_item] if limit == "pairs" else None
+
+    num_items = 6
+    for i in range(num_items):
+        item = mk_item([make_coin(i)], cost=1_000_000, fee=100, atom_counts=atom_counts, pair_counts=pair_counts)
+        info = mempool.add_to_pool(item)
+        assert info.error is None
+
+    assert mempool.size() == num_items
+
+    create_block = mempool.create_block_generator if old else mempool.create_block_generator2
+    generator = create_block(test_constants, uint32(0), 30.0)
+    assert generator is not None
+    # 3 * per_item == block_limit, so 3 items fit and the rest are skipped.
+    assert len(generator.removals) == 3
+
+
+def test_block_atom_saturation_stops_scanning(monkeypatch: pytest.MonkeyPatch) -> None:
+    max_cost = uint64(11_000_000_000)
+    fee_estimator = create_bitcoin_fee_estimator(max_cost)
+    mempool_info = MempoolInfo(
+        CLVKCost(uint64(max_cost * 10)),
+        FeeRate(uint64(1000000)),
+        CLVKCost(max_cost),
+    )
+    mempool = Mempool(mempool_info, fee_estimator)
+
+    # Each item takes a third of the atom budget, so only 3 fit; the rest are
+    # skipped. Without an early exit, every later item would still be scanned.
+    per_item = MAX_BLOCK_ATOMS // 3
+    num_items = 3 + MAX_SKIPPED_ITEMS + 5
+    for i in range(num_items):
+        item = mk_item([make_coin(i)], cost=1_000_000, fee=100, atom_counts=[per_item])
+        assert mempool.add_to_pool(item).error is None
+    assert mempool.size() == num_items
+
+    dedup_calls = 0
+    original_get_deduplication_info = IdenticalSpendDedup.get_deduplication_info
+
+    def counting_get_deduplication_info(
+        self: IdenticalSpendDedup, *, bundle_coin_spends: dict[bytes32, BundleCoinSpend]
+    ) -> tuple[list[CoinSpend], uint64, int, int, list[Coin], dict[bytes32, DedupCoinSpend]]:
+        nonlocal dedup_calls
+        dedup_calls += 1
+        return original_get_deduplication_info(self, bundle_coin_spends=bundle_coin_spends)
+
+    monkeypatch.setattr(IdenticalSpendDedup, "get_deduplication_info", counting_get_deduplication_info)
+
+    generator = mempool.create_block_generator2(test_constants, uint32(0), 30.0)
+    assert generator is not None
+    # Only 3 items fit the atom budget.
+    assert len(generator.removals) == 3
+    # Scanning stops after PRIORITY_TX_THRESHOLD skips: 3 fitting + PRIORITY_TX_THRESHOLD
+    # skipped items are processed, and none beyond that.
+    assert dedup_calls == 3 + PRIORITY_TX_THRESHOLD
+
+
+@pytest.mark.parametrize("old", [True, False])
+@pytest.mark.parametrize("limit", ["atoms", "pairs"])
+def test_block_atom_and_pair_limits_with_dedup(old: bool, limit: str) -> None:
+    max_cost = uint64(11_000_000_000)
+    fee_estimator = create_bitcoin_fee_estimator(max_cost)
+    mempool_info = MempoolInfo(
+        CLVKCost(uint64(max_cost * 10)),
+        FeeRate(uint64(1000000)),
+        CLVKCost(max_cost),
+    )
+    mempool = Mempool(mempool_info, fee_estimator)
+
+    block_limit = MAX_BLOCK_ATOMS if limit == "atoms" else MAX_BLOCK_PAIRS
+    per_item = block_limit // 3
+    # Shared dedup spend takes half; the unique spend takes the rest.
+    shared = per_item // 2
+    unique = per_item - shared
+    atom_counts = [shared, unique] if limit == "atoms" else None
+    pair_counts = [shared, unique] if limit == "pairs" else None
+    shared_coin = make_coin(0)
+
+    num_items = 6
+    for i in range(num_items):
+        item = mk_item(
+            [shared_coin, make_coin(i + 1)],
+            cost=1_000_000,
+            fee=100,
+            atom_counts=atom_counts,
+            pair_counts=pair_counts,
+            flags=[ELIGIBLE_FOR_DEDUP, 0],
+        )
+        assert mempool.add_to_pool(item).error is None
+
+    assert mempool.size() == num_items
+
+    create_block = mempool.create_block_generator if old else mempool.create_block_generator2
+    generator = create_block(test_constants, uint32(0), 30.0)
+    assert generator is not None
+    assert len(generator.removals) > 4
+
+
+@pytest.mark.parametrize("old", [True, False])
+def test_max_spends_per_block_with_dedup(old: bool) -> None:
+    max_cost = uint64(11_000_000_000)
+    fee_estimator = create_bitcoin_fee_estimator(max_cost)
+    mempool_info = MempoolInfo(
+        CLVKCost(uint64(max_cost * 10)),
+        FeeRate(uint64(1000000)),
+        CLVKCost(max_cost),
     )
     mempool = Mempool(mempool_info, fee_estimator)
 
@@ -3514,6 +3638,62 @@ def test_max_spends_per_block_with_dedup(old: bool) -> None:
     assert len(generator.removals) > MAX_SPENDS_PER_BLOCK // 2
 
 
+@pytest.mark.parametrize("old", [True, False])
+def test_skipped_item_does_not_leak_dedup_state(old: bool) -> None:
+    """
+    an item that is processed (and thus registers a shared
+    dedup coin) but ultimately dropped must not leave that coin registered in
+    the dedup state. Otherwise a later item spending the same coin gets
+    "deduplicated" against a spend that never makes it into the block, dropping
+    the coin from the block entirely.
+    """
+    max_cost = uint64(11_000_000_000)
+    fee_estimator = create_bitcoin_fee_estimator(max_cost)
+    mempool_info = MempoolInfo(
+        CLVKCost(uint64(max_cost * 10)),
+        FeeRate(uint64(1000000)),
+        CLVKCost(max_cost),
+    )
+    mempool = Mempool(mempool_info, fee_estimator)
+
+    shared_coin = make_coin(0)
+
+    # The "big" item registers the shared dedup coin but has more spends than a
+    # block can hold, so it gets skipped. Its high fee gives it the highest
+    # priority, so it's the first item processed (and the first to touch the
+    # shared coin).
+    big_item = mk_item(
+        [shared_coin, *[make_coin(i + 1) for i in range(MAX_SPENDS_PER_BLOCK)]],
+        cost=1,
+        fee=1_000_000_000,
+        flags=[ELIGIBLE_FOR_DEDUP],
+    )
+    info = mempool.add_to_pool(big_item)
+    assert info.error is None
+
+    # The "small" item spends the same shared dedup coin plus one unique coin.
+    # It's small enough to fit and is processed after the big item.
+    unique_coin = make_coin(MAX_SPENDS_PER_BLOCK + 1)
+    small_item = mk_item(
+        [shared_coin, unique_coin],
+        cost=1,
+        fee=0,
+        flags=[ELIGIBLE_FOR_DEDUP, 0],
+    )
+    info = mempool.add_to_pool(small_item)
+    assert info.error is None
+
+    create_block = mempool.create_block_generator if old else mempool.create_block_generator2
+    generator = create_block(test_constants, uint32(0), 30.0)
+    assert generator is not None
+
+    removals = set(generator.removals)
+    # The small item was included, so every coin it spends must be in the block.
+    # In particular the shared coin must not have been deduplicated away against
+    # the skipped big item.
+    assert removals == {shared_coin, unique_coin}
+
+
 def test_keccak() -> None:
     # the keccak operator is 62. The assemble() function doesn't support it
     # (yet)
@@ -3541,7 +3721,7 @@ def test_keccak() -> None:
             "(q . 0) (q x)) (q . ())) (q . ()))"
         )
     )
-    with pytest.raises(ValueError, match="klvm raise"):
+    with pytest.raises(ValueError, match="clvk raise"):
         keccak_prg.run_with_flags(1215, 0, [])
 
     # === HARD FORK ===

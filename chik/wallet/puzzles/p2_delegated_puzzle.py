@@ -15,7 +15,7 @@ This roughly corresponds to bitcoin's graftroot.
 from __future__ import annotations
 
 from chik_puzzles_py.programs import P2_DELEGATED_PUZZLE
-from klvm.SExp import CastableType
+from clvk.SExp import CastableType
 
 from chik.types.blockchain_format.program import Program
 from chik.wallet.puzzles import p2_conditions

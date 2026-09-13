@@ -25,7 +25,7 @@ from chik.full_node.fee_tracker import FeeTracker
 from chik.full_node.mempool import Mempool, MempoolRemoveReason
 from chik.simulator.block_tools import test_constants
 from chik.simulator.wallet_tools import WalletTool
-from chik.types.klvm_cost import KLVMCost
+from chik.types.clvk_cost import CLVKCost
 from chik.types.fee_rate import FeeRate, FeeRateV2
 from chik.types.mempool_item import MempoolItem
 
@@ -77,13 +77,13 @@ class FeeEstimatorInterfaceIntegrationVerificationObject(FeeEstimatorInterface):
         """time_offset_seconds: number of seconds into the future for which to estimate fee"""
         return FeeRateV2(0)
 
-    def mempool_size(self) -> KLVMCost:
+    def mempool_size(self) -> CLVKCost:
         """Report last seen mempool size"""
-        return KLVMCost(uint64(0))
+        return CLVKCost(uint64(0))
 
-    def mempool_max_size(self) -> KLVMCost:
-        """Report current mempool max "size" (i.e. KLVM cost)"""
-        return KLVMCost(uint64(0))
+    def mempool_max_size(self) -> CLVKCost:
+        """Report current mempool max "size" (i.e. CLVK cost)"""
+        return CLVKCost(uint64(0))
 
     def get_mempool_info(self) -> FeeMempoolInfo:
         """Report Mempool current configuration and state"""
@@ -98,9 +98,9 @@ def test_mempool_fee_estimator_init() -> None:
 
 
 test_mempool_info = MempoolInfo(
-    max_size_in_cost=KLVMCost(uint64(5000000)),
+    max_size_in_cost=CLVKCost(uint64(5000000)),
     minimum_fee_per_cost_to_replace=FeeRate(uint64(5)),
-    max_block_klvm_cost=KLVMCost(uint64(1000000)),
+    max_block_clvk_cost=CLVKCost(uint64(1000000)),
 )
 
 

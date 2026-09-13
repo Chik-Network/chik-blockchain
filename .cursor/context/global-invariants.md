@@ -24,8 +24,8 @@ fees. Enforced in `validate_block_body()` and `MempoolManager.validate_spend_bun
 
 ### 4. Block cost bound
 
-Every block's KLVM cost ≤ `MAX_BLOCK_COST_KLVM` (11 000 000 000).
-Every mempool item's cost ≤ `MAX_BLOCK_COST_KLVM / 2`.
+Every block's CLVK cost ≤ `MAX_BLOCK_COST_CLVK` (11 000 000 000).
+Every mempool item's cost ≤ `MAX_BLOCK_COST_CLVK / 2`.
 
 ### 5. Timestamp ordering
 
@@ -87,7 +87,7 @@ During block validation:
 | RPC from localhost                    | **Semi-trusted**            | TLS client cert required, inputs validated                                          |
 | Farmer → Full Node                    | **Semi-trusted**            | Proofs cryptographically verified, signatures validated                             |
 | Harvester → Farmer                    | **Trusted** (same operator) | Minimal validation                                                                  |
-| KLVM execution (arbitrary puzzles)    | **Untrusted**               | Sandboxed in Rust, cost-metered, atom/pair count bounded                            |
+| CLVK execution (arbitrary puzzles)    | **Untrusted**               | Sandboxed in Rust, cost-metered, atom/pair count bounded                            |
 | Block generators                      | **Untrusted**               | Cost limits, ref list size capped (512)                                             |
 | Weight proofs                         | **Untrusted**               | Full VDF verification, sub-epoch summary validation                                 |
 | Wallet → Full Node (send_transaction) | **Untrusted**               | Full mempool validation pipeline                                                    |
@@ -113,7 +113,7 @@ FullNode creates finished block → add_block() → broadcasts new_peak
 
 ```
 Wallet → send_transaction → FullNode
-FullNode: pre_validate_spendbundle() [thread pool, KLVM + BLS]
+FullNode: pre_validate_spendbundle() [thread pool, CLVK + BLS]
 FullNode: add_spend_bundle() [under blockchain lock]
   → validate_spend_bundle() → check coins, fees, conflicts, timelocks
   → if SUCCESS: add to mempool, broadcast new_transaction
@@ -163,7 +163,7 @@ Broadcast new_peak to peers and wallets
 
 ### Thread pools
 
-- `Blockchain.pool`: Block validation (KLVM execution)
+- `Blockchain.pool`: Block validation (CLVK execution)
 - `MempoolManager.pool`: Spend bundle validation (2 workers)
 - Both use `ThreadPoolExecutor`
 
@@ -215,7 +215,7 @@ block types (transaction vs non-transaction).
 
 | Fork                     | Height     | What changed                                                       |
 | ------------------------ | ---------- | ------------------------------------------------------------------ |
-| `HARD_FORK_HEIGHT`       | 5 496 000  | June 2024 — condition set changes, KLVM flags                      |
+| `HARD_FORK_HEIGHT`       | 5 496 000  | June 2024 — condition set changes, CLVK flags                      |
 | `HARD_FORK2_HEIGHT`      | 0xFFFFFFFA | Placeholder sentinel for v2 plots; real height is network-specific |
 | `SOFT_FORK8_HEIGHT`      | 8 655 000  | Soft fork conditions                                               |
 | `PLOT_FILTER_128_HEIGHT` | 10 542 000 | June 2027 — plot filter reduction                                  |
@@ -223,4 +223,4 @@ block types (transaction vs non-transaction).
 | `PLOT_FILTER_32_HEIGHT`  | 20 643 000 | June 2033                                                          |
 
 Heights are checked via `get_flags_for_height_and_constants()` which returns
-the appropriate flag set for KLVM execution at a given height.
+the appropriate flag set for CLVK execution at a given height.

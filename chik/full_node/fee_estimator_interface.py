@@ -4,7 +4,7 @@ from chik_rs.sized_ints import uint32
 from typing_extensions import Protocol
 
 from chik.full_node.fee_estimation import FeeBlockInfo, FeeMempoolInfo, MempoolItemInfo
-from chik.types.klvm_cost import KLVMCost
+from chik.types.clvk_cost import CLVKCost
 from chik.types.fee_rate import FeeRateV2
 
 
@@ -24,11 +24,11 @@ class FeeEstimatorInterface(Protocol):
     def estimate_fee_rate(self, *, time_offset_seconds: int) -> FeeRateV2:
         """time_offset_seconds: number of seconds into the future for which to estimate fee"""
 
-    def mempool_size(self) -> KLVMCost:
+    def mempool_size(self) -> CLVKCost:
         """Report last seen mempool size"""
 
-    def mempool_max_size(self) -> KLVMCost:
-        """Report current mempool max "size" (i.e. KLVM cost)"""
+    def mempool_max_size(self) -> CLVKCost:
+        """Report current mempool max "size" (i.e. CLVK cost)"""
 
     def get_mempool_info(self) -> FeeMempoolInfo:
         """Report Mempool current configuration and state"""

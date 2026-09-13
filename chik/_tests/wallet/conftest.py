@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import contextlib
-import unittest
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AsyncExitStack
 from dataclasses import replace
 from typing import Any
+from unittest import mock
 
 import pytest
 from chik_rs import (
@@ -22,9 +22,11 @@ from chik_rs.sized_ints import uint32, uint64, uint128
 from chik._tests.environments.wallet import NewPuzzleHashError, WalletEnvironment, WalletState, WalletTestFramework
 from chik._tests.util.setup_nodes import setup_simulators_and_wallets_service
 from chik._tests.wallet.wallet_block_tools import WalletBlockTools
+from chik.consensus.block_generator_info import get_transactions_generator_bytes
 from chik.full_node.full_node import FullNode
 from chik.full_node.full_node_rpc_client import FullNodeRpcClient
 from chik.types.peer_info import PeerInfo
+from chik.util.errors import Err
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG, TXConfig
 from chik.wallet.wallet_node import Balance
 from chik.wallet.wallet_rpc_client import WalletRpcClient
@@ -84,8 +86,9 @@ async def ignore_block_validation(
 
     def run_block(
         block: FullBlock, prev_generators: list[bytes], prev_tx_height: uint32, constants: ConsensusConstants
-    ) -> tuple[int | None, str | None, SpendBundleConditions | None]:
-        assert block.transactions_generator is not None
+    ) -> tuple[Err | None, str | None, SpendBundleConditions | None]:
+        generator_bytes = get_transactions_generator_bytes(block)
+        assert generator_bytes is not None
         assert block.transactions_info is not None
         flags = get_flags_for_height_and_constants(prev_tx_height, constants) | DONT_VALIDATE_SIGNATURE
         if block.height >= constants.HARD_FORK_HEIGHT:
@@ -93,7 +96,7 @@ async def ignore_block_validation(
         else:
             run_block = run_block_generator
         err, err_msg, conds = run_block(
-            bytes(block.transactions_generator),
+            generator_bytes,
             prev_generators,
             block.transactions_info.cost,
             flags,
@@ -104,11 +107,12 @@ async def ignore_block_validation(
         # pretend that the signatures are OK
         if conds is not None:
             conds = conds.replace(validated_signature=True)
-        return err, err_msg, conds
+        return None if err is None else Err(err), err_msg, conds
 
     monkeypatch.setattr("chik.simulator.block_tools.BlockTools", WalletBlockTools)
     monkeypatch.setattr(FullNode, "create", create_wrapper(FullNode.create))
     monkeypatch.setattr("chik.consensus.blockchain.validate_block_body", validate_block_body)
+    monkeypatch.setattr("chik.consensus.multiprocess_validation.validate_generator_ref_list", lambda *_, **__: None)
     monkeypatch.setattr("chik.consensus.multiprocess_validation._run_block", run_block)
     monkeypatch.setattr(
         "chik.consensus.block_header_validation.validate_unfinished_header_block", lambda *_, **__: (uint64(1), None)
@@ -147,7 +151,7 @@ def tx_config(request: Any) -> TXConfig:
 
 def new_action_scope_wrapper(func: Any) -> Any:
     @contextlib.asynccontextmanager
-    async def wrapped_new_action_scope(self: WalletStateManager, *args: Any, **kwargs: Any) -> Any:
+    async def wrapped_new_action_scope(self: WalletStateManager, *args: Any, **kwargs: Any) -> AsyncIterator[Any]:
         # Take note of the number of puzzle hashes if we're supposed to be reusing
         ph_indexes: dict[uint32, int] = {}
         for wallet_id in self.wallets:
@@ -198,7 +202,7 @@ async def wallet_environments(
         full_node[0]._api.full_node.config = {**full_node[0]._api.full_node.config, **config_overrides}
 
         new_action_scope_wrapped = new_action_scope_wrapper(WalletStateManager.new_action_scope)
-        with unittest.mock.patch(
+        with mock.patch(
             "chik.wallet.wallet_state_manager.WalletStateManager.new_action_scope", new=new_action_scope_wrapped
         ):
             wallet_rpc_clients: list[WalletRpcClient] = []
@@ -211,6 +215,9 @@ async def wallet_environments(
                             if trusted_full_node
                             else {}
                         ),
+                        "reuse_public_key_for_change": {
+                            str(service._node.logged_in_fingerprint): tx_config.reuse_puzhash
+                        },
                         **config_overrides,
                     }
                     service._node.wallet_state_manager.config = service._node.config
@@ -274,4 +281,5 @@ async def wallet_environments(
                         for service, rpc_client, wallet_state in zip(wallet_services, wallet_rpc_clients, wallet_states)
                     ],
                     tx_config,
+                    request.param.get("reorg_exempt", False),
                 )

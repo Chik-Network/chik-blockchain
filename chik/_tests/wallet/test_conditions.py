@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
-from klvm.EvalError import EvalError
+from clvk.EvalError import EvalError
 
 from chik.types.blockchain_format.program import Program
 from chik.types.condition_opcodes import ConditionOpcode
@@ -222,7 +222,7 @@ def test_announcement_inversions(
     create_driver, assert_driver = drivers
     # mypy is not smart enough to understand that this `if` narrows down the potential types it could be
     # This leads to the large number of type ignores below
-    if create_driver == CreateAnnouncement and assert_driver == AssertAnnouncement:
+    if create_driver is CreateAnnouncement and assert_driver is AssertAnnouncement:
         with pytest.raises(ValueError, match="Must specify either"):
             assert_driver(True)
         with pytest.raises(ValueError, match="Cannot create"):

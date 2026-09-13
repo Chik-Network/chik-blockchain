@@ -272,7 +272,7 @@ async def test_complex_offer(cost_logger: CostLogger) -> None:
             [real_blue_spend_replaced, *[spend for spend in valid_spend.coin_spends if spend != real_blue_spend]],
             G2Element(),
         )
-        with pytest.raises(ValueError, match="klvm raise"):
+        with pytest.raises(ValueError, match="clvk raise"):
             valid_spend.additions()
 
         # Test (de)serialization

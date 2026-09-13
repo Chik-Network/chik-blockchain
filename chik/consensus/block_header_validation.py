@@ -22,6 +22,7 @@ from chik.consensus.difficulty_adjustment import can_finish_sub_and_full_epoch
 from chik.consensus.get_block_challenge import (
     final_eos_is_already_included,
     get_block_challenge,
+    get_filter_challenge_from_chain,
     pre_sp_tx_block_height,
 )
 from chik.consensus.make_sub_epoch_summary import make_sub_epoch_summary
@@ -31,6 +32,10 @@ from chik.consensus.pot_iterations import (
     calculate_sp_iters,
     is_overflow_block,
     validate_pospace_and_get_required_iters,
+)
+from chik.consensus.reward_chain_block_validation import (
+    get_same_signage_point_records,
+    validate_reward_chain_block_transition,
 )
 from chik.consensus.vdf_info_computation import get_signage_point_vdf_info
 from chik.types.blockchain_format.classgroup import ClassgroupElement
@@ -53,6 +58,7 @@ def validate_unfinished_header_block(
     skip_overflow_last_ss_validation: bool = False,
     skip_vdf_is_valid: bool = False,
     check_sub_epoch_summary: bool = True,
+    height_agnostic: bool = False,
 ) -> tuple[uint64 | None, ValidationError | None]:
     """
     Validates an unfinished header block. This is a block without the infusion VDFs (unfinished)
@@ -423,7 +429,7 @@ def validate_unfinished_header_block(
                 assert prev_b is not None
 
                 # 3b. Check that we finished a slot and we finished a sub-epoch
-                if not new_sub_slot or not can_finish_se:
+                if not can_finish_se:
                     return (
                         None,
                         ValidationError(
@@ -455,7 +461,7 @@ def validate_unfinished_header_block(
                             ),
                         )
 
-            elif new_sub_slot and not genesis_block:
+            elif not genesis_block:
                 # 3d. Check that we don't have to include a sub-epoch summary
                 if can_finish_se or can_finish_epoch:
                     return (
@@ -507,6 +513,16 @@ def validate_unfinished_header_block(
     else:
         cc_sp_hash = header_block.reward_chain_block.challenge_chain_sp_vdf.output.get_hash()
 
+    filter_challenge = None
+    if not height_agnostic and header_block.reward_chain_block.proof_of_space.version == 1:
+        filter_challenge = get_filter_challenge_from_chain(
+            constants,
+            blocks,
+            header_block,
+            challenge,
+            header_block.reward_chain_block.signage_point_index,
+        )
+
     required_iters = validate_pospace_and_get_required_iters(
         constants,
         header_block.reward_chain_block.proof_of_space,
@@ -521,6 +537,9 @@ def validate_unfinished_header_block(
             sp_index=header_block.reward_chain_block.signage_point_index,
             finished_sub_slots=len(header_block.finished_sub_slots),
         ),
+        height_agnostic=height_agnostic,
+        filter_challenge=filter_challenge,
+        signage_point_index=header_block.reward_chain_block.signage_point_index,
     )
     if required_iters is None:
         return None, ValidationError(Err.INVALID_POSPACE)
@@ -854,6 +873,7 @@ def validate_finished_header_block(
     *,
     check_sub_epoch_summary: bool = True,
     skip_commitment_validation: bool = False,
+    height_agnostic: bool = False,
 ) -> tuple[uint64 | None, ValidationError | None]:
     """
     Fully validates the header of a block. A header block is the same  as a full block, but
@@ -877,6 +897,7 @@ def validate_finished_header_block(
         expected_vs,
         False,
         check_sub_epoch_summary=check_sub_epoch_summary,
+        height_agnostic=height_agnostic,
     )
 
     genesis_block = False
@@ -898,24 +919,28 @@ def validate_finished_header_block(
         header_block.reward_chain_block.signage_point_index,
         required_iters,
     )
-    if not genesis_block:
-        assert prev_b is not None
-        # 27. Check block height
-        if header_block.height != prev_b.height + 1:
-            return None, ValidationError(Err.INVALID_HEIGHT)
 
-        # 28. Check weight
-        if header_block.weight != prev_b.weight + expected_vs.difficulty:
-            log.error(f"INVALID WEIGHT: {header_block} {prev_b} {expected_vs.difficulty}")
-            return None, ValidationError(Err.INVALID_WEIGHT)
-    else:
-        # 27b. Check genesis block height, weight, and prev block hash
-        if header_block.height != uint32(0):
-            return None, ValidationError(Err.INVALID_HEIGHT)
-        if header_block.weight != uint128(constants.DIFFICULTY_STARTING):
-            return None, ValidationError(Err.INVALID_WEIGHT)
-        if header_block.prev_header_hash != constants.GENESIS_CHALLENGE:
-            return None, ValidationError(Err.INVALID_PREV_BLOCK_HASH)
+    same_sp_records = get_same_signage_point_records(
+        blocks,
+        prev_b,
+        header_block.reward_chain_block.signage_point_index,
+        new_sub_slot,
+    )
+
+    # 27. Check block height
+    # 28. Check weight
+    # 27b. Check genesis block height, weight, and prev block hash
+    transition_validation_error = validate_reward_chain_block_transition(
+        constants,
+        header_block.reward_chain_block,
+        header_block.prev_header_hash,
+        prev_b,
+        genesis_block,
+        same_sp_records,
+        expected_vs.difficulty,
+    )
+    if transition_validation_error is not None:
+        return None, transition_validation_error
 
     # RC vdf challenge is taken from more recent of (slot start, prev_block)
     if genesis_block:

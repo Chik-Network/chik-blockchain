@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from chik_rs.sized_bytes import bytes32
-from klvm_tools import binutils
+from clvk_tools import binutils
 
 from chik.consensus.condition_tools import parse_sexp_to_conditions
 from chik.types.blockchain_format.program import INFINITE_COST, Program
@@ -46,7 +46,7 @@ def test_only_odd_coins() -> None:
 
     with pytest.raises(Exception) as exception_info:
         SINGLETON_MOD.run_with_cost(INFINITE_COST, solution)
-    assert exception_info.value.args == ("klvm raise",)
+    assert exception_info.value.args == ("clvk raise",)
 
     solution = Program.to(
         [
@@ -75,7 +75,7 @@ def test_only_one_odd_coin_created() -> None:
 
     with pytest.raises(Exception) as exception_info:
         SINGLETON_MOD.run_with_cost(INFINITE_COST, solution)
-    assert exception_info.value.args == ("klvm raise",)
+    assert exception_info.value.args == ("clvk raise",)
     clsp = "(q (51 0xcafef00d 203) (51 0xfadeddab 204) (51 0xdeadbeef 202))"
     solution = Program.to(
         [

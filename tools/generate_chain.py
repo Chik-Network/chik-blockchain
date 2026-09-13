@@ -179,8 +179,8 @@ def main(length: int, fill_rate: int, profile: bool, block_refs: bool, output: s
                     unspent_coins.extend(new_coins)
 
                     if b.transactions_info:
-                        actual_fill_rate = b.transactions_info.cost / test_constants.MAX_BLOCK_COST_KLVM
-                        if b.transactions_info.cost > test_constants.MAX_BLOCK_COST_KLVM:
+                        actual_fill_rate = b.transactions_info.cost / test_constants.MAX_BLOCK_COST_CLVK
+                        if b.transactions_info.cost > test_constants.MAX_BLOCK_COST_CLVK:
                             print(f"COST EXCEEDED: {b.transactions_info.cost}")
                     else:
                         actual_fill_rate = 0

@@ -11,10 +11,10 @@ from chik.rpc.rpc_errors import structured_error_from_exception
 from chik.util.json_util import obj_to_response
 from chik.util.streamable import Streamable
 from chik.wallet.util.blind_signer_tl import BLIND_SIGNER_TRANSLATION
-from chik.wallet.util.klvm_streamable import (
+from chik.wallet.util.clvk_streamable import (
     TranslationLayer,
-    json_deserialize_with_klvm_streamable,
-    json_serialize_with_klvm_streamable,
+    json_deserialize_with_clvk_streamable,
+    json_serialize_with_clvk_streamable,
 )
 
 log = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ def marshal(func: MarshallableRpcEndpoint) -> RpcEndpoint:
             (
                 request_class.from_json_dict(request)
                 if not request.get("CHIP-0029", False)
-                else json_deserialize_with_klvm_streamable(
+                else json_deserialize_with_clvk_streamable(
                     request,
                     request_hint,
                     translation_layer=(
@@ -57,14 +57,14 @@ def marshal(func: MarshallableRpcEndpoint) -> RpcEndpoint:
         if not request.get("CHIP-0029", False):
             return response_obj.to_json_dict()
         else:
-            response_dict = json_serialize_with_klvm_streamable(
+            response_dict = json_serialize_with_clvk_streamable(
                 response_obj,
                 translation_layer=(
                     ALL_TRANSLATION_LAYERS[request["translation"]] if "translation" in request else None
                 ),
             )
             if isinstance(response_dict, str):  # pragma: no cover
-                raise ValueError("Internal Error. Marshalled endpoint was made with klvm_streamable.")
+                raise ValueError("Internal Error. Marshalled endpoint was made with clvk_streamable.")
             return response_dict
 
     rpc_endpoint.__name__ = func.__name__

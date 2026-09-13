@@ -78,7 +78,7 @@ class PeerTransactionsQueue:
     # We sort like this because PriorityQueue returns lowest first.
     priority_queue: PriorityQueue[tuple[float, TransactionQueueEntry]] = field(default_factory=PriorityQueue)
     # Peer's deficit in the context of deficit round robin algorithm. The unit
-    # here is in KLVM cost.
+    # here is in CLVK cost.
     deficit: int = field(default=0, init=False)
 
 
@@ -99,11 +99,11 @@ class TransactionQueue:
     peer_size_limit: int
     log: logging.Logger
     # Fallback cost for transactions without cost information
-    _max_tx_klvm_cost: uint64
+    _max_tx_clvk_cost: uint64
     # Each 100 pops we do a cleanup of empty peer queues
     _cleanup_counter: int
 
-    def __init__(self, peer_size_limit: int, log: logging.Logger, *, max_tx_klvm_cost: uint64) -> None:
+    def __init__(self, peer_size_limit: int, log: logging.Logger, *, max_tx_clvk_cost: uint64) -> None:
         self._list_cursor = 0
         self._queue_length = asyncio.Semaphore(0)  # default is 1
         self._index_to_peer_map = []
@@ -111,7 +111,7 @@ class TransactionQueue:
         self._high_priority_queue = SimpleQueue()  # we don't limit the number of high priority transactions
         self.peer_size_limit = peer_size_limit
         self.log = log
-        self._max_tx_klvm_cost = max_tx_klvm_cost
+        self._max_tx_clvk_cost = max_tx_clvk_cost
         self._cleanup_counter = 0
 
     def put(self, tx: TransactionQueueEntry, peer_id: bytes32 | None, high_priority: bool = False) -> None:
@@ -185,7 +185,7 @@ class TransactionQueue:
                     assert tx_info.advertised_cost > 0
                     top_tx_advertised_cost = tx_info.advertised_cost
                 else:
-                    top_tx_advertised_cost = self._max_tx_klvm_cost
+                    top_tx_advertised_cost = self._max_tx_clvk_cost
                 top_txs_advertised_costs[peer_id] = top_tx_advertised_cost
                 if peer_queue.deficit >= top_tx_advertised_cost:
                     # This peer can afford its top transaction

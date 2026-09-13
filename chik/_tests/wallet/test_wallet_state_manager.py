@@ -7,29 +7,37 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import cast
 
+import anyio
 import pytest
 from chik_rs import CoinState, G2Element
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
+from pytest_mock import MockerFixture
 
 from chik._tests.conftest import ConsensusMode
 from chik._tests.environments.wallet import WalletStateTransition, WalletTestFramework
 from chik._tests.util.setup_nodes import OldSimulatorsAndWallets
 from chik._tests.util.time_out_assert import time_out_assert
+from chik.cmds.wallet import GetDerivationIndexCMD, UpdateDerivationIndexCMD
+from chik.data_layer.data_layer_wallet import DataLayerWallet
 from chik.protocols.outbound_message import NodeType
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import Program
 from chik.types.coin_spend import make_spend
 from chik.types.peer_info import PeerInfo
+from chik.util.timing import adjusted_timeout
 from chik.wallet import wallet_state_manager as wsm_mod
 from chik.wallet.derivation_record import DerivationRecord
 from chik.wallet.derive_keys import master_sk_to_wallet_sk, master_sk_to_wallet_sk_unhardened
+from chik.wallet.nft_wallet import nft_wallet as nft_wallet_mod
 from chik.wallet.nft_wallet.nft_wallet import NFTWallet
 from chik.wallet.nft_wallet.uncurry_nft import NFTCoinData, UncurriedNFT
 from chik.wallet.remote_wallet.remote_wallet import RemoteWallet
+from chik.wallet.singleton import SINGLETON_LAUNCHER_PUZZLE_HASH
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.util.transaction_type import TransactionType
 from chik.wallet.util.wallet_types import WalletType
+from chik.wallet.wallet_coin_record import WalletCoinRecord
 from chik.wallet.wallet_request_types import (
     CreateNewWallet,
     CreateNewWalletType,
@@ -85,6 +93,69 @@ async def test_set_sync_mode_exception(simulator_and_wallet: OldSimulatorsAndWal
     _, [(wallet_node, _)], _ = simulator_and_wallet
     async with assert_sync_mode(wallet_node.wallet_state_manager, uint32(1)):
         raise Exception
+
+
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
+@pytest.mark.anyio
+async def test_create_dl_wallet_during_sync(
+    simulator_and_wallet: OldSimulatorsAndWallets,
+    self_hostname: str,
+    mocker: MockerFixture,
+) -> None:
+    full_nodes, [(wallet_node, wallet_server)], _ = simulator_and_wallet
+    await wallet_server.start_client(
+        PeerInfo(self_hostname, full_nodes[0].full_node.server.get_port()),
+        None,
+    )
+    peer = wallet_node.server.get_connections(NodeType.FULL_NODE)[0]
+    wallet_state_manager = wallet_node.wallet_state_manager
+
+    parent_coin = Coin(bytes32.secret(), bytes32.secret(), uint64(1))
+    await wallet_state_manager.coin_store.add_coin_record(
+        WalletCoinRecord(
+            parent_coin,
+            uint32(1),
+            uint32(0),
+            False,
+            False,
+            WalletType.STANDARD_WALLET,
+            1,
+        )
+    )
+    launcher_coin = Coin(parent_coin.name(), SINGLETON_LAUNCHER_PUZZLE_HASH, uint64(1))
+    launcher_state = CoinState(launcher_coin, uint32(2), uint32(2))
+    second_launcher_coin = Coin(parent_coin.name(), SINGLETON_LAUNCHER_PUZZLE_HASH, uint64(2))
+    second_launcher_state = CoinState(second_launcher_coin, uint32(2), uint32(2))
+    launcher_spend = make_spend(launcher_coin, Program.to(1), Program.to(1))
+    inner_puzzle_hash = bytes32.secret()
+
+    mocker.patch.object(wallet_node, "fetch_children", return_value=[launcher_state, second_launcher_state])
+    mocker.patch.object(wsm_mod, "fetch_coin_spend_for_coin_state", return_value=launcher_spend)
+    mocker.patch.object(wsm_mod, "solution_to_pool_state", side_effect=ValueError)
+    mocker.patch.object(DataLayerWallet, "match_dl_launcher", return_value=(True, inner_puzzle_hash))
+    mocker.patch.object(wallet_state_manager.puzzle_store, "puzzle_hash_exists", return_value=True)
+    track_new_launcher_id = mocker.patch.object(DataLayerWallet, "track_new_launcher_id")
+
+    coin_states = [CoinState(parent_coin, uint32(2), uint32(1))]
+
+    with anyio.fail_after(adjusted_timeout(10)):
+        async with assert_sync_mode(wallet_state_manager, uint32(2)):
+            assert await wallet_state_manager.add_coin_states(coin_states, peer, None)
+
+    assert len(await wallet_state_manager.get_all_wallet_info_entries(wallet_type=WalletType.DATA_LAYER)) == 1
+    track_new_launcher_id.assert_any_await(
+        launcher_coin.name(),
+        peer,
+        spend=launcher_spend,
+        height=uint32(2),
+    )
+    track_new_launcher_id.assert_any_await(
+        second_launcher_coin.name(),
+        peer,
+        spend=launcher_spend,
+        height=uint32(2),
+    )
+    assert track_new_launcher_id.await_count == 2
 
 
 @pytest.mark.parametrize("hardened", [True, False])
@@ -407,8 +478,11 @@ class PuzzleHashState:
 )
 @pytest.mark.limit_consensus_modes(reason="irrelevant")
 @pytest.mark.anyio
-async def test_puzzle_hash_requests(wallet_environments: WalletTestFramework) -> None:
-    wsm = wallet_environments.environments[0].wallet_state_manager
+async def test_puzzle_hash_requests(
+    wallet_environments: WalletTestFramework, capsys: pytest.CaptureFixture[str]
+) -> None:
+    env = wallet_environments.environments[0]
+    wsm = env.wallet_state_manager
 
     async def get_puzzle_hash_state() -> PuzzleHashState:
         last_index = await wsm.puzzle_store.get_last_derivation_path_for_wallet(wsm.main_wallet.id())
@@ -420,10 +494,10 @@ async def test_puzzle_hash_requests(wallet_environments: WalletTestFramework) ->
 
     expected_state = await get_puzzle_hash_state()
 
-    # Quick test of this RPC
-    assert (
-        await wallet_environments.environments[0].rpc_client.get_current_derivation_index()
-    ).index == expected_state.highest_index
+    # Quick test of this command
+    capsys.readouterr()
+    await GetDerivationIndexCMD(rpc_info=wallet_environments.cmd_tx_endpoint_args(env)["rpc_info"]).run()
+    assert f"Last derivation index: {expected_state.highest_index}" in capsys.readouterr().out
 
     # `create_more_puzzle_hashes`
     # No-op
@@ -579,9 +653,12 @@ async def test_puzzle_hash_requests(wallet_environments: WalletTestFramework) ->
         )
 
     # Test the actual functionality
-    assert (
-        await rpc_client.extend_derivation_index(ExtendDerivationIndex(index=uint32(expected_state.highest_index + 5)))
-    ).index == expected_state.highest_index + 5
+    capsys.readouterr()
+    await UpdateDerivationIndexCMD(
+        rpc_info=wallet_environments.cmd_tx_endpoint_args(env)["rpc_info"],
+        index=expected_state.highest_index + 5,
+    ).run()
+    assert f"Updated derivation index: {expected_state.highest_index + 5}" in capsys.readouterr().out
     expected_state = PuzzleHashState(expected_state.highest_index + 5, expected_state.used_up_to_index)
     assert await get_puzzle_hash_state() == expected_state
 
@@ -631,7 +708,7 @@ async def test_get_sync_status(simulator_and_wallet: OldSimulatorsAndWallets, se
 
     # DISCONNECTED (line 745) — disconnect from peer
     await wallet_server.close_all_connections()
-    await time_out_assert(5, lambda: len(wsm.server.get_connections(NodeType.FULL_NODE)), 0)
+    await time_out_assert(5, lambda: len(wsm.wallet_node.server.get_connections(NodeType.FULL_NODE)), 0)
     assert await wsm.get_sync_status() == SyncStatus.DISCONNECTED
 
 
@@ -691,7 +768,7 @@ async def test_rpc_disconnected_errors(wallet_environments: WalletTestFramework)
 
     # Disconnect from all full node peers
     await env.peer_server.close_all_connections()
-    await time_out_assert(5, lambda: len(wsm.server.get_connections(NodeType.FULL_NODE)), 0)
+    await time_out_assert(5, lambda: len(wsm.wallet_node.server.get_connections(NodeType.FULL_NODE)), 0)
 
     # tx_endpoint decorator DISCONNECTED check (line 341)
     with pytest.raises(ValueError, match="not connected"):
@@ -902,8 +979,8 @@ async def test_handle_nft_auto_add_limit(
     def fake_get_new_owner_did(_unft: UncurriedNFT, _solution: Program) -> bytes32:
         return foreign_did_id
 
-    monkeypatch.setattr(wsm_mod, "get_metadata_and_phs", fake_get_metadata_and_phs)
-    monkeypatch.setattr(wsm_mod, "get_new_owner_did", fake_get_new_owner_did)
+    monkeypatch.setattr(nft_wallet_mod, "get_metadata_and_phs", fake_get_metadata_and_phs)
+    monkeypatch.setattr(nft_wallet_mod, "get_new_owner_did", fake_get_new_owner_did)
 
     nft_data = _build_fake_nft_data(
         old_p2_puzhash=old_p2_puzhash,
@@ -915,7 +992,7 @@ async def test_handle_nft_auto_add_limit(
 
     before = nft_wallet_count()
     with caplog.at_level(logging.WARNING, logger=wsm.log.name):
-        result = await wsm.handle_nft(nft_data)
+        result = await NFTWallet.identify(wsm, nft_data)
     after = nft_wallet_count()
 
     if seed_matching_wallet:

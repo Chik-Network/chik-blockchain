@@ -34,8 +34,8 @@ assert len(DEFAULT_SEED) == 32
 class WalletTool:
     next_address = 0
     # TODO: make this a dataclass to make these instance attributes instead of mutable class attributes
-    pubkey_num_lookup: dict[bytes, uint32] = {}  # noqa: RUF012
-    puzzle_pk_cache: dict[bytes32, PrivateKey] = {}  # noqa: RUF012
+    pubkey_num_lookup: dict[bytes, uint32] = {}  # ruff: ignore[mutable-class-default]
+    puzzle_pk_cache: dict[bytes32, PrivateKey] = {}  # ruff: ignore[mutable-class-default]
 
     def __init__(self, constants: ConsensusConstants, sk: PrivateKey | None = None):
         self.constants = constants
@@ -183,7 +183,7 @@ class WalletTool:
             secret_key = self.get_private_key_for_puzzle_hash(coin_spend.coin.puzzle_hash)
             synthetic_secret_key = calculate_synthetic_secret_key(secret_key, DEFAULT_HIDDEN_PUZZLE_HASH)
             conditions_dict = conditions_dict_for_solution(
-                coin_spend.puzzle_reveal, coin_spend.solution, self.constants.MAX_BLOCK_COST_KLVM
+                coin_spend.puzzle_reveal, coin_spend.solution, self.constants.MAX_BLOCK_COST_CLVK
             )
 
             for cwa in conditions_dict.get(ConditionOpcode.AGG_SIG_UNSAFE, []):

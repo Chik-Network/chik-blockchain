@@ -9,13 +9,13 @@ from chik_rs.sized_ints import uint64
 from chik.types.blockchain_format.coin import Coin as _Coin
 from chik.types.blockchain_format.program import Program
 from chik.util.streamable import Streamable
-from chik.wallet.util.klvm_streamable import klvm_streamable
+from chik.wallet.util.clvk_streamable import clvk_streamable
 
 # This file contains the base types for communication between a wallet and an offline transaction signer.
 # These types should be compliant with CHIP-0028
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class Coin(Streamable):
     parent_coin_id: bytes32
@@ -23,7 +23,7 @@ class Coin(Streamable):
     amount: uint64
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class Spend(Streamable):
     coin: Coin
@@ -54,13 +54,13 @@ class Spend(Streamable):
         )
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class TransactionInfo(Streamable):
     spends: list[Spend]
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class SigningTarget(Streamable):
     fingerprint: bytes
@@ -68,7 +68,7 @@ class SigningTarget(Streamable):
     hook: bytes32
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class SumHint(Streamable):
     fingerprints: list[bytes]
@@ -76,49 +76,49 @@ class SumHint(Streamable):
     final_pubkey: bytes
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class PathHint(Streamable):
     root_fingerprint: bytes
     path: list[uint64]
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class KeyHints(Streamable):
     sum_hints: list[SumHint]
     path_hints: list[PathHint]
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class SigningInstructions(Streamable):
     key_hints: KeyHints
     targets: list[SigningTarget]
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class UnsignedTransaction(Streamable):
     transaction_info: TransactionInfo
     signing_instructions: SigningInstructions
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class SigningResponse(Streamable):
     signature: bytes
     hook: bytes32
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class Signature(Streamable):
     type: str
     signature: bytes
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class SignedTransaction(Streamable):
     transaction_info: TransactionInfo

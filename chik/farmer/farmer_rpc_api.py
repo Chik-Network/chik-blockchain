@@ -11,7 +11,7 @@ from typing_extensions import Protocol
 
 from chik.farmer.farmer import Farmer
 from chik.plot_sync.receiver import Receiver
-from chik.protocols.harvester_protocol import Plot
+from chik.protocols.harvester_protocol import Plot, Plot2
 from chik.protocols.outbound_message import NodeType
 from chik.rpc.rpc_server import Endpoint, EndpointResult
 from chik.types.peer_info import PeerInfo
@@ -73,7 +73,7 @@ def paginated_plot_request(source: list[Any], request: PaginatedRequestData) -> 
     }
 
 
-def plot_matches_filter(plot: Plot, filter_item: FilterItem) -> bool:
+def plot_matches_filter(plot: Plot | Plot2, filter_item: FilterItem) -> bool:
     plot_attribute = getattr(plot, filter_item.key)
     if filter_item.value is None:
         return plot_attribute is None

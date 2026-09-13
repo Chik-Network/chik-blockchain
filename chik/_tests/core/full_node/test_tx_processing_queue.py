@@ -18,7 +18,7 @@ from chik.util.task_referencer import create_referenced_task
 
 log = logging.getLogger(__name__)
 
-TEST_MAX_TX_KLVM_COST = uint64(test_constants.MAX_BLOCK_COST_KLVM // 2)
+TEST_MAX_TX_CLVK_COST = uint64(test_constants.MAX_BLOCK_COST_CLVK // 2)
 
 
 @dataclass(frozen=True)
@@ -38,7 +38,7 @@ def get_transaction_queue_entry(
 
 @pytest.mark.anyio
 async def test_local_txs(seeded_random: random.Random) -> None:
-    transaction_queue = TransactionQueue(1000, log, max_tx_klvm_cost=TEST_MAX_TX_KLVM_COST)
+    transaction_queue = TransactionQueue(1000, log, max_tx_clvk_cost=TEST_MAX_TX_CLVK_COST)
     # test 1 tx
     first_tx = get_transaction_queue_entry(None, 0)
     transaction_queue.put(first_tx, None)
@@ -63,7 +63,7 @@ async def test_local_txs(seeded_random: random.Random) -> None:
 
 @pytest.mark.anyio
 async def test_one_peer_and_await(seeded_random: random.Random) -> None:
-    transaction_queue = TransactionQueue(1000, log, max_tx_klvm_cost=TEST_MAX_TX_KLVM_COST)
+    transaction_queue = TransactionQueue(1000, log, max_tx_clvk_cost=TEST_MAX_TX_CLVK_COST)
     num_txs = 100
     peer_id = bytes32.random(seeded_random)
 
@@ -97,7 +97,7 @@ async def test_one_peer_and_await(seeded_random: random.Random) -> None:
 
 @pytest.mark.anyio
 async def test_lots_of_peers(seeded_random: random.Random) -> None:
-    transaction_queue = TransactionQueue(1000, log, max_tx_klvm_cost=TEST_MAX_TX_KLVM_COST)
+    transaction_queue = TransactionQueue(1000, log, max_tx_clvk_cost=TEST_MAX_TX_CLVK_COST)
     num_peers = 1000
     num_txs = 100
     total_txs = num_txs * num_peers
@@ -119,7 +119,7 @@ async def test_lots_of_peers(seeded_random: random.Random) -> None:
 
 @pytest.mark.anyio
 async def test_full_queue(seeded_random: random.Random) -> None:
-    transaction_queue = TransactionQueue(1000, log, max_tx_klvm_cost=TEST_MAX_TX_KLVM_COST)
+    transaction_queue = TransactionQueue(1000, log, max_tx_clvk_cost=TEST_MAX_TX_CLVK_COST)
     num_peers = 100
     num_txs = 1000
     total_txs = num_txs * num_peers
@@ -141,7 +141,7 @@ async def test_full_queue(seeded_random: random.Random) -> None:
 
 @pytest.mark.anyio
 async def test_queue_cleanup_and_fairness(seeded_random: random.Random) -> None:
-    transaction_queue = TransactionQueue(1000, log, max_tx_klvm_cost=TEST_MAX_TX_KLVM_COST)
+    transaction_queue = TransactionQueue(1000, log, max_tx_clvk_cost=TEST_MAX_TX_CLVK_COST)
     peer_a = bytes32.random(seeded_random)
     peer_b = bytes32.random(seeded_random)
     peer_c = bytes32.random(seeded_random)
@@ -200,7 +200,7 @@ async def test_peer_queue_prioritization_fallback() -> None:
     """
     Tests prioritization fallback, when `peer_id` is not in `peers_with_tx`.
     """
-    queue = TransactionQueue(42, log, max_tx_klvm_cost=TEST_MAX_TX_KLVM_COST)
+    queue = TransactionQueue(42, log, max_tx_clvk_cost=TEST_MAX_TX_CLVK_COST)
     peer1 = bytes32.random()
     peer2 = bytes32.random()
     # We'll be using this peer to test the fallback, so we don't include it in
@@ -245,12 +245,12 @@ async def test_normal_queue_deficit_round_robin() -> None:
     counters allow them to afford it, and we ensure that their deficit counters
     adapt accordingly.
     This also covers the case where a peer's top transaction does not advertise
-    cost, so that falls back to `max_tx_klvm_cost`.
+    cost, so that falls back to `max_tx_clvk_cost`.
     This also covers the cleanup behavior where peers with no remaining
     transactions are removed periodically (each 100 pop) from the queue.
     """
-    test_max_tx_klvm_cost = uint64(20)
-    queue = TransactionQueue(42, log, max_tx_klvm_cost=test_max_tx_klvm_cost)
+    test_max_tx_clvk_cost = uint64(20)
+    queue = TransactionQueue(42, log, max_tx_clvk_cost=test_max_tx_clvk_cost)
     peer1 = bytes32.random()
     peer2 = bytes32.random()
     peer3 = bytes32.random()
@@ -266,7 +266,7 @@ async def test_normal_queue_deficit_round_robin() -> None:
     tx3 = get_transaction_queue_entry(peer3, 2, {peer3: PeerWithTx(str(peer3), test_fee, uint64(10))})
     queue.put(tx3, peer3)
     # This one has no cost information so its top transaction's advertised cost
-    # falls back to `test_max_tx_klvm_cost`.
+    # falls back to `test_max_tx_clvk_cost`.
     tx4 = get_transaction_queue_entry(peer4, 3, {})
     queue.put(tx4, peer4)
     # When we try to pop a transaction, none of the peers initially can
@@ -309,7 +309,7 @@ async def test_normal_queue_deficit_round_robin() -> None:
     # counter stays the same.
     assert queue._peers_transactions_queues[peer4].deficit == 15
     # Finally, peer4 is tried but it can't send its top transaction, which has
-    # a fallback cost of `test_max_tx_klvm_cost` (20), so we add that to its
+    # a fallback cost of `test_max_tx_clvk_cost` (20), so we add that to its
     # deficit counter, making it 35, and upon retrying now it's able to send
     # its transaction tx4.
     entry = await queue.pop()

@@ -327,7 +327,7 @@ class TestBlockchainTransactions:
         coin_2 = None
         for coin in run_and_get_removals_and_additions(
             new_blocks[-1],
-            test_constants.MAX_BLOCK_COST_KLVM,
+            test_constants.MAX_BLOCK_COST_CLVK,
             height=softfork_height,
             constants=bt.constants,
         )[1]:
@@ -351,7 +351,7 @@ class TestBlockchainTransactions:
         coin_3 = None
         for coin in run_and_get_removals_and_additions(
             new_blocks[-1],
-            test_constants.MAX_BLOCK_COST_KLVM,
+            test_constants.MAX_BLOCK_COST_CLVK,
             height=softfork_height,
             constants=bt.constants,
         )[1]:

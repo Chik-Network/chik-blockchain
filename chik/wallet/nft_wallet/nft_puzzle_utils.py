@@ -5,8 +5,8 @@ from typing import Any, Literal
 
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint16, uint64
-from klvm.SExp import CastableType
-from klvm_tools.binutils import disassemble
+from clvk.SExp import CastableType
+from clvk_tools.binutils import disassemble
 
 from chik.types.blockchain_format.program import Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram

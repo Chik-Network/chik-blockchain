@@ -20,7 +20,7 @@ from chik.rpc.util import ALL_TRANSLATION_LAYERS
 from chik.util.streamable import Streamable
 from chik.wallet.signer_protocol import SignedTransaction, SigningInstructions, SigningResponse, Spend
 from chik.wallet.transaction_record import TransactionRecord
-from chik.wallet.util.klvm_streamable import byte_deserialize_klvm_streamable, byte_serialize_klvm_streamable
+from chik.wallet.util.clvk_streamable import byte_deserialize_clvk_streamable, byte_serialize_clvk_streamable
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 from chik.wallet.wallet_request_types import (
     ApplySignatures,
@@ -34,7 +34,7 @@ from chik.wallet.wallet_spend_bundle import WalletSpendBundle
 def _clear_screen() -> None:
     # Cross-platform screen clear
     # TODO: consider if not-nt anyways could avoid os.system()
-    os.system("cls" if os.name == "nt" else "clear")  # noqa: S605
+    os.system("cls" if os.name == "nt" else "clear")  # ruff: ignore[start-process-with-a-shell]
 
 
 @click.group("signer", help="Get information for an external signer")
@@ -103,7 +103,7 @@ class _SPTranslation:
     )
 
 
-_T_KlvmStreamable = TypeVar("_T_KlvmStreamable", bound=Streamable)
+_T_ClvkStreamable = TypeVar("_T_ClvkStreamable", bound=Streamable)
 
 
 @command_helper
@@ -117,12 +117,12 @@ class SPIn(_SPTranslation):
         required=True,
     )
 
-    def read_sp_input(self, typ: type[_T_KlvmStreamable]) -> list[_T_KlvmStreamable]:
-        final_list: list[_T_KlvmStreamable] = []
+    def read_sp_input(self, typ: type[_T_ClvkStreamable]) -> list[_T_ClvkStreamable]:
+        final_list: list[_T_ClvkStreamable] = []
         for filename in self.signer_protocol_input:
             with open(Path(filename), "rb") as file:
                 final_list.append(
-                    byte_deserialize_klvm_streamable(
+                    byte_deserialize_clvk_streamable(
                         file.read(),
                         typ,
                         translation_layer=(
@@ -151,11 +151,11 @@ class SPOut(QrCodeDisplay, _SPTranslation):
         help="The file(s) to output to (if --output-format=file)",
     )
 
-    def handle_klvm_output(self, outputs: list[Streamable]) -> None:
+    def handle_clvk_output(self, outputs: list[Streamable]) -> None:
         translation_layer = ALL_TRANSLATION_LAYERS[self.translation] if self.translation != "none" else None
         if self.output_format == "hex":
             for output in outputs:
-                print(byte_serialize_klvm_streamable(output, translation_layer=translation_layer).hex())
+                print(byte_serialize_clvk_streamable(output, translation_layer=translation_layer).hex())
         if self.output_format == "file":
             if len(self.output_file) == 0:
                 print("--output-format=file specified without any --output-file")
@@ -168,10 +168,10 @@ class SPOut(QrCodeDisplay, _SPTranslation):
             else:
                 for filename, output in zip(self.output_file, outputs):
                     with open(Path(filename), "wb") as file:
-                        file.write(byte_serialize_klvm_streamable(output, translation_layer=translation_layer))
+                        file.write(byte_serialize_clvk_streamable(output, translation_layer=translation_layer))
         if self.output_format == "qr":
             self.display_qr_codes(
-                [byte_serialize_klvm_streamable(output, translation_layer=translation_layer) for output in outputs]
+                [byte_serialize_clvk_streamable(output, translation_layer=translation_layer) for output in outputs]
             )
 
 
@@ -197,7 +197,7 @@ class GatherSigningInfoCMD:
             signing_instructions: SigningInstructions = (
                 await wallet_rpc.client.gather_signing_info(GatherSigningInfo(spends=spends))
             ).signing_instructions
-            self.sp_out.handle_klvm_output([signing_instructions])
+            self.sp_out.handle_clvk_output([signing_instructions])
 
 
 @chik_command(
@@ -257,7 +257,7 @@ class ExecuteSigningInstructionsCMD:
     async def run(self) -> None:
         async with self.rpc_info.wallet_rpc() as wallet_rpc:
             signing_instructions: list[SigningInstructions] = self.sp_in.read_sp_input(SigningInstructions)
-            self.sp_out.handle_klvm_output(
+            self.sp_out.handle_clvk_output(
                 [
                     signing_response
                     for instruction_set in signing_instructions

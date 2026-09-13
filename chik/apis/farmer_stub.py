@@ -10,8 +10,10 @@ from chik.protocols.harvester_protocol import (
     PlotSyncDone,
     PlotSyncPathList,
     PlotSyncPlotList,
+    PlotSyncPlotList2,
     PlotSyncStart,
     RespondPlots,
+    RespondPlots2,
     RespondSignatures,
 )
 from chik.protocols.outbound_message import Message
@@ -67,12 +69,22 @@ class FarmerApiStub(ApiProtocol, Protocol):
         ...
 
     @metadata.request(peer_required=True)
+    async def respond_plots2(self, _: RespondPlots2, peer: WSChikConnection) -> None:
+        """Handle respond plots from harvester."""
+        ...
+
+    @metadata.request(peer_required=True)
     async def plot_sync_start(self, message: PlotSyncStart, peer: WSChikConnection) -> None:
         """Handle plot sync start."""
         ...
 
     @metadata.request(peer_required=True)
     async def plot_sync_loaded(self, message: PlotSyncPlotList, peer: WSChikConnection) -> None:
+        """Handle plot sync loaded."""
+        ...
+
+    @metadata.request(peer_required=True)
+    async def plot_sync_loaded2(self, message: PlotSyncPlotList2, peer: WSChikConnection) -> None:
         """Handle plot sync loaded."""
         ...
 

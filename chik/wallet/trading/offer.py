@@ -7,7 +7,7 @@ from chik_puzzles_py.programs import SETTLEMENT_PAYMENT, SETTLEMENT_PAYMENT_HASH
 from chik_rs import CoinSpend, G2Element
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
-from klvm_tools.binutils import disassemble
+from clvk_tools.binutils import disassemble
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.types.blockchain_format.coin import Coin, coin_as_list
@@ -114,7 +114,7 @@ class Offer:
         requested_payments: dict[bytes32 | None, list[CreateCoin]],  # `None` means you are requesting XCK
         coins: list[Coin],
     ) -> dict[bytes32 | None, list[NotarizedPayment]]:
-        # This sort should be reproducible in KLVM with `>s`
+        # This sort should be reproducible in CLVK with `>s`
         sorted_coins: list[Coin] = sorted(coins, key=Coin.name)
         sorted_coin_list: list[list[bytes32 | uint64]] = [coin_as_list(c) for c in sorted_coins]
         nonce: bytes32 = Program.to(sorted_coin_list).get_tree_hash()
@@ -162,15 +162,21 @@ class Offer:
         # populate the _additions cache
         adds: dict[Coin, list[Coin]] = {}
         hints: dict[bytes32, bytes32] = {}
-        max_cost = int(DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM)
+        max_cost = int(DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK)
         for cs in self._bundle.coin_spends:
             # you can't spend the same coin twice in the same SpendBundle
             assert cs.coin not in adds
             try:
-                hinted_coins, cost = compute_spend_hints_and_additions(cs)
+                hinted_coins, cost = compute_spend_hints_and_additions(cs, max_cost=max_cost)
                 max_cost -= cost
                 adds[cs.coin] = [hc.coin for hc in hinted_coins.values()]
                 hints = {**hints, **{id: hc.hint for id, hc in hinted_coins.items() if hc.hint is not None}}
+            except ValidationError:
+                raise
+            except ValueError as e:
+                if e.args and e.args[0] == "cost exceeded or below zero":
+                    raise ValidationError(Err.BLOCK_COST_EXCEEDS_MAX, "compute_additions for CoinSpend") from e
+                continue
             except Exception:
                 continue
             if max_cost < 0:
@@ -182,7 +188,7 @@ class Offer:
     def conditions(self) -> dict[Coin, list[Condition]]:
         if self._conditions is None:
             conditions: dict[Coin, list[Condition]] = {}
-            max_cost = int(DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM)
+            max_cost = int(DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK)
             for cs in self._bundle.coin_spends:
                 try:
                     cost, conds = run_with_cost(cs.puzzle_reveal, max_cost, cs.solution)

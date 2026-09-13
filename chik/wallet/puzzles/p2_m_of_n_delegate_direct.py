@@ -8,7 +8,7 @@ it includes N public keys, any M of which needs to sign the delegated puzzle.
 from __future__ import annotations
 
 from chik_puzzles_py.programs import P2_M_OF_N_DELEGATE_DIRECT
-from klvm.SExp import CastableType
+from clvk.SExp import CastableType
 
 from chik.types.blockchain_format.program import Program
 

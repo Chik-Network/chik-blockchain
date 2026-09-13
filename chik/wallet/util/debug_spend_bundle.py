@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from chik_rs import AugSchemeMPL
-from klvm.operators import KEYWORD_FROM_ATOM
-from klvm_tools.binutils import disassemble as bu_disassemble
+from clvk.operators import KEYWORD_FROM_ATOM
+from clvk_tools.binutils import disassemble as bu_disassemble
 
 from chik.consensus.condition_tools import conditions_dict_for_solution, pkm_pairs_for_conditions_dict
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
@@ -68,7 +68,7 @@ def uncurry_dump(puzzle: Program, prefix: str = "") -> None:
 def debug_spend_bundle(spend_bundle, agg_sig_additional_data=DEFAULT_CONSTANTS.AGG_SIG_ME_ADDITIONAL_DATA) -> None:
     """
     Print a lot of useful information about a `SpendBundle` that might help with debugging
-    its klvm.
+    its clvk.
     """
 
     pks = []

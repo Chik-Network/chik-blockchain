@@ -34,7 +34,7 @@ from chik.wallet.puzzles.custody.custody_architecture import (
 from chik.wallet.puzzles.custody.member_puzzles import BLSWithTaprootMember, FixedPuzzleMember, SingletonMember
 from chik.wallet.puzzles.custody.restriction_utilities import ValidatorStackRestriction
 from chik.wallet.puzzles.custody.restrictions import FixedCreateCoinDestinations, Heightlock, SendMessageBanned
-from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
+from chik.wallet.puzzles.load_clvk import load_clvk_maybe_recompile
 from chik.wallet.puzzles.singleton_top_layer_v1_1 import (
     SINGLETON_LAUNCHER,
     SINGLETON_LAUNCHER_HASH,
@@ -45,10 +45,10 @@ from chik.wallet.puzzles.singleton_top_layer_v1_1 import (
 )
 from chik.wallet.uncurried_puzzle import UncurriedPuzzle, uncurry_puzzle
 
-CLAIM_POOL_REWARDS_DELEGATED_PUZZLE = load_klvm_maybe_recompile(
+CLAIM_POOL_REWARDS_DELEGATED_PUZZLE = load_clvk_maybe_recompile(
     "claim_pool_rewards_dpuz.clsp", package_or_requirement="chik.pools"
 )
-FORWARD_TO_POOL_PUZZLE_HASH_DELEGATED_PUZZLE = load_klvm_maybe_recompile(
+FORWARD_TO_POOL_PUZZLE_HASH_DELEGATED_PUZZLE = load_clvk_maybe_recompile(
     "forward_to_pool_puzzle_hash_dpuz.clsp", package_or_requirement="chik.pools"
 )
 

@@ -2,17 +2,18 @@ from __future__ import annotations
 
 from typing import Any
 
-from klvm.SExp import SExp
-from klvm_tools.binutils import assemble, type_for_atom
+from clvk.SExp import SExp
+from clvk_tools.binutils import assemble, type_for_atom
 from ir.Type import Type
 from typing_extensions import Self
 
 from chik.types.blockchain_format.program import Program
+from chik.util.byte_types import hexstr_to_bytes
 from chik.util.casts import int_from_bytes
 
 """
 The following two classes act as wrapper classes around dictionaries of strings.
-Values in the dictionary are assumed to be strings in KLVM format (0x for bytes, etc.)
+Values in the dictionary are assumed to be strings in CLVK format (0x for bytes, etc.)
 When you access a value in the dictionary, it will be deserialized to a str, int, bytes, or Program appropriately.
 """
 
@@ -121,7 +122,7 @@ class Solver:
         return cls(json_dict)
 
 
-def decode_info_value(cls: Any, value: Any) -> Any:
+def decode_info_value(cls: Any, value: dict[str, Any] | list[Any] | Program | str) -> Any:
     if isinstance(value, dict):
         return cls(value)
     elif isinstance(value, list):
@@ -129,15 +130,20 @@ def decode_info_value(cls: Any, value: Any) -> Any:
     elif isinstance(value, Program) and value.atom is None:
         return value
     else:
-        if value in {"()", ""}:  # special case
-            return Program.to([])
-        expression: SExp = assemble(value)
+        if isinstance(value, str):
+            if value in {"()", ""}:  # special case
+                return Program.to([])
+            if value.startswith("0x"):
+                return hexstr_to_bytes(value)
+            expression: SExp = assemble(value)
+        else:
+            expression = value
         if expression.atom is None:
             return Program(expression)
         else:
             atom: bytes = expression.atom
             typ = type_for_atom(atom)
-            if typ == Type.QUOTES and value[0:2] != "0x":
+            if typ == Type.QUOTES:
                 return bytes(atom).decode("utf8")
             elif typ == Type.INT:
                 return int_from_bytes(atom)

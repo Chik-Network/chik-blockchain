@@ -806,8 +806,8 @@ class ProofLayer(Streamable):
 @streamable
 @dataclasses.dataclass(frozen=True)
 class HashOnlyProof(Streamable):
-    key_klvm_hash: bytes32
-    value_klvm_hash: bytes32
+    key_clvk_hash: bytes32
+    value_clvk_hash: bytes32
     node_hash: bytes32
     layers: list[ProofLayer]
 
@@ -819,8 +819,8 @@ class HashOnlyProof(Streamable):
     @classmethod
     def from_key_value(cls, key: bytes, value: bytes, node_hash: bytes32, layers: list[ProofLayer]) -> HashOnlyProof:
         return cls(
-            key_klvm_hash=Program.to(key).get_tree_hash(),
-            value_klvm_hash=Program.to(value).get_tree_hash(),
+            key_clvk_hash=Program.to(key).get_tree_hash(),
+            value_clvk_hash=Program.to(value).get_tree_hash(),
             node_hash=node_hash,
             layers=layers,
         )
@@ -829,8 +829,8 @@ class HashOnlyProof(Streamable):
 @streamable
 @dataclasses.dataclass(frozen=True)
 class KeyValueHashes(Streamable):
-    key_klvm_hash: bytes32
-    value_klvm_hash: bytes32
+    key_clvk_hash: bytes32
+    value_clvk_hash: bytes32
 
 
 @streamable
@@ -872,7 +872,7 @@ class GetProofResponse(Streamable):
 @streamable
 @dataclasses.dataclass(frozen=True)
 class VerifyProofResponse(Streamable):
-    verified_klvm_hashes: ProofResultInclusions
+    verified_clvk_hashes: ProofResultInclusions
     current_root: bool
     success: bool
 
@@ -907,7 +907,7 @@ def dl_verify_proof_internal(dl_proof: DLProof, puzzle_hash: bytes32) -> list[Ke
             ],
         )
 
-        leaf_hash = internal_hash(left_hash=reference_proof.key_klvm_hash, right_hash=reference_proof.value_klvm_hash)
+        leaf_hash = internal_hash(left_hash=reference_proof.key_clvk_hash, right_hash=reference_proof.value_clvk_hash)
         if leaf_hash != proof.node_hash:
             raise ProofIntegrityError("Invalid Proof: node hash does not match key and value")
 
@@ -915,7 +915,7 @@ def dl_verify_proof_internal(dl_proof: DLProof, puzzle_hash: bytes32) -> list[Ke
             raise ProofIntegrityError("Invalid Proof: invalid proof of inclusion found")
 
         verified_keys.append(
-            KeyValueHashes(key_klvm_hash=reference_proof.key_klvm_hash, value_klvm_hash=reference_proof.value_klvm_hash)
+            KeyValueHashes(key_clvk_hash=reference_proof.key_clvk_hash, value_clvk_hash=reference_proof.value_clvk_hash)
         )
 
     return verified_keys
@@ -936,7 +936,7 @@ async def dl_verify_proof(
     verified_keys = dl_verify_proof_internal(dlproof, coin_states[0].coin.puzzle_hash)
 
     response = VerifyProofResponse(
-        verified_klvm_hashes=ProofResultInclusions(dlproof.store_proofs.store_id, verified_keys),
+        verified_clvk_hashes=ProofResultInclusions(dlproof.store_proofs.store_id, verified_keys),
         success=True,
         current_root=coin_states[0].spent_height is None,
     )

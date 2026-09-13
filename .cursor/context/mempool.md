@@ -26,7 +26,7 @@
 - `chik/types/internal_mempool_item.py` — `InternalMempoolItem` (signature separated)
 - `chik/types/mempool_inclusion_status.py` — `SUCCESS`, `FAILED`, `PENDING`
 - `chik/types/fee_rate.py` — `FeeRate`
-- `chik/types/klvm_cost.py` — `KLVMCost`, `QUOTE_BYTES`, `QUOTE_EXECUTION_COST`
+- `chik/types/clvk_cost.py` — `CLVKCost`, `QUOTE_BYTES`, `QUOTE_EXECUTION_COST`
 
 ---
 
@@ -38,7 +38,7 @@
 | `MEMPOOL_MIN_FEE_INCREASE` | 10 000 000                | Min fee increase for replacement (0.00001 XCK)         |
 | `MEMPOOL_ITEM_FEE_LIMIT`   | 2^50                      | Max fee per item (prevents SQLite int64 overflow)      |
 | `nonzero_fee_minimum_fpc`  | 5                         | Min fee-per-cost to kick out others (~0.055 XCK/block) |
-| `max_tx_klvm_cost`         | `MAX_BLOCK_COST_KLVM / 2` | Single tx cost limit                                   |
+| `max_tx_clvk_cost`         | `MAX_BLOCK_COST_CLVK / 2` | Single tx cost limit                                   |
 | `MAX_SKIPPED_ITEMS`        | 10                        | Max items skipped during block building                |
 | `PRIORITY_TX_THRESHOLD`    | 3                         | FF/DEDUP items allowed before cutoff                   |
 | `MIN_COST_THRESHOLD`       | 6 000 000                 | Heuristic for block fullness                           |
@@ -57,7 +57,7 @@
 2. **Coin spend processing** (per spend):
 
    - Track removal names, addition amounts
-   - DEDUP eligibility requires canonical KLVM serialization
+   - DEDUP eligibility requires canonical CLVK serialization
    - FF eligibility queries `get_unspent_lineage_info_for_puzzle_hash`
    - Builds `BundleCoinSpend` per coin
 
@@ -72,7 +72,7 @@
 
 6. **Cost/fee limits**:
 
-   - `cost > max_tx_klvm_cost` → reject
+   - `cost > max_tx_clvk_cost` → reject
    - `fees > MEMPOOL_ITEM_FEE_LIMIT` or would overflow → reject
 
 7. **Capacity check**: If mempool full:

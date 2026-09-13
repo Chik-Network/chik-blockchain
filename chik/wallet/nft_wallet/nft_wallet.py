@@ -27,10 +27,15 @@ from chik.wallet.conditions import (
 from chik.wallet.derivation_record import DerivationRecord
 from chik.wallet.did_wallet import did_wallet_puzzles
 from chik.wallet.did_wallet.did_info import DIDInfo
+from chik.wallet.did_wallet.did_wallet import DIDWallet
 from chik.wallet.lineage_proof import LineageProof
 from chik.wallet.nft_wallet import nft_puzzle_utils
 from chik.wallet.nft_wallet.nft_info import NFTCoinInfo, NFTWalletInfo
-from chik.wallet.nft_wallet.nft_puzzle_utils import create_ownership_layer_puzzle, get_metadata_and_phs
+from chik.wallet.nft_wallet.nft_puzzle_utils import (
+    create_ownership_layer_puzzle,
+    get_metadata_and_phs,
+    get_new_owner_did,
+)
 from chik.wallet.nft_wallet.nft_puzzles import NFT_METADATA_UPDATER
 from chik.wallet.nft_wallet.uncurry_nft import NFTCoinData, UncurriedNFT
 from chik.wallet.outer_puzzles import AssetType, construct_puzzle, match_puzzle, solve_puzzle
@@ -43,7 +48,7 @@ from chik.wallet.trading.offer import OFFER_MOD, OFFER_MOD_HASH, NotarizedPaymen
 from chik.wallet.transaction_record import TransactionRecord
 from chik.wallet.uncurried_puzzle import uncurry_puzzle
 from chik.wallet.util.compute_additions import compute_additions
-from chik.wallet.util.wallet_types import WalletType
+from chik.wallet.util.wallet_types import WalletIdentifier, WalletType
 from chik.wallet.wallet import Wallet
 from chik.wallet.wallet_action_scope import WalletActionScope
 from chik.wallet.wallet_coin_record import WalletCoinRecord
@@ -51,6 +56,9 @@ from chik.wallet.wallet_info import WalletInfo
 from chik.wallet.wallet_nft_store import WalletNftStore
 from chik.wallet.wallet_protocol import GSTOptionalArgs, WalletProtocol
 from chik.wallet.wallet_spend_bundle import WalletSpendBundle
+
+if TYPE_CHECKING:
+    from chik.wallet.wallet_state_manager import WalletStateManager
 
 _T_NFTWallet = TypeVar("_T_NFTWallet", bound="NFTWallet")
 
@@ -70,7 +78,7 @@ def compute_royalty_amount(offered_amount: int, royalty_split: int, percentage: 
 
 class NFTWallet:
     if TYPE_CHECKING:
-        _protocol_check: ClassVar[WalletProtocol[NFTCoinData]] = cast("NFTWallet", None)
+        _protocol_check: ClassVar[WalletProtocol] = cast("NFTWallet", None)
 
     wallet_state_manager: Any
     log: logging.Logger
@@ -147,7 +155,7 @@ class NFTWallet:
         """The NFT wallet doesn't really have a balance."""
         return uint128(0)
 
-    async def get_unconfirmed_balance(self, record_list: set[WalletCoinRecord] | None = None) -> uint128:
+    async def get_unconfirmed_balance(self, unspent_records: set[WalletCoinRecord] | None = None) -> uint128:
         """The NFT wallet doesn't really have a balance."""
         return uint128(0)
 
@@ -168,16 +176,14 @@ class NFTWallet:
             raise KeyError(f"Couldn't find coin with id: {nft_coin_id}")
         return nft_coin
 
-    async def coin_added(
-        self, coin: Coin, height: uint32, peer: WSChikConnection, parent_coin_data: NFTCoinData | None
-    ) -> None:
+    async def coin_added(self, coin: Coin, height: uint32, peer: WSChikConnection, coin_data: object | None) -> None:
         """Notification from wallet state manager that wallet has been received."""
         self.log.info(f"NFT wallet %s has been notified that {coin} was added", self.get_name())
         if await self.nft_store.exists(coin.name()):
             # already added
             return
-        assert isinstance(parent_coin_data, NFTCoinData), f"Invalid NFT coin data: {parent_coin_data}"
-        await self.puzzle_solution_received(coin, parent_coin_data, peer)
+        assert isinstance(coin_data, NFTCoinData), f"Invalid NFT coin data: {coin_data}"
+        await self.puzzle_solution_received(coin, coin_data, peer)
 
     async def puzzle_solution_received(self, coin: Coin, data: NFTCoinData, peer: WSChikConnection) -> None:
         self.log.debug("Puzzle solution received to wallet: %s", self.wallet_info)
@@ -207,11 +213,7 @@ class NFTWallet:
         launcher_coin_states: list[CoinState] = await self.wallet_state_manager.wallet_node.get_coin_state(
             [singleton_id], peer=peer
         )
-        assert (
-            launcher_coin_states is not None
-            and len(launcher_coin_states) == 1
-            and launcher_coin_states[0].spent_height is not None
-        )
+        assert len(launcher_coin_states) == 1 and launcher_coin_states[0].spent_height is not None
         mint_height: uint32 = uint32(launcher_coin_states[0].spent_height)
         minter_did = None
         if uncurried_nft.supports_did:
@@ -264,6 +266,124 @@ class NFTWallet:
             minter_did,
             confirmed_height,
         )
+
+    @classmethod
+    async def identify(
+        cls,
+        wallet_state_manager: WalletStateManager,
+        nft_data: NFTCoinData,
+    ) -> WalletIdentifier | None:
+        """
+        Handle the new coin when it is a NFT
+        :param nft_data: all necessary data to process a NFT coin
+        :return: Wallet ID & Wallet Type
+        """
+        wallet_identifier = None
+        # DID ID determines which NFT wallet should process the NFT
+        new_did_id: bytes32 | None = None
+        old_did_id = None
+        # P2 puzzle hash determines if we should ignore the NFT
+        uncurried_nft: UncurriedNFT = nft_data.uncurried_nft
+        old_p2_puzhash = uncurried_nft.p2_puzzle.get_tree_hash()
+        _metadata, new_p2_puzhash = get_metadata_and_phs(
+            uncurried_nft,
+            nft_data.parent_coin_spend.solution,
+        )
+        if uncurried_nft.supports_did:
+            parsed_did_id = get_new_owner_did(
+                uncurried_nft, Program.from_serialized(nft_data.parent_coin_spend.solution)
+            )
+            old_did_id = uncurried_nft.owner_did
+            if parsed_did_id is None:
+                new_did_id = old_did_id
+            elif parsed_did_id == b"":
+                new_did_id = None
+            else:
+                new_did_id = parsed_did_id
+        wallet_state_manager.log.debug(
+            "Handling NFT: %s, old DID:%s, new DID:%s, old P2:%s, new P2:%s",
+            nft_data.parent_coin_spend,
+            old_did_id,
+            new_did_id,
+            old_p2_puzhash,
+            new_p2_puzhash,
+        )
+        new_derivation_record: (
+            DerivationRecord | None
+        ) = await wallet_state_manager.puzzle_store.get_derivation_record_for_puzzle_hash(new_p2_puzhash)
+        old_derivation_record: (
+            DerivationRecord | None
+        ) = await wallet_state_manager.puzzle_store.get_derivation_record_for_puzzle_hash(old_p2_puzhash)
+        if new_derivation_record is None and old_derivation_record is None:
+            wallet_state_manager.log.debug(
+                "Cannot find a P2 puzzle hash for NFT:%s, this NFT belongs to others.",
+                uncurried_nft.singleton_launcher_id.hex(),
+            )
+            return wallet_identifier
+        for nft_wallet in wallet_state_manager.wallets.copy().values():
+            if not isinstance(nft_wallet, NFTWallet):
+                continue
+            if nft_wallet.nft_wallet_info.did_id == old_did_id and old_derivation_record is not None:
+                wallet_state_manager.log.info(
+                    "Removing old NFT, NFT_ID:%s, DID_ID:%s",
+                    uncurried_nft.singleton_launcher_id.hex(),
+                    old_did_id,
+                )
+                if nft_data.parent_coin_state.spent_height is not None:
+                    await nft_wallet.remove_coin(
+                        nft_data.parent_coin_spend.coin, uint32(nft_data.parent_coin_state.spent_height)
+                    )
+                    is_empty = await nft_wallet.is_empty()
+                    has_did = False
+                    for did_wallet in wallet_state_manager.wallets.values():
+                        if not isinstance(did_wallet, DIDWallet):
+                            continue
+                        assert did_wallet.did_info.origin_coin is not None
+                        if did_wallet.did_info.origin_coin.name() == old_did_id:
+                            has_did = True
+                            break
+                    if is_empty and nft_wallet.did_id is not None and not has_did:
+                        wallet_state_manager.log.info(f"No NFT, deleting wallet {nft_wallet.did_id.hex()} ...")
+                        await wallet_state_manager.delete_wallet(nft_wallet.wallet_info.id)
+                        wallet_state_manager.wallets.pop(nft_wallet.wallet_info.id)
+            if nft_wallet.nft_wallet_info.did_id == new_did_id and new_derivation_record is not None:
+                wallet_state_manager.log.info(
+                    "Adding new NFT, NFT_ID:%s, DID_ID:%s",
+                    uncurried_nft.singleton_launcher_id.hex(),
+                    new_did_id,
+                )
+                wallet_identifier = WalletIdentifier.create(nft_wallet)
+
+        if wallet_identifier is None and new_derivation_record is not None:
+            # Cannot find an existed NFT wallet for the new NFT
+            # Bound the number of auto-created DID-scoped NFT wallets. `new_did_id`
+            # is parsed from attacker-controllable NFT transfer data; without a cap a
+            # peer that spams inbound NFTs with unique foreign DIDs can force
+            # unbounded wallet creation. Mirrors `did_auto_add_limit`.
+            # Counter excludes the canonical did_id=None wallet so attacker-driven
+            # fanout cannot displace a user's legitimate no-DID NFT receives.
+            nft_wallet_count = sum(
+                1
+                for w in wallet_state_manager.wallets.values()
+                if isinstance(w, NFTWallet) and w.nft_wallet_info.did_id is not None
+            )
+            nft_limit = wallet_state_manager.config.get("nft_auto_add_limit", 100)
+            if new_did_id is not None and nft_wallet_count >= nft_limit:
+                wallet_state_manager.log.warning(
+                    f"You are at the max configured limit of {nft_limit} NFT wallets. "
+                    f"Ignoring received NFT {uncurried_nft.singleton_launcher_id.hex()} with DID {new_did_id.hex()}"
+                )
+                return None
+            wallet_state_manager.log.info(
+                "Cannot find a NFT wallet for NFT_ID: %s DID_ID: %s, creating a new one.",
+                uncurried_nft.singleton_launcher_id,
+                new_did_id,
+            )
+            new_nft_wallet: NFTWallet = await NFTWallet.create_new_nft_wallet(
+                wallet_state_manager, wallet_state_manager.main_wallet, did_id=new_did_id, name="NFT Wallet"
+            )
+            wallet_identifier = WalletIdentifier.create(new_nft_wallet)
+        return wallet_identifier
 
     async def add_coin(
         self,
@@ -356,8 +476,6 @@ class NFTWallet:
         if percentage > MAX_ROYALTY_BASIS_POINTS:
             raise ValueError(f"Royalty percentage {percentage} exceeds 100% ({MAX_ROYALTY_BASIS_POINTS} basis points)")
         coins = await self.standard_wallet.select_coins(uint64(amount + fee), action_scope)
-        if coins is None:
-            return None
         origin = coins.copy().pop()
         genesis_launcher_puz = SINGLETON_LAUNCHER_PUZZLE
         # nft_id == singleton_id == launcher_id == launcher_coin.name()
@@ -776,7 +894,7 @@ class NFTWallet:
             assert isinstance(transfer_info, PuzzleInfo)
             royalty_percentage_raw = transfer_info["transfer_program"]["royalty_percentage"]
             assert royalty_percentage_raw is not None
-            # klvm encodes large ints as bytes
+            # clvk encodes large ints as bytes
             if isinstance(royalty_percentage_raw, bytes):
                 royalty_percentage = int_from_bytes(royalty_percentage_raw)
             else:

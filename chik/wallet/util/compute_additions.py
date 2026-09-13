@@ -14,11 +14,11 @@ from chik.util.errors import Err, ValidationError
 def compute_additions_with_cost(
     cs: CoinSpend,
     *,
-    max_cost: int = DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM,
+    max_cost: int = DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK,
 ) -> tuple[list[Coin], int]:
     """
     Run the puzzle in the specified CoinSpend and return the cost and list of
-    coins created by the puzzle, i.e. additions. If the cost (KLVM- and
+    coins created by the puzzle, i.e. additions. If the cost (CLVK- and
     condition cost) exceeds the specified max_cost, the function fails with a
     ValidationError exception. Byte cost is not included since at this point the
     puzzle and solution may have been decompressed, the true byte-cost can only be
@@ -54,5 +54,5 @@ def compute_additions_with_cost(
     return ret, cost
 
 
-def compute_additions(cs: CoinSpend, *, max_cost: int = DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM) -> list[Coin]:
+def compute_additions(cs: CoinSpend, *, max_cost: int = DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK) -> list[Coin]:
     return compute_additions_with_cost(cs, max_cost=max_cost)[0]

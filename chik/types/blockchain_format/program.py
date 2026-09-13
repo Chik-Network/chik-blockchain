@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
 from chik_rs import MEMPOOL_MODE, run_chik_program, tree_hash
 from chik_rs.sized_bytes import bytes32
-from klvm.KLVMObject import KLVMStorage
-from klvm.EvalError import EvalError
-from klvm.serialize import sexp_from_stream, sexp_to_stream
-from klvm.SExp import SExp
+from clvk.CLVKObject import CLVKStorage
+from clvk.EvalError import EvalError
+from clvk.serialize import sexp_from_stream, sexp_to_stream
+from clvk.SExp import SExp
 from typing_extensions import Self
 
 from chik.types.blockchain_format.serialized_program import SerializedProgram
@@ -22,7 +22,7 @@ INFINITE_COST = 11_000_000_000
 
 DEFAULT_FLAGS = MEMPOOL_MODE
 
-T_KLVMStorage = TypeVar("T_KLVMStorage", bound=KLVMStorage)
+T_CLVKStorage = TypeVar("T_CLVKStorage", bound=CLVKStorage)
 T_Program = TypeVar("T_Program", bound="Program")
 
 
@@ -123,7 +123,7 @@ class Program(SExp):
         ```
 
         This is a convenience method intended for use in the wallet or command-line hacks where
-        it would be easier to morph elements of an existing klvm object tree than to rebuild
+        it would be easier to morph elements of an existing clvk object tree than to rebuild
         one from scratch.
 
         Note that `Program` objects are immutable. This function returns a new object; the
@@ -158,11 +158,11 @@ class Program(SExp):
     def run_with_flags(self, max_cost: int, flags: int, args: Any) -> tuple[int, Program]:
         return self._run(max_cost, flags, args)
 
-    # Replicates the curry function from klvm_tools, taking advantage of *args
+    # Replicates the curry function from clvk_tools, taking advantage of *args
     # being a list.  We iterate through args in reverse building the code to
-    # create a klvm list.
+    # create a clvk list.
     #
-    # Given arguments to a function addressable by the '1' reference in klvm
+    # Given arguments to a function addressable by the '1' reference in clvk
     #
     # fixed_args = 1
     #
@@ -181,7 +181,7 @@ class Program(SExp):
         return Program.to([2, (1, self), fixed_args])
 
     def uncurry(self) -> tuple[Program, Program]:
-        def match(o: KLVMStorage, expected: bytes) -> None:
+        def match(o: CLVKStorage, expected: bytes) -> None:
             if o.atom != expected:
                 raise ValueError(f"expected: {expected.hex()}")
 
@@ -254,7 +254,7 @@ Program.NIL = Program.to(None)
 
 
 # real return type is more like Union[T_Program, CastableType] when considering corner and terminal cases
-def _sexp_replace(sexp: T_KLVMStorage, to_sexp: Callable[[Any], T_Program], **kwargs: Any) -> T_Program:
+def _sexp_replace(sexp: T_CLVKStorage, to_sexp: Callable[[Any], T_Program], **kwargs: Any) -> T_Program:
     # if `kwargs == {}` then `return sexp` unchanged
     if len(kwargs) == 0:
         # yes, the terminal case is hinted incorrectly for now
@@ -309,7 +309,3 @@ def run(prg: SerializedProgram | Program, args: Any) -> Program:
 
 def run_with_cost(prg: SerializedProgram | Program, max_cost: int, args: Any) -> tuple[int, Program]:
     return _run(prg, max_cost, 0, args)
-
-
-def run_mempool_with_cost(prg: SerializedProgram | Program, max_cost: int, args: Any) -> tuple[int, Program]:
-    return _run(prg, max_cost, MEMPOOL_MODE, args)

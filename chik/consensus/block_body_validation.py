@@ -20,15 +20,20 @@ from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 from chikbip158 import PyBIP158
 
+from chik.consensus.block_generator_info import (
+    block_has_transactions_generator,
+    get_transactions_generator_bytes,
+)
 from chik.consensus.block_rewards import calculate_base_farmer_reward, calculate_pool_reward
 from chik.consensus.blockchain_interface import BlockRecordsProtocol
 from chik.consensus.coinbase import create_farmer_coin, create_pool_coin
+from chik.consensus.generator_validation import validate_generator_ref_list, validate_tx_generator
+from chik.consensus.get_block_challenge import pre_sp_tx_block_height
 from chik.types.blockchain_format.coin import Coin, hash_coin_ids
 from chik.util.errors import Err
 from chik.util.hash import std_hash
 
 log = logging.getLogger(__name__)
-
 #  peak->  o
 #  main    |
 #  chain   o  o <- peak_height  \ additions and removals
@@ -214,6 +219,14 @@ async def validate_block_body(
         assert height == block.height
     prev_transaction_block_height: uint32 = uint32(0)
     prev_transaction_block_timestamp: uint64 = uint64(0)
+    # Version is an SP-time gate (matches unfinished-header validation).
+    pre_sp_tx_height = pre_sp_tx_block_height(
+        constants=constants,
+        blocks=records,
+        prev_b_hash=block.prev_header_hash,
+        sp_index=block.reward_chain_block.signage_point_index,
+        finished_sub_slots=len(block.finished_sub_slots),
+    )
 
     # 1. For non transaction-blocs: foliage block, transaction filter, transactions info, and generator must
     # be empty. If it is a block but not a transaction block, there is no body to validate. Check that all fields are
@@ -222,7 +235,7 @@ async def validate_block_body(
         if (
             block.foliage_transaction_block is not None
             or block.transactions_info is not None
-            or block.transactions_generator is not None
+            or block_has_transactions_generator(block)
         ):
             return Err.NOT_BLOCK_BUT_HAS_DATA
 
@@ -238,6 +251,11 @@ async def validate_block_body(
         assert fork_info.peak_height == height - 1
 
         assert conds is None
+
+        version_error = validate_tx_generator(constants, block, pre_sp_tx_height)
+        if version_error:
+            return version_error
+
         # This means the block is valid
         return None
 
@@ -259,7 +277,8 @@ async def validate_block_body(
         return Err.INVALID_FOLIAGE_BLOCK_HASH
 
     # 5. The reward claims must be valid for the previous blocks, and current block fees
-    # If height == 0, expected_reward_coins will be left empty
+    # If height == 0, expected_reward_coins will be left empty and prev_transaction_block_height
+    # stays 0 (no previous transaction block).
     if height > 0:
         # Add reward claims for all blocks from the prev prev block, until the prev block (including the latter)
         prev_transaction_block = records.block_record(block.foliage_transaction_block.prev_transaction_block_hash)
@@ -268,6 +287,7 @@ async def validate_block_body(
         assert prev_transaction_block.timestamp
         prev_transaction_block_timestamp = prev_transaction_block.timestamp
         assert prev_transaction_block.fees is not None
+
         pool_coin = create_pool_coin(
             prev_transaction_block_height,
             prev_transaction_block.pool_puzzle_hash,
@@ -308,6 +328,10 @@ async def validate_block_body(
                 curr_b = records.block_record(curr_b.prev_hash)
                 assert curr_b is not None
 
+    version_error = validate_tx_generator(constants, block, pre_sp_tx_height)
+    if version_error:
+        return version_error
+
     if set(block.transactions_info.reward_claims_incorporated) != expected_reward_coins:
         return Err.INVALID_REWARD_COINS
 
@@ -330,8 +354,9 @@ async def validate_block_body(
 
     # 7a. The generator root must be the hash of the serialized bytes of
     #     the generator for this block (or zeroes if no generator)
-    if block.transactions_generator is not None:
-        if std_hash(bytes(block.transactions_generator)) != block.transactions_info.generator_root:
+    generator_bytes = get_transactions_generator_bytes(block)
+    if generator_bytes is not None:
+        if std_hash(generator_bytes) != block.transactions_info.generator_root:
             return Err.INVALID_TRANSACTIONS_GENERATOR_HASH
     elif block.transactions_info.generator_root != bytes([0] * 32):
         return Err.INVALID_TRANSACTIONS_GENERATOR_HASH
@@ -340,46 +365,29 @@ async def validate_block_body(
     #     the generator ref list for this block (or 'one' bytes [0x01] if no generator)
     # 8b. The generator ref list length must be less than or equal to MAX_GENERATOR_REF_LIST_SIZE entries
     # 8c. The generator ref list must not point to a height >= this block's height
-    if block.transactions_generator_ref_list == []:
-        if block.transactions_info.generator_refs_root != bytes([1] * 32):
-            return Err.INVALID_TRANSACTIONS_GENERATOR_REFS_ROOT
-    else:
-        # With hard fork 2 we ban transactions_generator_ref_list.
-        if prev_transaction_block_height >= constants.SOFT_FORK9_HEIGHT:
-            return Err.TOO_MANY_GENERATOR_REFS
+    generator_ref_error = validate_generator_ref_list(constants, block, height, prev_transaction_block_height)
+    if generator_ref_error is not None:
+        return generator_ref_error
 
-        # If we have a generator reference list, we must have a generator
-        if block.transactions_generator is None:
-            return Err.INVALID_TRANSACTIONS_GENERATOR_REFS_ROOT
-
-        # The generator_refs_root must be the hash of the concatenation of the list[uint32]
-        generator_refs_hash = std_hash(b"".join([i.stream_to_bytes() for i in block.transactions_generator_ref_list]))
-        if block.transactions_info.generator_refs_root != generator_refs_hash:
-            return Err.INVALID_TRANSACTIONS_GENERATOR_REFS_ROOT
-        if len(block.transactions_generator_ref_list) > constants.MAX_GENERATOR_REF_LIST_SIZE:
-            return Err.TOO_MANY_GENERATOR_REFS
-        if any([index >= height for index in block.transactions_generator_ref_list]):
-            return Err.FUTURE_GENERATOR_REFS
-
-    if block.transactions_generator is not None:
+    if generator_bytes is not None:
         # Get List of names removed, puzzles hashes for removed coins and conditions created
 
         cost = uint64(0 if conds is None else conds.cost)
 
-        # 7. Check that cost <= MAX_BLOCK_COST_KLVM
+        # 7. Check that cost <= MAX_BLOCK_COST_CLVK
         log.debug(
-            f"Cost: {cost} max: {constants.MAX_BLOCK_COST_KLVM} "
-            f"percent full: {round(100 * (cost / constants.MAX_BLOCK_COST_KLVM), 2)}%"
+            f"Cost: {cost} max: {constants.MAX_BLOCK_COST_CLVK} "
+            f"percent full: {round(100 * (cost / constants.MAX_BLOCK_COST_CLVK), 2)}%"
         )
-        if cost > constants.MAX_BLOCK_COST_KLVM:
+        if cost > constants.MAX_BLOCK_COST_CLVK:
             return Err.BLOCK_COST_EXCEEDS_MAX
 
-        # 8. The KLVM program must not return any errors
+        # 8. The CLVK program must not return any errors
         assert conds is not None
         assert conds.validated_signature
 
         if prev_transaction_block_height >= constants.SOFT_FORK9_HEIGHT:
-            if not is_canonical_serialization(bytes(block.transactions_generator)):
+            if not is_canonical_serialization(generator_bytes):
                 return Err.INVALID_TRANSACTIONS_GENERATOR_ENCODING
 
         for spend in conds.spends:

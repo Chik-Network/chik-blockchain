@@ -6,15 +6,15 @@ from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
 
 from chik.types.blockchain_format.program import Program
-from chik.wallet.puzzles.load_klvm import load_klvm_maybe_recompile
+from chik.wallet.puzzles.load_clvk import load_clvk_maybe_recompile
 
-FIXED_CREATE_COIN_DESTINATIONS = load_klvm_maybe_recompile(
+FIXED_CREATE_COIN_DESTINATIONS = load_clvk_maybe_recompile(
     "fixed_create_coin_destinations.clsp", package_or_requirement="chik.wallet.puzzles.custody"
 )
-SEND_MESSAGE_BANNED = load_klvm_maybe_recompile(
+SEND_MESSAGE_BANNED = load_clvk_maybe_recompile(
     "send_message_banned.clsp", package_or_requirement="chik.wallet.puzzles.custody"
 )
-HEIGHTLOCK_WRAPPER = load_klvm_maybe_recompile("heightlock.clsp", package_or_requirement="chik.wallet.puzzles.custody")
+HEIGHTLOCK_WRAPPER = load_clvk_maybe_recompile("heightlock.clsp", package_or_requirement="chik.wallet.puzzles.custody")
 
 
 @dataclass(frozen=True)

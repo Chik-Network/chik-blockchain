@@ -10,7 +10,7 @@ from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint64
 from chikbip158 import PyBIP158
 
-from chik._tests.klvm.test_puzzles import public_key_for_index, secret_exponent_for_index
+from chik._tests.clvk.test_puzzles import public_key_for_index, secret_exponent_for_index
 from chik._tests.core.mempool.test_mempool_manager import (
     IDENTITY_PUZZLE,
     IDENTITY_PUZZLE_HASH,

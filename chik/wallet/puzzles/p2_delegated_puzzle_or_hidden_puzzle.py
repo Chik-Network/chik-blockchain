@@ -64,7 +64,7 @@ from functools import lru_cache
 from chik_puzzles_py.programs import P2_DELEGATED_PUZZLE_OR_HIDDEN_PUZZLE
 from chik_rs import G1Element, PrivateKey
 from chik_rs.sized_bytes import bytes32
-from klvm.SExp import CastableType
+from clvk.SExp import CastableType
 
 from chik.types.blockchain_format.program import Program
 from chik.util.casts import int_from_bytes

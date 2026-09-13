@@ -24,7 +24,7 @@ from chik_rs.sized_ints import uint8, uint16, uint32, uint64, uint128
 
 from benchmarks.utils import setup_db
 from chik._tests.util.benchmarks import (
-    klvm_generator,
+    clvk_generator,
     rand_class_group_element,
     rand_g1,
     rand_g2,
@@ -194,8 +194,10 @@ async def run_add_block_benchmark(version: int) -> None:
                 foliage,
                 foliage_transaction_block,
                 transactions_info,
-                SerializedProgram.from_bytes(klvm_generator) if is_transaction else None,  # transactions_generator
+                SerializedProgram.from_bytes(clvk_generator) if is_transaction else None,  # transactions_generator
                 [],  # transactions_generator_ref_list
+                None,
+                uint8(0),
             )
 
             header_hash = full_block.header_hash

@@ -7,7 +7,7 @@ import pytest
 from chik_rs import CoinSpend
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
-from klvm_tools import binutils
+from clvk_tools import binutils
 
 from chik._tests.util.db_connection import DBConnection
 from chik.types.blockchain_format.coin import Coin

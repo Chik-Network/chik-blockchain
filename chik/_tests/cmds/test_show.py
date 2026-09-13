@@ -6,7 +6,7 @@ from typing import Any
 
 from chik_rs import FoliageTransactionBlock, FullBlock
 from chik_rs.sized_bytes import bytes32
-from chik_rs.sized_ints import uint32, uint64
+from chik_rs.sized_ints import uint8, uint32, uint64
 
 from chik._tests.cmds.cmd_test_utils import TestFullNodeRpcClient, TestRpcClients, run_cli_command_and_assert
 from chik._tests.cmds.testing_classes import hash_to_height, height_hash
@@ -75,6 +75,8 @@ class ShowFullNodeRpcClient(TestFullNodeRpcClient):
             transactions_info=tx_info,
             transactions_generator=SerializedProgram.from_bytes(bytes.fromhex("ff01820539")),
             transactions_generator_ref_list=[],
+            transactions_generator_buffer=None,
+            version=uint8(0),
         )
         return full_block
 
@@ -100,7 +102,7 @@ def test_chik_show(capsys: object, get_test_cli_clients: tuple[TestRpcClients, P
         "Current Blockchain Status: Full Node Synced",
         "Estimated network space: 25.647 EiB",
         "Block fees: 500000000000 mojos",
-        "Fee rate:    3.077e+04 mojos per KLVM cost",
+        "Fee rate:    3.077e+04 mojos per CLVK cost",
         f"Tx Filter Hash         {bytes32([2] * 32).hex()}",
         "Weight                 10000",
         "Is a Transaction Block?True",

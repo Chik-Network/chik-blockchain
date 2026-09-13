@@ -12,18 +12,13 @@ chik.simulator.keyring
 chik.simulator.wallet_tools
 chik.ssl.create_ssl
 chik.types.blockchain_format.program
-chik.wallet.did_wallet.did_wallet
-chik.wallet.puzzles.load_klvm
-chik.wallet.trading.trade_store
+chik.wallet.puzzles.load_clvk
 chik.wallet.util.debug_spend_bundle
 chik.wallet.util.new_peak_queue
-chik.wallet.wallet_coin_store
-chik.wallet.wallet_interested_store
-chik.wallet.wallet_puzzle_store
 chik.wallet.wallet_transaction_store
-chik._tests.klvm.test_puzzles
-chik._tests.klvm.test_singletons
-chik._tests.klvm.test_spend_sim
+chik._tests.clvk.test_puzzles
+chik._tests.clvk.test_singletons
+chik._tests.clvk.test_spend_sim
 chik._tests.conftest
 chik._tests.core.cmds.test_keys
 chik._tests.core.daemon.test_daemon
@@ -38,4 +33,3 @@ chik._tests.plotting.test_plot_manager
 chik._tests.pools.test_pool_puzzles_lifecycle
 chik._tests.simulation.test_simulation
 chik._tests.util.test_misc
-chik._tests.wallet.did_wallet.test_did

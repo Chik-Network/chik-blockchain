@@ -1,8 +1,3 @@
----
-description: Route agents to pre-built context before code exploration
-alwaysApply: true
----
-
 # Deep Context — Read Before You Grep
 
 Pre-built deep context exists in `.cursor/context/`. **Before running broad
@@ -15,15 +10,37 @@ questions instantly.
 Match the files or intent to the right context doc:
 
 | If you're touching… | Read first |
-|----------------------|------------|
+|----|---|
 | `chik/consensus/**` or block validation / reorg / difficulty | `.cursor/context/consensus.md` |
 | `chik/full_node/mempool*.py`, `eligible_coin_spends.py`, fee logic | `.cursor/context/mempool.md` |
 | `chik/full_node/full_node.py`, `full_node_api.py`, `full_node_store.py`, sync | `.cursor/context/full-node.md` |
-| `chik/server/**`, `chik/protocols/**`, connections, rate limits | `.cursor/context/networking.md` |
+| `chik/server/**`, connections, rate limits | `.cursor/context/server.md` |
+| `chik/protocols/**`, wire messages | `.cursor/context/protocols.md` |
+| `chik/apis/**`, API stub metadata | `.cursor/context/apis.md` |
+| `chik/types/**`, shared types, serialization boundary | `.cursor/context/types.md` |
 | `chik/wallet/**` | `.cursor/context/wallet.md` |
-| KLVM, puzzles, conditions, generators, `chik/types/blockchain_format/**` | `.cursor/context/klvm-execution.md` |
+| CLVK execution, generators, puzzles, conditions | `.cursor/context/clvk-execution.md` |
+| `chik/farmer/**` | `.cursor/context/farmer.md` |
+| `chik/harvester/**` | `.cursor/context/harvester.md` |
+| `chik/timelord/**` | `.cursor/context/timelord.md` |
+| `chik/plotting/**` | `.cursor/context/plotting.md` |
+| `chik/plot_sync/**` | `.cursor/context/plot-sync.md` |
+| `chik/pools/**` | `.cursor/context/pools.md` |
+| `chik/daemon/**` | `.cursor/context/daemon.md` |
+| `chik/data_layer/**` | `.cursor/context/data-layer.md` |
+| `chik/rpc/**` | `.cursor/context/rpc.md` |
+| `chik/ssl/**` | `.cursor/context/ssl.md` |
+| `chik/simulator/**` | `.cursor/context/simulator.md` |
+| `chik/solver/**` | `.cursor/context/solver.md` |
+| `chik/seeder/**` | `.cursor/context/seeder.md` |
+| `chik/introducer/**` | `.cursor/context/introducer.md` |
+| `chik/cmds/**` | `.cursor/context/cmds.md` |
+| `chik/util/**` | `.cursor/context/util.md` |
+| `benchmarks/**` | `.cursor/context/benchmarks.md` |
+| Root config, build scripts, workflows, tooling | `.cursor/context/repo-tooling.md` |
 | Cross-cutting / security review / unsure | `.cursor/context/global-invariants.md` |
 | First time / orientation / unfamiliar area | `.cursor/context/architecture-overview.md` |
+| Tests (`chik/_tests/**`) | See `.cursor/rules/testing-guide.mdc` |
 
 ## Protocol
 

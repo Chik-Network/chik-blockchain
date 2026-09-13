@@ -14,12 +14,12 @@ puzzle compilation.
 
 | Package           | Repo                                                                            | Role                                                                                                                                                        | Used by                                                                    |
 | ----------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `chik_rs`         | [Chik-Network/chik_rs](https://github.com/Chik-Network/chik_rs)                 | Core Rust FFI: consensus types, BLS signatures, KLVM execution, serialization, condition validation, spend bundle validation, merkle sets, V2 proof solving | Nearly everything — consensus, mempool, wallet, types, solver              |
+| `chik_rs`         | [Chik-Network/chik_rs](https://github.com/Chik-Network/chik_rs)                 | Core Rust FFI: consensus types, BLS signatures, CLVK execution, serialization, condition validation, spend bundle validation, merkle sets, V2 proof solving | Nearly everything — consensus, mempool, wallet, types, solver              |
 | `chikpos`         | [Chik-Network/chikpos](https://github.com/Chik-Network/chikpos)                 | Proof of Space: plot creation, proof verification, quality computation                                                                                      | `chik/plotting/`, `chik/types/blockchain_format/proof_of_space.py`         |
 | `chikvdf`         | [Chik-Network/chikvdf](https://github.com/Chik-Network/chikvdf)                 | VDF computation and proof verification                                                                                                                      | `chik/timelord/`, `chik/types/blockchain_format/vdf.py`, `chik/simulator/` |
-| `klvm`            | [Chik-Network/klvm](https://github.com/Chik-Network/klvm)                       | Python KLVM interpreter (used in tooling, not consensus-hot path)                                                                                           | `chik/types/blockchain_format/program.py`, wallet puzzle drivers           |
-| `klvm_tools`      | [Chik-Network/klvm_tools](https://github.com/Chik-Network/klvm_tools)           | KLVM utilities: currying, `Program.to()`, disassembly                                                                                                       | Wallet puzzle construction, tests, debugging                               |
-| `chiklisp`        | [Chik-Network/chiklisp](https://github.com/Chik-Network/chiklisp)               | Rust ChikLisp compiler — compiles `.clsp` puzzle source to KLVM bytecode                                                                                    | `chik/wallet/puzzles/load_klvm.py`, puzzle compilation tooling             |
+| `clvk`            | [Chik-Network/clvk](https://github.com/Chik-Network/clvk)                       | Python CLVK interpreter (used in tooling, not consensus-hot path)                                                                                           | `chik/types/blockchain_format/program.py`, wallet puzzle drivers           |
+| `clvk_tools`      | [Chik-Network/clvk_tools](https://github.com/Chik-Network/clvk_tools)           | CLVK utilities: currying, `Program.to()`, disassembly                                                                                                       | Wallet puzzle construction, tests, debugging                               |
+| `chiklisp`        | [Chik-Network/chiklisp](https://github.com/Chik-Network/chiklisp)               | Rust ChikLisp compiler — compiles `.clsp` puzzle source to CLVK bytecode                                                                                    | `chik/wallet/puzzles/load_clvk.py`, puzzle compilation tooling             |
 | `chik-puzzles-py` | [Chik-Network/chik-puzzles-py](https://github.com/Chik-Network/chik-puzzles-py) | Pre-compiled standard puzzle bytecode (singletons, CATs, DIDs, NFTs, etc.)                                                                                  | Wallet puzzle drivers, pool puzzles, data layer                            |
 | `chikbip158`      | [Chik-Network/chikbip158](https://github.com/Chik-Network/chikbip158)           | BIP-158 compact block filters for lightweight wallet sync                                                                                                   | Block body validation, mempool manager, wallet sync                        |
 
@@ -44,6 +44,17 @@ Other Chik packages use minimum-version pins. See `pyproject.toml` for current v
 | `chik/data_layer/` | DataLayer (data-storage singleton)                                   | Medium       |
 | `chik/cmds/`       | CLI command handlers                                                 | Low          |
 
+## Package root
+
+`chik/__init__.py`, `chik/__main__.py`, and `chik/py.typed` are process-wide entrypoint and namespace glue, not authorities for consensus, wallet state, P2P semantics, daemon privileges, or RPC behavior.
+
+- `chik/__init__.py` resolves `__version__` from installed package metadata (falls back to `"unknown"` when unavailable). That value is visible in CLI output, daemon/RPC responses, peer handshakes, farmer pool headers, and logs.
+- Import-time runtime gates are process-wide: Python assertions are required and CPython free-threading is rejected, because consensus, networking, store, native-extension, async, and DB assumptions rely on those properties.
+- `chik/__main__.py` is a thin bridge to `chik.cmds.chik:main`; CLI behavior belongs in `chik/cmds/`.
+- `chik/py.typed` declares the package as typed for downstream consumers.
+- Console scripts in `pyproject.toml` are compatibility surfaces that must stay aligned with `chik.util.service_groups`, `chik start`, PyInstaller executable names, installer payloads, and GUI expectations. See `repo-tooling.md` for the full tooling contract.
+- Avoid adding package-root imports from heavy service modules; root imports run before root path, keys root, logging, config, and SSL checks are established.
+
 ## `chik_rs` boundary (largest external dependency)
 
 Nearly all core consensus types live in Rust via `chik_rs`:
@@ -53,7 +64,7 @@ Nearly all core consensus types live in Rust via `chik_rs`:
 `SubEpochSummary`, `SubEpochChallengeSegment`, `Coin`, `CoinSpend`, `G1Element`,
 `G2Element`, `AugSchemeMPL`, `BLSCache`, `PartialProof`.
 
-**Functions**: `validate_klvm_and_signature`, `run_block_generator`,
+**Functions**: `validate_clvk_and_signature`, `run_block_generator`,
 `run_block_generator2`, `additions_and_removals`, `check_time_locks`,
 `compute_merkle_set_root`, `fast_forward_singleton`, `supports_fast_forward`,
 `get_flags_for_height_and_constants`, `solution_generator_backrefs`,
@@ -62,7 +73,7 @@ Nearly all core consensus types live in Rust via `chik_rs`:
 `solve_proof` (V2 plot solving).
 
 **Rule of thumb**: Consensus-critical _math_ (VDF iteration calculation, difficulty
-adjustment, quality computation) is Python. Signature/KLVM/serialization
+adjustment, quality computation) is Python. Signature/CLVK/serialization
 validation is Rust. VDF proofs are computed by `chikvdf`, PoS proofs by
 `chikpos`. Puzzle bytecode comes pre-compiled from `chik-puzzles-py`.
 
@@ -115,7 +126,7 @@ Node roles are defined by `NodeType` in `chik/protocols/outbound_message.py`:
 
 ## Wire protocol overview
 
-109 message types in `ProtocolMessageTypes` enum. Key flows:
+110 message types in `ProtocolMessageTypes` enum. Key flows:
 
 - **Full Node ↔ Full Node**: `new_peak`, `new_transaction`, `request_block(s)`,
   `new_signage_point_or_end_of_sub_slot`, `request_compact_vdf`
@@ -135,8 +146,8 @@ Node roles are defined by `NodeType` in `chik/protocols/outbound_message.py`:
 | `chik/types/blockchain_format/coin.py`               | `Coin` (parent_id, puzzle_hash, amount)                |
 | `chik/types/blockchain_format/vdf.py`                | `VDFInfo`, `VDFProof`                                  |
 | `chik/types/blockchain_format/proof_of_space.py`     | PoS verification                                       |
-| `chik/types/blockchain_format/program.py`            | KLVM program wrappers                                  |
-| `chik/types/blockchain_format/serialized_program.py` | Lazy KLVM deserialization                              |
+| `chik/types/blockchain_format/program.py`            | CLVK program wrappers                                  |
+| `chik/types/blockchain_format/serialized_program.py` | Lazy CLVK deserialization                              |
 | `chik/types/mempool_item.py`                         | `MempoolItem`, `BundleCoinSpend`, `UnspentLineageInfo` |
 | `chik/types/generator_types.py`                      | `BlockGenerator`, `NewBlockGenerator`                  |
 | `chik/types/validation_state.py`                     | `ValidationState`                                      |

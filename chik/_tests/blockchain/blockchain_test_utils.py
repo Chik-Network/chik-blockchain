@@ -5,14 +5,18 @@ from chik_rs.sized_ints import uint32, uint64
 
 from chik.consensus.augmented_chain import AugmentedBlockchain
 from chik.consensus.block_body_validation import ForkInfo
+from chik.consensus.block_generator_info import block_has_transactions_generator
 from chik.consensus.blockchain import AddBlockResult, Blockchain
 from chik.consensus.difficulty_adjustment import get_next_sub_slot_iters_and_difficulty
 from chik.consensus.multiprocess_validation import PreValidationResult, pre_validate_block
+from chik.full_node.block_store import BlockStore
 from chik.types.validation_state import ValidationState
 from chik.util.errors import Err
 
 
 async def check_block_store_invariant(bc: Blockchain) -> None:
+    # this checks sqlite-level invariants, so it needs the concrete store
+    assert isinstance(bc.block_store, BlockStore)
     db_wrapper = bc.block_store.db_wrapper
 
     if db_wrapper.db_version == 1:
@@ -20,7 +24,7 @@ async def check_block_store_invariant(bc: Blockchain) -> None:
 
     in_chain = set()
     max_height = -1
-    async with bc.block_store.transaction() as conn:
+    async with db_wrapper.writer() as conn:
         async with conn.execute("SELECT height, in_main_chain FROM full_blocks") as cursor:
             rows = await cursor.fetchall()
             for row in rows:
@@ -73,7 +77,7 @@ async def _validate_and_add_block(
     await check_block_store_invariant(blockchain)
 
     if skip_prevalidation:
-        if block.transactions_generator is None:
+        if not block_has_transactions_generator(block):
             conds = None
         else:
             # fake the signature validation. Just say True here.

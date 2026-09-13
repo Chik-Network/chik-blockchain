@@ -4,7 +4,7 @@ import random
 from typing import Any
 
 from chik_rs.sized_bytes import bytes32
-from klvm.SExp import CastableType
+from clvk.SExp import CastableType
 
 from chik._tests.core.make_block_generator import int_to_public_key
 from chik.types.blockchain_format.program import Program
@@ -161,7 +161,7 @@ def test_transfer_puzzle_builder() -> None:
     ]
     sp2_puzzle, solution = make_a_new_solution()
     p2_puzzle, ownership_puzzle = make_a_new_ownership_layer_puzzle()
-    klvm_nft_puzzle = create_nft_layer_puzzle_with_curry_params(
+    clvk_nft_puzzle = create_nft_layer_puzzle_with_curry_params(
         Program.to(metadata), NFT_METADATA_UPDATER_HASH, ownership_puzzle
     )
     puzzle = create_full_puzzle(
@@ -170,15 +170,15 @@ def test_transfer_puzzle_builder() -> None:
         NFT_METADATA_UPDATER_HASH,
         ownership_puzzle,
     )
-    klvm_puzzle_hash = get_updated_nft_puzzle(klvm_nft_puzzle, solution.at("rrf"))
+    clvk_puzzle_hash = get_updated_nft_puzzle(clvk_nft_puzzle, solution.at("rrf"))
     unft = uncurry_nft.UncurriedNFT.uncurry(*puzzle.uncurry())
     assert unft is not None
-    assert unft.nft_state_layer == klvm_nft_puzzle
+    assert unft.nft_state_layer == clvk_nft_puzzle
     assert unft.inner_puzzle == ownership_puzzle
     assert unft.p2_puzzle == p2_puzzle
     ol_puzzle = recurry_nft_puzzle(unft, solution, sp2_puzzle)
     nft_puzzle = create_nft_layer_puzzle_with_curry_params(Program.to(metadata), NFT_METADATA_UPDATER_HASH, ol_puzzle)
-    assert klvm_puzzle_hash == nft_puzzle.get_tree_hash()
+    assert clvk_puzzle_hash == nft_puzzle.get_tree_hash()
 
 
 def test_create_ownership_layer_transfer_solution() -> None:

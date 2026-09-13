@@ -6,7 +6,7 @@ import time
 from chik_rs import AugSchemeMPL, PrivateKey
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
-from klvm_tools import binutils
+from clvk_tools import binutils
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.simulator.wallet_tools import WalletTool
@@ -34,13 +34,13 @@ def float_to_str(f: float) -> str:
 
 def run_and_return_cost_time(chiklisp: str) -> tuple[int, float]:
     start = time.time()
-    klvm_loop = "((c (q ((c (f (a)) (c (f (a)) (c (f (r (a))) (c (f (r (r (a))))"
+    clvk_loop = "((c (q ((c (f (a)) (c (f (a)) (c (f (r (a))) (c (f (r (r (a))))"
     " (q ()))))))) (c (q ((c (i (f (r (a))) (q (i (q 1) ((c (f (a)) (c (f (a))"
     " (c (- (f (r (a))) (q 1)) (c (f (r (r (a)))) (q ()))))))"
     " ((c (f (r (r (a)))) (q ()))))) (q (q ()))) (a)))) (a))))"
-    loop_program = Program.to(binutils.assemble(klvm_loop))
-    klvm_loop_solution = f"(1000 {chiklisp})"
-    solution_program = Program.to(binutils.assemble(klvm_loop_solution))
+    loop_program = Program.to(binutils.assemble(clvk_loop))
+    clvk_loop_solution = f"(1000 {chiklisp})"
+    solution_program = Program.to(binutils.assemble(clvk_loop_solution))
 
     cost, _ = loop_program.run_with_cost(INFINITE_COST, solution_program)
 
@@ -60,7 +60,7 @@ def benchmark_all_operators() -> None:
     multiply = "(* (q 1000000000) (q 1000000000))"
     greater = "(> (q 1000000000) (q 1000000000))"
     equal = "(= (q 1000000000) (q 1000000000))"
-    if_klvm = "(i (= (q 1000000000) (q 1000000000)) (q 1000000000) (q 1000000000))"
+    if_clvk = "(i (= (q 1000000000) (q 1000000000)) (q 1000000000) (q 1000000000))"
     sha256tree = "(sha256 (q 1000000000))"
     pubkey_for_exp = "(pubkey_for_exp (q 1))"
     point_add = "(point_add"
@@ -72,7 +72,7 @@ def benchmark_all_operators() -> None:
     _multiply_cost, multiply_time = run_and_return_cost_time(multiply)
     _greater_cost, greater_time = run_and_return_cost_time(greater)
     _equal_cost, equal_time = run_and_return_cost_time(equal)
-    _if_cost, if_time = run_and_return_cost_time(if_klvm)
+    _if_cost, if_time = run_and_return_cost_time(if_clvk)
     _sha256tree_cost, sha256tree_time = run_and_return_cost_time(sha256tree)
     _pubkey_for_exp_cost, pubkey_for_exp_time = run_and_return_cost_time(pubkey_for_exp)
 
@@ -101,8 +101,8 @@ def benchmark_all_operators() -> None:
 
 if __name__ == "__main__":
     """
-    Naive way to calculate cost ratio between vByte and KLVM cost unit.
-    AggSig has assigned cost of 20vBytes, simple KLVM program is benchmarked against it.
+    Naive way to calculate cost ratio between vByte and CLVK cost unit.
+    AggSig has assigned cost of 20vBytes, simple CLVK program is benchmarked against it.
     """
     wallet_tool = WalletTool(DEFAULT_CONSTANTS)
     benchmark_all_operators()
@@ -133,15 +133,15 @@ if __name__ == "__main__":
 
     # Run Puzzle 1000 times
     puzzle_start = time.time()
-    klvm_cost = 0
+    clvk_cost = 0
     for i in range(1000):
         cost_run, _ = puzzles[i].run_with_cost(INFINITE_COST, solutions[i])
-        klvm_cost += cost_run
+        clvk_cost += cost_run
 
     puzzle_end = time.time()
     puzzle_time = puzzle_end - puzzle_start
     print(f"Puzzle_time is: {puzzle_time}")
-    print(f"Puzzle cost sum is: {klvm_cost}")
+    print(f"Puzzle cost sum is: {clvk_cost}")
 
     private_key = master_sk_to_wallet_sk(secret_key, uint32(0))
     public_key = private_key.get_g1()
@@ -161,10 +161,10 @@ if __name__ == "__main__":
     print(f"Aggsig Cost: {agg_sig_cost}")
     print(f"Aggsig time is: {agg_sig_time}")
 
-    # klvm_should_cost = agg_sig_cost * puzzle_time / agg_sig_time
-    klvm_should_cost = (agg_sig_cost * puzzle_time) / agg_sig_time
-    print(f"Puzzle should cost: {klvm_should_cost}")
-    constant = klvm_should_cost / klvm_cost
+    # clvk_should_cost = agg_sig_cost * puzzle_time / agg_sig_time
+    clvk_should_cost = (agg_sig_cost * puzzle_time) / agg_sig_time
+    print(f"Puzzle should cost: {clvk_should_cost}")
+    constant = clvk_should_cost / clvk_cost
     format = float_to_str(constant)
     print(f"Constant factor: {format}")
-    print(f"KLVM RATIO MULTIPLIER: {1 / constant}")
+    print(f"CLVK RATIO MULTIPLIER: {1 / constant}")

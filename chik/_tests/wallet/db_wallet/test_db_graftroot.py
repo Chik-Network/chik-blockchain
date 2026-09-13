@@ -142,5 +142,5 @@ async def test_graftroot(cost_logger: CostLogger) -> None:
                 assert result == (MempoolInclusionStatus.FAILED, Err.ASSERT_ANNOUNCE_CONSUMED_FAILED)
             else:
                 assert result == (MempoolInclusionStatus.FAILED, Err.GENERATOR_RUNTIME_ERROR)
-                with pytest.raises(ValueError, match="klvm raise"):
+                with pytest.raises(ValueError, match="clvk raise"):
                     graftroot_puzzle.run(Program.from_serialized(graftroot_spend.solution))

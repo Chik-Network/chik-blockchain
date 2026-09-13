@@ -15,6 +15,13 @@ repos:
         pass_filenames: false
   - repo: local
     hooks:
+      - id: generate_wallet_rpc_client_stubs
+        name: Generate wallet RPC client stubs
+        entry: ./activated.py python tools/generate_wallet_rpc_client_stub.py
+        language: system
+        pass_filenames: false
+  - repo: local
+    hooks:
       - id: ruff_format
         name: ruff format
         entry: ./activated.py ruff format
@@ -61,7 +68,7 @@ repos:
       - id: mixed-line-ending
         args: ["--fix=lf"]
       - id: end-of-file-fixer
-        exclude: ".*?(.hex|.clsp|.klvm|.clib)"
+        exclude: ".*?(.hex|.clsp|.clvk|.clib)"
       - id: trailing-whitespace
       - id: check-merge-conflict
       - id: check-ast

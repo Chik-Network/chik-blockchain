@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint16
-from klvm_tools.binutils import assemble
+from clvk_tools.binutils import assemble
 
 from chik.types.blockchain_format.program import Program
 from chik.wallet.nft_wallet.ownership_outer_puzzle import puzzle_for_ownership_layer

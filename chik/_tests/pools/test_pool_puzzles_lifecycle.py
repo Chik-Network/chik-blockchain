@@ -9,8 +9,8 @@ from chik_rs import AugSchemeMPL, CoinSpend, G1Element, G2Element, PrivateKey, S
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
 
-from chik._tests.klvm.coin_store import BadSpendBundleError, CoinStore, CoinTimestamp
-from chik._tests.klvm.test_puzzles import public_key_for_index, secret_exponent_for_index
+from chik._tests.clvk.coin_store import BadSpendBundleError, CoinStore, CoinTimestamp
+from chik._tests.clvk.test_puzzles import public_key_for_index, secret_exponent_for_index
 from chik._tests.util.key_tool import KeyTool
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.pools.pool_puzzles import (
@@ -158,7 +158,7 @@ class TestPoolPuzzles(TestCase):
             sig,
         )
         # Spend it!
-        coin_db.update_coin_store_for_spend_bundle(spend_bundle, time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM)
+        coin_db.update_coin_store_for_spend_bundle(spend_bundle, time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK)
         # Test that we can retrieve the extra data
         assert get_delayed_puz_info_from_launcher_spend(launcher_coinsol) == (DELAY_TIME, DELAY_PH)
         assert solution_to_pool_state(launcher_coinsol) == pool_state
@@ -177,7 +177,7 @@ class TestPoolPuzzles(TestCase):
         )
         # Spend it!
         fork_coin_db.update_coin_store_for_spend_bundle(
-            SpendBundle([post_launch_coinsol], G2Element()), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM
+            SpendBundle([post_launch_coinsol], G2Element()), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK
         )
 
         # HONEST ABSORB
@@ -216,7 +216,7 @@ class TestPoolPuzzles(TestCase):
         )
         # Spend it!
         coin_db.update_coin_store_for_spend_bundle(
-            SpendBundle(coin_sols, G2Element()), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM
+            SpendBundle(coin_sols, G2Element()), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK
         )
 
         # ABSORB A NON EXISTENT REWARD (Negative test)
@@ -248,7 +248,7 @@ class TestPoolPuzzles(TestCase):
             match=re.escape(f"condition validation failure {Err.ASSERT_ANNOUNCE_CONSUMED_FAILED!s}"),
         ):
             coin_db.update_coin_store_for_spend_bundle(
-                SpendBundle([singleton_coinsol], G2Element()), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM
+                SpendBundle([singleton_coinsol], G2Element()), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK
             )
 
         # SPEND A NON-REWARD P2_SINGLETON (Negative test)
@@ -276,7 +276,7 @@ class TestPoolPuzzles(TestCase):
             match=re.escape(f"condition validation failure {Err.ASSERT_ANNOUNCE_CONSUMED_FAILED!s}"),
         ):
             coin_db.update_coin_store_for_spend_bundle(
-                SpendBundle([singleton_coinsol, bad_coinsol], G2Element()), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM
+                SpendBundle([singleton_coinsol, bad_coinsol], G2Element()), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK
             )
 
         # ENTER WAITING ROOM
@@ -302,7 +302,7 @@ class TestPoolPuzzles(TestCase):
         )
         # Spend it!
         coin_db.update_coin_store_for_spend_bundle(
-            SpendBundle([travel_coinsol], sig), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM
+            SpendBundle([travel_coinsol], sig), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK
         )
 
         # ESCAPE TOO FAST (Negative test)
@@ -329,7 +329,7 @@ class TestPoolPuzzles(TestCase):
             match=re.escape(f"condition validation failure {Err.ASSERT_HEIGHT_RELATIVE_FAILED!s}"),
         ):
             coin_db.update_coin_store_for_spend_bundle(
-                SpendBundle([return_coinsol], sig), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM
+                SpendBundle([return_coinsol], sig), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK
             )
 
         # ABSORB WHILE IN WAITING ROOM
@@ -348,7 +348,7 @@ class TestPoolPuzzles(TestCase):
         )
         # Spend it!
         coin_db.update_coin_store_for_spend_bundle(
-            SpendBundle(coin_sols, G2Element()), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM
+            SpendBundle(coin_sols, G2Element()), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK
         )
 
         # LEAVE THE WAITING ROOM
@@ -381,7 +381,7 @@ class TestPoolPuzzles(TestCase):
         )
         # Spend it!
         coin_db.update_coin_store_for_spend_bundle(
-            SpendBundle([return_coinsol], sig), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM
+            SpendBundle([return_coinsol], sig), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK
         )
 
         # ABSORB ONCE MORE FOR GOOD MEASURE
@@ -399,5 +399,5 @@ class TestPoolPuzzles(TestCase):
         )
         # Spend it!
         coin_db.update_coin_store_for_spend_bundle(
-            SpendBundle(coin_sols, G2Element()), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM
+            SpendBundle(coin_sols, G2Element()), time, DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK
         )

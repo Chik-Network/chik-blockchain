@@ -4,8 +4,8 @@ import pytest
 from chik_rs import AugSchemeMPL, G2Element, PrivateKey
 from chik_rs.sized_ints import uint64
 
-from chik._tests.klvm.benchmark_costs import cost_of_spend_bundle
-from chik._tests.klvm.test_puzzles import secret_exponent_for_index
+from chik._tests.clvk.benchmark_costs import cost_of_spend_bundle
+from chik._tests.clvk.test_puzzles import secret_exponent_for_index
 from chik._tests.conftest import ConsensusMode
 from chik._tests.util.spend_sim import CostLogger, SimClient, SpendSim, sim_and_client
 from chik.types.blockchain_format.coin import Coin
@@ -363,7 +363,7 @@ async def test_everything_with_signature(cost_logger: CostLogger, consensus_mode
         await sim.farm_block(cat_ph)
 
         # Test eve spend
-        # We don't sign any message data because KLVM 0 translates to b'' apparently
+        # We don't sign any message data because CLVK 0 translates to b'' apparently
         starting_coin = (await sim_client.get_coin_records_by_puzzle_hash(cat_ph))[0].coin
         signature = AugSchemeMPL.sign(sk, (starting_coin.name() + sim.defaults.AGG_SIG_ME_ADDITIONAL_DATA))
 

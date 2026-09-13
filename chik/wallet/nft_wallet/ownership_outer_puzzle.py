@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from chik_rs.sized_bytes import bytes32
-from klvm_tools.binutils import disassemble
+from clvk_tools.binutils import disassemble
 
 from chik.types.blockchain_format.program import Program
 from chik.wallet.nft_wallet.nft_puzzles import NFT_OWNERSHIP_LAYER

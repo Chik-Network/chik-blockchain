@@ -12,14 +12,14 @@ from chik.full_node.bundle_tools import simple_solution_generator
 from chik.full_node.fee_estimation import MempoolInfo
 from chik.full_node.mempool import Mempool
 from chik.types.blockchain_format.program import INFINITE_COST
-from chik.types.klvm_cost import KLVMCost
+from chik.types.clvk_cost import CLVKCost
 from chik.types.fee_rate import FeeRate
 from chik.types.mempool_item import MempoolItem
 
 MEMPOOL_INFO = MempoolInfo(
-    max_size_in_cost=KLVMCost(uint64(INFINITE_COST * 10)),
+    max_size_in_cost=CLVKCost(uint64(INFINITE_COST * 10)),
     minimum_fee_per_cost_to_replace=FeeRate(uint64(5)),
-    max_block_klvm_cost=KLVMCost(uint64(INFINITE_COST)),
+    max_block_clvk_cost=CLVKCost(uint64(INFINITE_COST)),
 )
 
 IDENTITY_PUZZLE = Program.to(1)

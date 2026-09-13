@@ -22,7 +22,6 @@ path = "chik.consensus"
 depends_on = [
     "chik.types",
     "chik.util",
-    { path = "chik.full_node", deprecated = false },
 ]
 
 [[modules]]
@@ -245,7 +244,7 @@ depends_on = ["chik.util"]
 path = "chik.util"
 
 [[modules]]
-path = "chik.klvm"
+path = "chik.clvk"
 depends_on = []
 
 [[modules]]

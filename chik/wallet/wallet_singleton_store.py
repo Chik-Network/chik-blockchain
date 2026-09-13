@@ -99,7 +99,7 @@ class WalletSingletonStore:
 
         # get details for singleton record
         conditions = conditions_dict_for_solution(
-            coin_state.puzzle_reveal, coin_state.solution, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM
+            coin_state.puzzle_reveal, coin_state.solution, DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK
         )
 
         cc_cond = next(

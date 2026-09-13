@@ -26,6 +26,7 @@ from chik_rs.sized_ints import uint32, uint64
 
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.full_node.eligible_coin_spends import (
+    DedupCoinSpend,
     IdenticalSpendDedup,
     SingletonFastForward,
     SkipDedup,
@@ -33,7 +34,7 @@ from chik.full_node.eligible_coin_spends import (
 from chik.full_node.fee_estimation import FeeMempoolInfo, MempoolInfo, MempoolItemInfo
 from chik.full_node.fee_estimator_interface import FeeEstimatorInterface
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.klvm_cost import KLVMCost
+from chik.types.clvk_cost import CLVKCost
 from chik.types.generator_types import NewBlockGenerator
 from chik.types.internal_mempool_item import InternalMempoolItem
 from chik.types.mempool_item import MempoolItem, UnspentLineageInfo
@@ -63,13 +64,20 @@ MIN_COST_THRESHOLD = 6_000_000
 MEMPOOL_ITEM_FEE_LIMIT = 2**50
 
 # After soft_fork9_height, blocks are limited to 6000 spends in addition to the
-# KLVM cost limit. To prevent low-cost, many-spend transactions from exhausting
+# CLVK cost limit. To prevent low-cost, many-spend transactions from exhausting
 # the spend limit and crowding out higher-value transactions, the mempool
-# prioritizes by fee per "virtual cost" rather than fee per KLVM cost.
+# prioritizes by fee per "virtual cost" rather than fee per CLVK cost.
 # Virtual cost is defined as: cost + num_spends * 500_000
 # This penalizes transactions that consume a disproportionate number of spend
-# slots relative to their KLVM cost.
+# slots relative to their CLVK cost.
 MAX_SPENDS_PER_BLOCK = 6000
+
+# In addition to the CLVK cost and spend limits, blocks are limited in the
+# number of atoms and pairs their generator may allocate when executed. We track
+# these while building a block and stop before exceeding them. The atom and pair
+# counts a spend bundle uses are recorded in its SpendBundleConditions.
+MAX_BLOCK_ATOMS = 60_000_000
+MAX_BLOCK_PAIRS = 60_000_000
 
 
 @dataclass
@@ -181,8 +189,8 @@ class Mempool:
     def total_mempool_fees(self) -> int:
         return self._total_fee
 
-    def total_mempool_cost(self) -> KLVMCost:
-        return KLVMCost(uint64(self._total_cost))
+    def total_mempool_cost(self) -> CLVKCost:
+        return CLVKCost(uint64(self._total_cost))
 
     def all_items(self) -> Iterator[MempoolItem]:
         with self._db_conn:
@@ -306,7 +314,7 @@ class Mempool:
         if not self.at_full_capacity(cost):
             return 0
 
-        # TODO: make MempoolItem.cost be KLVMCost
+        # TODO: make MempoolItem.cost be CLVKCost
         current_cost = self._total_cost
 
         # Iterates through all spends in increasing fee per virtual cost
@@ -399,7 +407,7 @@ class Mempool:
 
         assert item.fee < MEMPOOL_ITEM_FEE_LIMIT
         assert item.conds is not None
-        assert item.cost <= self.mempool_info.max_block_klvm_cost
+        assert item.cost <= self.mempool_info.max_block_clvk_cost
 
         removals: list[MempoolRemoveInfo] = []
 
@@ -430,7 +438,7 @@ class Mempool:
                 name, priority, cumulative_cost = row
 
                 # there's space for us, stop pruning
-                if cumulative_cost + item.cost <= self.mempool_info.max_block_klvm_cost:
+                if cumulative_cost + item.cost <= self.mempool_info.max_block_clvk_cost:
                     break
 
                 # we can't evict any more transactions, abort (and don't
@@ -533,7 +541,7 @@ class Mempool:
         log.info(f"Add rem: {len(additions)} {len(removals)}")
 
         # since the hard fork has activated, block generators are
-        # allowed to be serialized with KLVM back-references. We can do that
+        # allowed to be serialized with CLVK back-references. We can do that
         # unconditionally.
         start_time = monotonic()
         spends = [(cs.coin, bytes(cs.puzzle_reveal), bytes(cs.solution)) for cs in spend_bundle.coin_spends]
@@ -551,7 +559,7 @@ class Mempool:
         err, err_msg, conds = run_block_generator2(
             block_program,
             [],
-            constants.MAX_BLOCK_COST_KLVM,
+            constants.MAX_BLOCK_COST_CLVK,
             flags,
             spend_bundle.aggregated_signature,
             None,
@@ -586,6 +594,8 @@ class Mempool:
         cost_sum = 0  # Checks that total cost does not exceed block maximum
         fee_sum = 0  # Checks that total fees don't exceed 64 bits
         spend_count = 0  # Checks that total spends do not exceed MAX_SPENDS_PER_BLOCK
+        atom_sum = 0  # Checks that total atoms do not exceed MAX_BLOCK_ATOMS
+        pair_sum = 0  # Checks that total pairs do not exceed MAX_BLOCK_PAIRS
         processed_spend_bundles = 0
         additions: list[Coin] = []
         # This contains a map of coin ID to a coin spend solution and its
@@ -599,8 +609,11 @@ class Mempool:
         # singleton spends.
         singleton_ff = SingletonFastForward()
         coin_spends: list[CoinSpend] = []
+        # Track coins already committed to spend so we never add a conflicting
+        # spend to the same block.
+        spent_coin_ids: set[bytes32] = set()
         sigs: list[G2Element] = []
-        log.info(f"Starting to make block, max cost: {self.mempool_info.max_block_klvm_cost}")
+        log.info(f"Starting to make block, max cost: {self.mempool_info.max_block_clvk_cost}")
         bundle_creation_start = monotonic()
         cursor = self._db_conn.execute("SELECT name, fee FROM tx ORDER BY priority DESC, seq ASC")
         skipped_items = 0
@@ -634,14 +647,22 @@ class Mempool:
                         unique_coin_spends.append(spend_data.coin_spend)
                         unique_additions.extend(spend_data.additions)
                     ff_state_update: dict[bytes32, UnspentLineageInfo] = {}
+                    dedup_state_update: dict[bytes32, DedupCoinSpend] = {}
                     cost_saving = 0
+                    atoms_saving = 0
+                    pairs_saving = 0
                 else:
                     bundle_coin_spends, ff_state_update = singleton_ff.process_fast_forward_spends(
                         mempool_item=item, prev_tx_height=prev_tx_height, constants=constants
                     )
-                    unique_coin_spends, cost_saving, unique_additions = dedup_coin_spends.get_deduplication_info(
-                        bundle_coin_spends=bundle_coin_spends
-                    )
+                    (
+                        unique_coin_spends,
+                        cost_saving,
+                        atoms_saving,
+                        pairs_saving,
+                        unique_additions,
+                        dedup_state_update,
+                    ) = dedup_coin_spends.get_deduplication_info(bundle_coin_spends=bundle_coin_spends)
                 item_cost = cost - cost_saving
                 log.info(
                     "Cumulative cost: %d, fee per cost: %0.4f, item cost: %d", cost_sum, fee / item_cost, item_cost
@@ -653,32 +674,54 @@ class Mempool:
                     break  # pragma: no cover
                 new_cost_sum = cost_sum + item_cost
                 new_spend_count = spend_count + len(unique_coin_spends)
-                if new_cost_sum > self.mempool_info.max_block_klvm_cost or new_spend_count > MAX_SPENDS_PER_BLOCK:
+                new_atom_sum = atom_sum + item.conds.num_atoms - atoms_saving
+                new_pair_sum = pair_sum + item.conds.num_pairs - pairs_saving
+                if (
+                    new_cost_sum > self.mempool_info.max_block_clvk_cost
+                    or new_spend_count > MAX_SPENDS_PER_BLOCK
+                    or new_atom_sum > MAX_BLOCK_ATOMS
+                    or new_pair_sum > MAX_BLOCK_PAIRS
+                ):
                     log.info(
-                        "Skipping mempool item. Cumulative cost %d (max %d) spends %d (max %d)",
+                        "Skipping mempool item. Cumulative cost %d (max %d) spends %d (max %d) "
+                        "atoms %d (max %d) pairs %d (max %d)",
                         new_cost_sum,
-                        self.mempool_info.max_block_klvm_cost,
+                        self.mempool_info.max_block_clvk_cost,
                         new_spend_count,
                         MAX_SPENDS_PER_BLOCK,
+                        new_atom_sum,
+                        MAX_BLOCK_ATOMS,
+                        new_pair_sum,
+                        MAX_BLOCK_PAIRS,
                     )
                     skipped_items += 1
                     if skipped_items < MAX_SKIPPED_ITEMS:
                         continue
                     break
+                # Skip this item if any of its spends conflict with a coin
+                # already added to this block.
+                item_removal_ids = [cs.coin.name() for cs in unique_coin_spends]
+                if any(removal_id in spent_coin_ids for removal_id in item_removal_ids):
+                    log.warning(f"Skipping mempool item {name} that conflicts with an already added spend")
+                    continue
                 singleton_ff.update_fast_forward_spends(ff_state_update)
+                dedup_coin_spends.update_deduplication_spends(dedup_state_update)
                 coin_spends.extend(unique_coin_spends)
+                spent_coin_ids.update(item_removal_ids)
                 additions.extend(unique_additions)
                 sigs.append(item.aggregated_signature)
                 cost_sum = new_cost_sum
                 fee_sum = new_fee_sum
                 spend_count = new_spend_count
+                atom_sum = new_atom_sum
+                pair_sum = new_pair_sum
                 processed_spend_bundles += 1
                 # Let's stop taking more items if we don't have enough cost left
                 # for at least `MIN_COST_THRESHOLD` because that would mean we're
                 # getting very close to the limit anyway and *probably* won't
                 # find transactions small enough to fit at this point
                 if (
-                    self.mempool_info.max_block_klvm_cost - cost_sum < MIN_COST_THRESHOLD
+                    self.mempool_info.max_block_clvk_cost - cost_sum < MIN_COST_THRESHOLD
                     or spend_count >= MAX_SPENDS_PER_BLOCK
                 ):
                     break
@@ -693,7 +736,7 @@ class Mempool:
             return None
         log.info(
             f"Cumulative cost of block (real cost should be less) {cost_sum}. Proportion "
-            f"full: {cost_sum / self.mempool_info.max_block_klvm_cost}"
+            f"full: {cost_sum / self.mempool_info.max_block_clvk_cost}"
         )
         aggregated_signature = AugSchemeMPL.aggregate(sigs)
         agg = SpendBundle(coin_spends, aggregated_signature)
@@ -714,10 +757,11 @@ class Mempool:
 
         dedup_coin_spends = IdenticalSpendDedup()
         singleton_ff = SingletonFastForward()
-        # Fast forward state committed so far from accepted batches, used to
-        # rollback on batch rejection.
+        # Fast forward and dedup state committed so far from accepted batches,
+        # used to rollback on batch rejection.
         committed_ff = singleton_ff.copy()
-        log.info(f"Starting to make block, max cost: {self.mempool_info.max_block_klvm_cost}")
+        committed_dedup = dedup_coin_spends.copy()
+        log.info(f"Starting to make block, max cost: {self.mempool_info.max_block_clvk_cost}")
         generator_creation_start = monotonic()
         cursor = self._db_conn.execute("SELECT name, fee FROM tx ORDER BY priority DESC, seq ASC")
         builder = BlockBuilder()
@@ -725,10 +769,23 @@ class Mempool:
         # the total (estimated) cost of the transactions added so far
         block_cost = 0
         added_spends = 0
+        # the number of atoms and pairs accrued from committed batches so far.
+        # We track these independently to stop before exceeding the block atom
+        # and pair limits.
+        added_atoms = 0
+        added_pairs = 0
+        # Track coins already committed to spend so we never add a conflicting
+        # spend to the same block. `spent_coin_ids` holds coins from accepted
+        # batches, `batch_spent_coin_ids` holds coins from the batch currently
+        # being assembled (dropped if that batch is rejected).
+        spent_coin_ids: set[bytes32] = set()
+        batch_spent_coin_ids: set[bytes32] = set()
 
         batch_transactions: list[SpendBundle] = []
         batch_additions: list[Coin] = []
         batch_spends = 0
+        batch_atoms = 0
+        batch_pairs = 0
         # this cost only includes conditions and execution cost, not byte-cost
         batch_cost = 0
 
@@ -738,20 +795,57 @@ class Mempool:
                 log.info(f"exiting early, already spent {current_time - generator_creation_start:0.2f} s")
                 break
 
+            # Stop scanning once too many items don't fit, rather than burning
+            # the timeout on fast-forward and dedup work. Unlike block cost, the
+            # atom and pair budgets aren't freed by compression, so once
+            # saturated every further item keeps getting skipped here.
+            if skipped_items >= MAX_SKIPPED_ITEMS:
+                log.info("Skipped %d mempool items, stopping block creation", skipped_items)
+                break
+
             name = bytes32(row[0])
             fee = int(row[1])
             item = self._items[name]
             try:
                 assert item.conds is not None
                 cost = item.conds.condition_cost + item.conds.execution_cost
-                # This `ff_state_update` is only committed later on via
-                # `update_fast_forward_spends` if the item gets batched.
-                bundle_coin_spends, ff_state_update = singleton_ff.process_fast_forward_spends(
-                    mempool_item=item, prev_tx_height=prev_tx_height, constants=constants
-                )
-                unique_coin_spends, cost_saving, unique_additions = dedup_coin_spends.get_deduplication_info(
-                    bundle_coin_spends=bundle_coin_spends
-                )
+                if skipped_items >= PRIORITY_TX_THRESHOLD:
+                    # If we've encountered `PRIORITY_TX_THRESHOLD` number of
+                    # transactions that don't fit in the remaining block size,
+                    # we want to keep looking for smaller transactions that
+                    # might fit, but we also want to avoid spending too much
+                    # time on potentially expensive ones, hence this shortcut.
+                    if any(
+                        sd.eligible_for_dedup or sd.supports_fast_forward for sd in item.bundle_coin_spends.values()
+                    ):
+                        log.info(f"Skipping transaction with dedup or FF spends {name}")
+                        continue
+                    unique_coin_spends = []
+                    unique_additions = []
+                    for spend_data in item.bundle_coin_spends.values():
+                        unique_coin_spends.append(spend_data.coin_spend)
+                        unique_additions.extend(spend_data.additions)
+                    ff_state_update: dict[bytes32, UnspentLineageInfo] = {}
+                    dedup_state_update: dict[bytes32, DedupCoinSpend] = {}
+                    cost_saving = 0
+                    atoms_saving = 0
+                    pairs_saving = 0
+                else:
+                    # This `ff_state_update` is only committed later on via
+                    # `update_fast_forward_spends` if the item gets batched.
+                    bundle_coin_spends, ff_state_update = singleton_ff.process_fast_forward_spends(
+                        mempool_item=item, prev_tx_height=prev_tx_height, constants=constants
+                    )
+                    # This `dedup_state_update` is only committed later on via
+                    # `update_deduplication_spends` if the item gets batched.
+                    (
+                        unique_coin_spends,
+                        cost_saving,
+                        atoms_saving,
+                        pairs_saving,
+                        unique_additions,
+                        dedup_state_update,
+                    ) = dedup_coin_spends.get_deduplication_info(bundle_coin_spends=bundle_coin_spends)
                 new_fee_sum = fee_sum + fee
                 if new_fee_sum > DEFAULT_CONSTANTS.MAX_COIN_AMOUNT:
                     # Such a fee is very unlikely to happen but we're defensively
@@ -768,20 +862,30 @@ class Mempool:
                     skipped_items += 1
                     continue
 
+                new_atom_count = added_atoms + batch_atoms + item.conds.num_atoms - atoms_saving
+                new_pair_count = added_pairs + batch_pairs + item.conds.num_pairs - pairs_saving
+                if new_atom_count > MAX_BLOCK_ATOMS or new_pair_count > MAX_BLOCK_PAIRS:
+                    skipped_items += 1
+                    continue
+
                 # if adding item would make us exceed the block cost, commit the
                 # batch we've built up first, to see if more space may be freed
                 # up by the compression
-                if block_cost + item.conds.cost - cost_saving > constants.MAX_BLOCK_COST_KLVM:
+                if block_cost + item.conds.cost - cost_saving > constants.MAX_BLOCK_COST_CLVK:
                     added, done = builder.add_spend_bundles(batch_transactions, uint64(batch_cost), constants)
 
                     block_cost = builder.cost()
                     if added:
-                        # Update the checkpoint to include the fast forward
-                        # state from all the items in this accepted batch.
+                        # Update the checkpoint to include the fast forward and
+                        # dedup state from all the items in this accepted batch.
                         committed_ff = singleton_ff.copy()
+                        committed_dedup = dedup_coin_spends.copy()
                         added_spends += batch_spends
+                        added_atoms += batch_atoms
+                        added_pairs += batch_pairs
                         additions.extend(batch_additions)
                         removals.extend([cs.coin for sb in batch_transactions for cs in sb.coin_spends])
+                        spent_coin_ids.update(batch_spent_coin_ids)
                         log.info(
                             f"adding TX batch, additions: {len(batch_additions)} removals: {batch_spends} "
                             f"cost: {batch_cost} total cost: {block_cost}"
@@ -790,36 +894,60 @@ class Mempool:
                         batch_transactions = []
                         batch_additions = []
                         batch_spends = 0
+                        batch_atoms = 0
+                        batch_pairs = 0
+                        batch_spent_coin_ids = set()
                     else:
                         log.info(f"Skipping transaction batch cumulative cost: {block_cost} batch cost: {batch_cost}")
                         skipped_items += 1
-                        # Restore FF state
+                        # Restore FF and dedup state
                         singleton_ff = committed_ff.copy()
+                        dedup_coin_spends = committed_dedup.copy()
                         # Reset the batch
                         batch_cost = 0
                         batch_transactions = []
                         batch_additions = []
                         batch_spends = 0
+                        batch_atoms = 0
+                        batch_pairs = 0
+                        batch_spent_coin_ids = set()
                         # Reprocess the current item against the correct fast
-                        # forward state.
+                        # forward and dedup state.
                         bundle_coin_spends, ff_state_update = singleton_ff.process_fast_forward_spends(
                             mempool_item=item, prev_tx_height=prev_tx_height, constants=constants
                         )
-                        unique_coin_spends = []
-                        unique_additions = []
-                        for spend_data in bundle_coin_spends.values():
-                            unique_coin_spends.append(spend_data.coin_spend)
-                            unique_additions.extend(spend_data.additions)
-                        cost_saving = uint64(0)
+                        (
+                            unique_coin_spends,
+                            cost_saving,
+                            atoms_saving,
+                            pairs_saving,
+                            unique_additions,
+                            dedup_state_update,
+                        ) = dedup_coin_spends.get_deduplication_info(bundle_coin_spends=bundle_coin_spends)
 
                     if done:
                         break
 
+                # Skip this item if any of its spends conflict with a coin
+                # already committed to this block, whether in an accepted batch
+                # or in the batch we're currently assembling.
+                item_removal_ids = [cs.coin.name() for cs in unique_coin_spends]
+                if any(
+                    removal_id in spent_coin_ids or removal_id in batch_spent_coin_ids
+                    for removal_id in item_removal_ids
+                ):
+                    log.warning(f"Skipping mempool item {name} that conflicts with an already added spend")
+                    continue
+
                 singleton_ff.update_fast_forward_spends(ff_state_update)
+                dedup_coin_spends.update_deduplication_spends(dedup_state_update)
                 batch_cost += cost - cost_saving
                 batch_transactions.append(SpendBundle(unique_coin_spends, item.aggregated_signature))
                 batch_spends += len(unique_coin_spends)
+                batch_atoms += item.conds.num_atoms - atoms_saving
+                batch_pairs += item.conds.num_pairs - pairs_saving
                 batch_additions.extend(unique_additions)
+                batch_spent_coin_ids.update(item_removal_ids)
                 fee_sum = new_fee_sum
                 block_cost += item.conds.cost - cost_saving
                 if added_spends + batch_spends >= MAX_SPENDS_PER_BLOCK:
@@ -838,8 +966,11 @@ class Mempool:
 
             if added:
                 added_spends += batch_spends
+                added_atoms += batch_atoms
+                added_pairs += batch_pairs
                 additions.extend(batch_additions)
                 removals.extend([cs.coin for sb in batch_transactions for cs in sb.coin_spends])
+                spent_coin_ids.update(batch_spent_coin_ids)
                 log.info(
                     f"adding TX batch, additions: {len(batch_additions)} removals: {batch_spends} "
                     f"cost: {batch_cost} total cost: {block_cost}"

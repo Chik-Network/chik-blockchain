@@ -8,11 +8,12 @@ from chik_rs import G1Element, get_flags_for_height_and_constants
 from chik_rs import get_puzzle_and_solution_for_coin2 as get_puzzle_and_solution_for_coin
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
-from klvm_tools import binutils
+from clvk_tools import binutils
 
 from chik._tests.core.make_block_generator import make_block_generator
 from chik._tests.util.get_name_puzzle_conditions import NPCResult, get_name_puzzle_conditions
 from chik._tests.util.misc import BenchmarkRunner
+from chik.consensus.block_generator_info import get_transactions_generator_program
 from chik.consensus.condition_costs import ConditionCost
 from chik.consensus.default_constants import DEFAULT_CONSTANTS
 from chik.full_node.bundle_tools import simple_solution_generator
@@ -74,7 +75,7 @@ async def test_basics(softfork_height: int, bt: BlockTools) -> None:
 
     npc_result: NPCResult = get_name_puzzle_conditions(
         program,
-        bt.constants.MAX_BLOCK_COST_KLVM,
+        bt.constants.MAX_BLOCK_COST_CLVK,
         mempool_mode=False,
         height=uint32(softfork_height),
         constants=bt.constants,
@@ -89,7 +90,7 @@ async def test_basics(softfork_height: int, bt: BlockTools) -> None:
     puzzle, solution = get_puzzle_and_solution_for_coin(
         program.program,
         program.generator_refs,
-        bt.constants.MAX_BLOCK_COST_KLVM,
+        bt.constants.MAX_BLOCK_COST_CLVK,
         coin_spend.coin,
         get_flags_for_height_and_constants(softfork_height, bt.constants),
     )
@@ -98,18 +99,20 @@ async def test_basics(softfork_height: int, bt: BlockTools) -> None:
 
     condition_cost = ConditionCost.CREATE_COIN.value + ConditionCost.AGG_SIG.value
     if softfork_height >= bt.constants.HARD_FORK2_HEIGHT:
+        # CREATE_COIN == NEW_CREATE_COIN + SPEND_COST after HF2
         condition_cost += ConditionCost.MESSAGE_CONDITION_COST.value
-        klvm_cost = 27360
+        # NEW_COST_MODEL (HF2) increases CLVK execution cost for this spend
+        clvk_cost = 54800
     elif softfork_height >= bt.constants.HARD_FORK_HEIGHT:
-        klvm_cost = 27360
+        clvk_cost = 27360
     else:
-        klvm_cost = 404560
+        clvk_cost = 404560
     byte_cost = len(bytes(program.program)) * bt.constants.COST_PER_BYTE
-    assert npc_result.conds.cost == condition_cost + klvm_cost + byte_cost
+    assert npc_result.conds.cost == condition_cost + clvk_cost + byte_cost
 
     # Create condition + agg_sig_condition + length + cpu_cost
     assert (
-        npc_result.conds.cost == condition_cost + len(bytes(program.program)) * bt.constants.COST_PER_BYTE + klvm_cost
+        npc_result.conds.cost == condition_cost + len(bytes(program.program)) * bt.constants.COST_PER_BYTE + clvk_cost
     )
 
 
@@ -149,7 +152,7 @@ async def test_mempool_mode(softfork_height: int, bt: BlockTools) -> None:
     generator = BlockGenerator(program, [])
     npc_result: NPCResult = get_name_puzzle_conditions(
         generator,
-        bt.constants.MAX_BLOCK_COST_KLVM,
+        bt.constants.MAX_BLOCK_COST_CLVK,
         mempool_mode=True,
         height=uint32(softfork_height),
         constants=bt.constants,
@@ -157,7 +160,7 @@ async def test_mempool_mode(softfork_height: int, bt: BlockTools) -> None:
     assert npc_result.error is not None
     npc_result = get_name_puzzle_conditions(
         generator,
-        bt.constants.MAX_BLOCK_COST_KLVM,
+        bt.constants.MAX_BLOCK_COST_CLVK,
         mempool_mode=False,
         height=uint32(softfork_height),
         constants=bt.constants,
@@ -172,7 +175,7 @@ async def test_mempool_mode(softfork_height: int, bt: BlockTools) -> None:
     puz, _solution = get_puzzle_and_solution_for_coin(
         generator.program,
         generator.generator_refs,
-        bt.constants.MAX_BLOCK_COST_KLVM,
+        bt.constants.MAX_BLOCK_COST_CLVK,
         coin,
         get_flags_for_height_and_constants(0, bt.constants),
     )
@@ -180,10 +183,10 @@ async def test_mempool_mode(softfork_height: int, bt: BlockTools) -> None:
 
 
 @pytest.mark.anyio
-async def test_klvm_mempool_mode(softfork_height: int) -> None:
+async def test_clvk_mempool_mode(softfork_height: int) -> None:
     block = Program.from_bytes(bytes(SMALL_BLOCK_GENERATOR.program))
     disassembly = binutils.disassemble(block)
-    # this is a valid generator program except the first klvm
+    # this is a valid generator program except the first clvk
     # if-condition, that depends on executing an unknown operator
     # ("0xfe"). In mempool mode, this should fail, but in non-mempool
     # mode, the unknown operator should be treated as if it returns ().
@@ -191,7 +194,7 @@ async def test_klvm_mempool_mode(softfork_height: int) -> None:
     generator = BlockGenerator(program, [])
     npc_result: NPCResult = get_name_puzzle_conditions(
         generator,
-        test_constants.MAX_BLOCK_COST_KLVM,
+        test_constants.MAX_BLOCK_COST_CLVK,
         mempool_mode=True,
         height=uint32(softfork_height),
         constants=test_constants,
@@ -199,7 +202,7 @@ async def test_klvm_mempool_mode(softfork_height: int) -> None:
     assert npc_result.error is not None
     npc_result = get_name_puzzle_conditions(
         generator,
-        test_constants.MAX_BLOCK_COST_KLVM,
+        test_constants.MAX_BLOCK_COST_CLVK,
         mempool_mode=False,
         height=uint32(softfork_height),
         constants=test_constants,
@@ -217,7 +220,7 @@ async def test_tx_generator_speed(softfork_height: int, benchmark_runner: Benchm
         generator = BlockGenerator(program, [])
         npc_result = get_name_puzzle_conditions(
             generator,
-            test_constants.MAX_BLOCK_COST_KLVM,
+            test_constants.MAX_BLOCK_COST_CLVK,
             mempool_mode=False,
             height=uint32(softfork_height),
             constants=test_constants,
@@ -229,14 +232,14 @@ async def test_tx_generator_speed(softfork_height: int, benchmark_runner: Benchm
 
 
 @pytest.mark.anyio
-async def test_klvm_max_cost(softfork_height: int) -> None:
+async def test_clvk_max_cost(softfork_height: int) -> None:
     block = Program.from_bytes(bytes(SMALL_BLOCK_GENERATOR.program))
     disassembly = binutils.disassemble(block)
-    # this is a valid generator program except the first klvm
+    # this is a valid generator program except the first clvk
     # if-condition, that depends on executing an unknown operator
     # ("0xfe"). In mempool mode, this should fail, but in non-mempool
     # mode, the unknown operator should be treated as if it returns ().
-    # the KLVM program has a cost of 391969
+    # the CLVK program has a cost of 391969
     program = SerializedProgram.from_bytes(
         binutils.assemble(f"(i (softfork (q . 10000000)) (q . ()) {disassembly})").as_bin()
     )
@@ -281,7 +284,7 @@ async def test_standard_tx(benchmark_runner: BenchmarkRunner) -> None:
     with benchmark_runner.assert_runtime(seconds=0.1):
         total_cost = 0
         for i in range(1000):
-            cost, _result = run_with_cost(puzzle_program, test_constants.MAX_BLOCK_COST_KLVM, solution_program)
+            cost, _result = run_with_cost(puzzle_program, test_constants.MAX_BLOCK_COST_CLVK, solution_program)
             total_cost += cost
 
 
@@ -293,11 +296,10 @@ async def test_get_puzzle_and_solution_for_coin_performance(benchmark_runner: Be
 
     DESERIALIZE_MOD = Program.from_bytes(CHIKLISP_DESERIALISATION)
 
-    assert LARGE_BLOCK.transactions_generator is not None
+    generator = get_transactions_generator_program(LARGE_BLOCK)
+    assert generator is not None
     # first, list all spent coins in the block
-    _, result = run_with_cost(
-        LARGE_BLOCK.transactions_generator, DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM, [DESERIALIZE_MOD, []]
-    )
+    _, result = run_with_cost(generator, DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK, [DESERIALIZE_MOD, []])
 
     coin_spends = result.first()
     spent_coins: list[Coin] = []
@@ -313,14 +315,14 @@ async def test_get_puzzle_and_solution_for_coin_performance(benchmark_runner: Be
 
     # benchmark the function to pick out the puzzle and solution for a specific
     # coin
-    generator = BlockGenerator(LARGE_BLOCK.transactions_generator, [])
+    block_generator = BlockGenerator(generator, [])
     with benchmark_runner.assert_runtime(seconds=8.5):
         for _ in range(3):
             for c in spent_coins:
                 puz, _solution = get_puzzle_and_solution_for_coin(
-                    generator.program,
-                    generator.generator_refs,
-                    test_constants.MAX_BLOCK_COST_KLVM,
+                    block_generator.program,
+                    block_generator.generator_refs,
+                    test_constants.MAX_BLOCK_COST_CLVK,
                     c,
                     get_flags_for_height_and_constants(0, test_constants),
                 )

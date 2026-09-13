@@ -16,10 +16,10 @@ from chik.wallet.signer_protocol import (
     TransactionInfo,
     UnsignedTransaction,
 )
-from chik.wallet.util.klvm_streamable import TranslationLayer, TranslationLayerMapping, klvm_streamable
+from chik.wallet.util.clvk_streamable import TranslationLayer, TranslationLayerMapping, clvk_streamable
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class BSTLSigningTarget(Streamable):
     fingerprint: bytes = field(metadata=dict(key="f"))
@@ -35,7 +35,7 @@ class BSTLSigningTarget(Streamable):
         return SigningTarget(**_from.__dict__)
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class BSTLSumHint(Streamable):
     fingerprints: list[bytes] = field(metadata=dict(key="f"))
@@ -51,7 +51,7 @@ class BSTLSumHint(Streamable):
         return SumHint(**_from.__dict__)
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class BSTLPathHint(Streamable):
     root_fingerprint: bytes = field(metadata=dict(key="f"))
@@ -66,7 +66,7 @@ class BSTLPathHint(Streamable):
         return PathHint(**_from.__dict__)
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class BSTLSigningInstructions(Streamable):
     sum_hints: list[BSTLSumHint] = field(metadata=dict(key="s"))
@@ -92,7 +92,7 @@ class BSTLSigningInstructions(Streamable):
         )
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class BSTLUnsignedTransaction(Streamable):
     sum_hints: list[BSTLSumHint] = field(metadata=dict(key="s"))
@@ -124,7 +124,7 @@ class BSTLUnsignedTransaction(Streamable):
         )
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
 class BSTLSigningResponse(Streamable):
     signature: bytes = field(metadata=dict(key="s"))

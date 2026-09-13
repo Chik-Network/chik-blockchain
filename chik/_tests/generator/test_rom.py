@@ -4,9 +4,9 @@ from chik_puzzles_py.programs import CHIKLISP_DESERIALISATION, ROM_BOOTSTRAP_GEN
 from chik_rs import SpendConditions
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32
-from klvm.KLVMObject import KLVMStorage
-from klvm_tools import binutils
-from klvm_tools.klvmc import compile_klvm_text
+from clvk.CLVKObject import CLVKStorage
+from clvk_tools import binutils
+from clvk_tools.clvkc import compile_clvk_text
 
 from chik._tests.util.get_name_puzzle_conditions import get_name_puzzle_conditions
 from chik.consensus.condition_costs import ConditionCost
@@ -40,7 +40,7 @@ GENERATOR_CODE = """
 """
 
 
-COMPILED_GENERATOR_CODE = bytes(Program.to(compile_klvm_text(GENERATOR_CODE, [])))  # type: ignore[no-untyped-call]
+COMPILED_GENERATOR_CODE = bytes(Program.to(compile_clvk_text(GENERATOR_CODE, [])))  # type: ignore[no-untyped-call]
 
 FIRST_GENERATOR = Program.to(
     binutils.assemble(
@@ -80,7 +80,7 @@ def run_generator(self: BlockGenerator) -> tuple[int, Program]:
     return run_with_cost(GENERATOR_MOD, MAX_COST, [self.program, args])
 
 
-def as_atom_list(prg: KLVMStorage) -> list[bytes]:
+def as_atom_list(prg: CLVKStorage) -> list[bytes]:
     """
     Pretend `prg` is a list of atoms. Return the corresponding
     python list of atoms.
@@ -134,6 +134,7 @@ class TestROM:
             len(bytes(gen.program)) * COST_PER_BYTE
         )
         assert npc_result.conds is not None
+        assert len(npc_result.conds.spends) == 1
 
         spend = SpendConditions(
             coin_id=bytes32.fromhex("e8538c2d14f2a7defae65c5c97f5d4fae7ee64acef7fec9d28ad847a0880fd03"),
@@ -159,6 +160,8 @@ class TestROM:
             # execution cost, just in run_block_generator2()
             execution_cost=0 if softfork_height < DEFAULT_CONSTANTS.HARD_FORK_HEIGHT else 44,
             condition_cost=1800000,
+            atom_count=0 if softfork_height < DEFAULT_CONSTANTS.HARD_FORK_HEIGHT else 1,
+            pair_count=0,
             fingerprint=b"",
         )
 

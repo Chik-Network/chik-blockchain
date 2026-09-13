@@ -48,7 +48,7 @@ async def print_blockchain_state(node_client: FullNodeRpcClient, config: dict[st
             f"({sync_max_block - sync_current_block} behind). "
             f"({sync_current_block * 100.0 / sync_max_block:2.2f}% synced)"
         )
-        print("Peak: Hash:", peak.header_hash if peak is not None else "")
+        print("Peak: Hash:", peak.header_hash)
     elif peak is not None:
         print(f"Current Blockchain Status: Not Synced. Peak height: {peak.height}")
     else:
@@ -171,8 +171,8 @@ async def print_fee_info(node_client: FullNodeRpcClient) -> None:
     res = await node_client.get_fee_estimate(target_times=target_times, cost=1)
     print(json.dumps(res))
     print("\n")
-    print(f"  Mempool max cost: {res['mempool_max_size']:>12} KLVM cost")
-    print(f"      Mempool cost: {res['mempool_size']:>12} KLVM cost")
+    print(f"  Mempool max cost: {res['mempool_max_size']:>12} CLVK cost")
+    print(f"      Mempool cost: {res['mempool_size']:>12} CLVK cost")
     print(f"     Mempool count: {res['num_spends']:>12} spends")
     print(f"   Fees in Mempool: {res['mempool_fees']:>12} mojos")
     print()
@@ -180,13 +180,13 @@ async def print_fee_info(node_client: FullNodeRpcClient) -> None:
     print("Stats for last transaction block:")
     print(f"      Block height: {res['last_tx_block_height']:>12}")
     print(f"        Block fees: {res['fees_last_block']:>12} mojos")
-    print(f"        Block cost: {res['last_block_cost']:>12} KLVM cost")
-    print(f"          Fee rate: {res['fee_rate_last_block']:>12.5} mojos per KLVM cost")
+    print(f"        Block cost: {res['last_block_cost']:>12} CLVK cost")
+    print(f"          Fee rate: {res['fee_rate_last_block']:>12.5} mojos per CLVK cost")
 
     print("\nFee Rate Estimates:")
     max_name_len = max(len(name) for name in target_times_names)
     for n, e in zip(target_times_names, res["estimates"]):
-        print(f"    {n:>{max_name_len}}: {e:.3f} mojo per KLVM cost")
+        print(f"    {n:>{max_name_len}}: {e:.3f} mojo per CLVK cost")
     print("")
 
 

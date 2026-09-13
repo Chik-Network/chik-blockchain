@@ -19,18 +19,18 @@ $port is the Full Node RPC API port
 The `transactions_generator` and `transactions_generator_ref_list` fields of a `FullBlock`
 contain the information necessary to produce transaction record details.
 
-`transactions_generator` is KLVM bytecode
+`transactions_generator` is CLVK bytecode
 `transactions_generator_ref_list` is a list of block heights as `uint32`
 
-When this KLVM code is run in the correct environment, it produces information that can
+When this CLVK code is run in the correct environment, it produces information that can
 then be verified by the consensus rules, or used to view some aspects of transaction history.
 
 The information for each spend is an "NPC" (Name, Puzzle, Condition):
         "coin_name": a unique 32 byte identifier
         "conditions": a list of condition expressions, as in [condition_opcodes.py](../chik/types/condition_opcodes.py)
-        "puzzle_hash": the sha256 of the KLVM bytecode that controls spending this coin
+        "puzzle_hash": the sha256 of the CLVK bytecode that controls spending this coin
 
-Condition Opcodes, such as AGG_SIG_ME, or CREATE_COIN are created by running the "puzzle", i.e. the KLVM bytecode
+Condition Opcodes, such as AGG_SIG_ME, or CREATE_COIN are created by running the "puzzle", i.e. the CLVK bytecode
 associated with the coin being spent. Condition Opcodes are verified by every client on the network for every spend,
 and in this way they control whether a spend is valid or not.
 

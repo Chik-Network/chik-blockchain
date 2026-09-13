@@ -11,7 +11,7 @@ import pytest
 from chik_rs import FullBlock, G1Element, SubEpochChallengeSegment
 from chik_rs.sized_bytes import bytes4, bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64
-from klvm_tools import binutils
+from clvk_tools import binutils
 
 from chik.protocols.wallet_protocol import RespondRemovals, RespondToPhUpdates
 from chik.simulator.block_tools import BlockTools, test_constants

@@ -167,7 +167,7 @@ def get_seconds_and_delayed_puzhash_from_p2_singleton_puzzle(puzzle: Program) ->
 # Verify that a puzzle is a Pool Wallet Singleton
 def is_pool_singleton_inner_puzzle(inner_puzzle: Program) -> bool:
     inner_f = get_template_singleton_inner_puzzle(inner_puzzle)
-    return inner_f in (POOL_WAITING_ROOM_MOD, POOL_MEMBER_MOD)  # noqa: PLR6201
+    return inner_f in (POOL_WAITING_ROOM_MOD, POOL_MEMBER_MOD)  # ruff: ignore[literal-membership]
 
 
 def is_pool_waitingroom_inner_puzzle(inner_puzzle: Program) -> bool:
@@ -419,7 +419,7 @@ def solution_to_pool_state(full_spend: CoinSpend) -> PoolState | None:
 
         # This is referred to as p1 in the chiklisp code
         # spend_type is absorbing money if p1 is a cons box, spend_type is escape if p1 is an atom
-        # TODO: The comment above, and in the KLVM, seems wrong
+        # TODO: The comment above, and in the CLVK, seems wrong
         extra_data = inner_solution.first()
         if isinstance(extra_data.as_python(), bytes):
             # Absorbing

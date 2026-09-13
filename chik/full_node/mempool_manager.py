@@ -20,7 +20,7 @@ from chik_rs import (
     check_time_locks,
     get_flags_for_height_and_constants,
     supports_fast_forward,
-    validate_klvm_and_signature,
+    validate_clvk_and_signature,
 )
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64
@@ -29,12 +29,13 @@ from typing_extensions import Self
 
 from chik.consensus.block_record import BlockRecordProtocol
 from chik.full_node.bitcoin_fee_estimator import create_bitcoin_fee_estimator
+from chik.full_node.eligible_coin_spends import can_fast_forward_singleton
 from chik.full_node.fee_estimation import FeeBlockInfo, MempoolInfo, MempoolItemInfo
 from chik.full_node.fee_estimator_interface import FeeEstimatorInterface
 from chik.full_node.mempool import MEMPOOL_ITEM_FEE_LIMIT, Mempool, MempoolRemoveInfo, MempoolRemoveReason
 from chik.full_node.pending_tx_cache import ConflictTxCache, PendingTxCache
 from chik.types.blockchain_format.coin import Coin
-from chik.types.klvm_cost import QUOTE_BYTES, QUOTE_EXECUTION_COST, KLVMCost
+from chik.types.clvk_cost import QUOTE_BYTES, QUOTE_EXECUTION_COST, CLVKCost
 from chik.types.fee_rate import FeeRate
 from chik.types.generator_types import NewBlockGenerator
 from chik.types.mempool_inclusion_status import MempoolInclusionStatus
@@ -138,8 +139,8 @@ class NewPeakInfo:
     removals: list[MempoolRemoveInfo]
 
 
-def is_atom_canonical(klvm_buffer: bytes, offset: int) -> tuple[int, bool]:
-    b = klvm_buffer[offset]
+def is_atom_canonical(clvk_buffer: bytes, offset: int) -> tuple[int, bool]:
+    b = clvk_buffer[offset]
     if (b & 0b11000000) == 0b10000000:
         # 6 bits length prefix
         mask = 0b00111111
@@ -175,25 +176,25 @@ def is_atom_canonical(klvm_buffer: bytes, offset: int) -> tuple[int, bool]:
     for i in range(prefix_len):
         atom_len <<= 8
         offset += 1
-        atom_len |= klvm_buffer[offset]
+        atom_len |= clvk_buffer[offset]
 
     return 1 + prefix_len + atom_len, atom_len >= min_value
 
 
-def is_klvm_canonical(klvm_buffer: bytes) -> bool:
+def is_clvk_canonical(clvk_buffer: bytes) -> bool:
     """
-    checks whether the KLVM serialization is all canonical representation.
+    checks whether the CLVK serialization is all canonical representation.
     atoms can be serialized in more than one way by using more bytes than
     necessary to encode the length prefix. This functions ensures that all atoms are
     encoded with the shortest representation. back-references are not allowed
     and will make this function return false
     """
-    assert klvm_buffer != b""
+    assert clvk_buffer != b""
 
     offset = 0
     tokens_left = 1
     while True:
-        b = klvm_buffer[offset]
+        b = clvk_buffer[offset]
 
         # pair
         if b == 0xFF:
@@ -211,7 +212,7 @@ def is_klvm_canonical(klvm_buffer: bytes) -> bool:
             tokens_left -= 1
             offset += 1
         else:
-            atom_len, canonical = is_atom_canonical(klvm_buffer, offset)
+            atom_len, canonical = is_atom_canonical(clvk_buffer, offset)
             if not canonical:
                 return False
             tokens_left -= 1
@@ -221,7 +222,7 @@ def is_klvm_canonical(klvm_buffer: bytes) -> bool:
             break
 
     # if there's garbage at the end, it's not canonical
-    return offset == len(klvm_buffer)
+    return offset == len(clvk_buffer)
 
 
 def check_removals(
@@ -243,19 +244,32 @@ def check_removals(
             return Err.DOUBLE_SPEND, []
 
         # 2. Checks if there's a mempool conflict
-        conflicting_items = get_items_by_coin_ids([coin_id])
+        # Fast forward spends rebase onto the latest singleton coin, so look
+        # that up as well.
+        latest_ff_id = None if coin_bcs.latest_singleton_lineage is None else coin_bcs.latest_singleton_lineage.coin_id
+        coin_ids = [coin_id]
+        if latest_ff_id is not None and latest_ff_id != coin_id:
+            coin_ids.append(latest_ff_id)
+        conflicting_items = get_items_by_coin_ids(coin_ids)
         for item in conflicting_items:
             if item in conflicts:
                 continue
             conflict_bcs = item.bundle_coin_spends.get(coin_id)
+            if conflict_bcs is None and latest_ff_id is not None:
+                conflict_bcs = item.bundle_coin_spends.get(latest_ff_id)
             if conflict_bcs is None:
                 # Check if this is an item that spends an older ff singleton
-                # version with a latest version that matches our coin ID.
+                # version with a latest version that matches our coin ID or the
+                # same latest version we rebase onto.
                 conflict_bcs = next(
                     (
                         bcs
                         for bcs in item.bundle_coin_spends.values()
-                        if bcs.latest_singleton_lineage is not None and bcs.latest_singleton_lineage.coin_id == coin_id
+                        if bcs.latest_singleton_lineage is not None
+                        and (
+                            bcs.latest_singleton_lineage.coin_id == coin_id
+                            or (latest_ff_id is not None and bcs.latest_singleton_lineage.coin_id == latest_ff_id)
+                        )
                     ),
                     None,
                 )
@@ -263,25 +277,28 @@ def check_removals(
                 if conflict_bcs is None:
                     log.warning(f"Coin ID {coin_id} expected but not found in mempool item {item.name}")
                     return Err.INVALID_SPEND_BUNDLE, []
+            same_coin = coin_id == conflict_bcs.coin_spend.coin.name()
             # if the spend we're adding to the mempool is not DEDUP nor FF, it's
             # just a regular conflict
             if not coin_bcs.supports_fast_forward and not coin_bcs.eligible_for_dedup:
                 conflicts.add(item)
 
-            # if the spend we're adding is FF, but there's a conflicting spend
-            # that isn't FF, they can't be chained, so that's a conflict
-            elif coin_bcs.supports_fast_forward and not conflict_bcs.supports_fast_forward:
+            # If one spend is FF and the other isn't FF, they can't be chained
+            # so that's a conflict.
+            elif coin_bcs.supports_fast_forward != conflict_bcs.supports_fast_forward:
                 conflicts.add(item)
 
             # if the spend we're adding is DEDUP, but there's a conflicting spend
             # that isn't DEDUP, we cannot merge them, so that's a conflict
-            elif coin_bcs.eligible_for_dedup and not conflict_bcs.eligible_for_dedup:
+            elif same_coin and coin_bcs.eligible_for_dedup and not conflict_bcs.eligible_for_dedup:
                 conflicts.add(item)
 
             # if the spend we're adding is DEDUP but the existing spend has a
             # different solution, we cannot merge them, so that's a conflict
-            elif coin_bcs.eligible_for_dedup and bytes(coin_bcs.coin_spend.solution) != bytes(
-                conflict_bcs.coin_spend.solution
+            elif (
+                same_coin
+                and coin_bcs.eligible_for_dedup
+                and bytes(coin_bcs.coin_spend.solution) != bytes(conflict_bcs.coin_spend.solution)
             ):
                 conflicts.add(item)
 
@@ -309,8 +326,8 @@ class MempoolManager:
     peak: BlockRecordProtocol | None
     mempool: Mempool
     _worker_queue_size: int
-    max_block_klvm_cost: uint64
-    max_tx_klvm_cost: uint64
+    max_block_clvk_cost: uint64
+    max_tx_clvk_cost: uint64
     validation_timeout: float
 
     def __init__(
@@ -321,7 +338,7 @@ class MempoolManager:
         pool: Executor,
         *,
         validation_timeout: float,
-        max_tx_klvm_cost: uint64 | None = None,
+        max_tx_clvk_cost: uint64 | None = None,
     ):
         self.constants: ConsensusConstants = consensus_constants
 
@@ -344,15 +361,15 @@ class MempoolManager:
         # quote opcode's bytes cost as well as its execution cost.
         BLOCK_OVERHEAD = QUOTE_BYTES * self.constants.COST_PER_BYTE + QUOTE_EXECUTION_COST
 
-        self.max_block_klvm_cost = uint64(self.constants.MAX_BLOCK_COST_KLVM - BLOCK_OVERHEAD)
-        self.max_tx_klvm_cost = (
-            max_tx_klvm_cost if max_tx_klvm_cost is not None else uint64(self.constants.MAX_BLOCK_COST_KLVM // 2)
+        self.max_block_clvk_cost = uint64(self.constants.MAX_BLOCK_COST_CLVK - BLOCK_OVERHEAD)
+        self.max_tx_clvk_cost = (
+            max_tx_clvk_cost if max_tx_clvk_cost is not None else uint64(self.constants.MAX_BLOCK_COST_CLVK // 2)
         )
-        self.mempool_max_total_cost = int(self.constants.MAX_BLOCK_COST_KLVM * self.constants.MEMPOOL_BLOCK_BUFFER)
+        self.mempool_max_total_cost = int(self.constants.MAX_BLOCK_COST_CLVK * self.constants.MEMPOOL_BLOCK_BUFFER)
 
         # Transactions that were unable to enter mempool, used for retry. (they were invalid)
-        self._conflict_cache = ConflictTxCache(self.constants.MAX_BLOCK_COST_KLVM * 1, 1000)
-        self._pending_cache = PendingTxCache(self.constants.MAX_BLOCK_COST_KLVM * 1, 1000)
+        self._conflict_cache = ConflictTxCache(self.constants.MAX_BLOCK_COST_CLVK * 1, 1000)
+        self._pending_cache = PendingTxCache(self.constants.MAX_BLOCK_COST_CLVK * 1, 1000)
         self.seen_cache_size = 10000
         self._worker_queue_size = 0
         self.validation_timeout = validation_timeout
@@ -360,11 +377,11 @@ class MempoolManager:
 
         # The mempool will correspond to a certain peak
         self.peak: BlockRecordProtocol | None = None
-        self.fee_estimator: FeeEstimatorInterface = create_bitcoin_fee_estimator(self.max_block_klvm_cost)
+        self.fee_estimator: FeeEstimatorInterface = create_bitcoin_fee_estimator(self.max_block_clvk_cost)
         mempool_info = MempoolInfo(
-            KLVMCost(uint64(self.mempool_max_total_cost)),
+            CLVKCost(uint64(self.mempool_max_total_cost)),
             FeeRate(uint64(self.nonzero_fee_minimum_fpc)),
-            KLVMCost(uint64(self.max_block_klvm_cost)),
+            CLVKCost(uint64(self.max_block_clvk_cost)),
         )
         self.mempool: Mempool = Mempool(mempool_info, self.fee_estimator)
 
@@ -378,14 +395,14 @@ class MempoolManager:
         pool: Executor,
         *,
         validation_timeout: float,
-        max_tx_klvm_cost: uint64 | None = None,
+        max_tx_clvk_cost: uint64 | None = None,
     ) -> AsyncIterator[Self]:
         self = cls(
             get_coin_records,
             get_unspent_lineage_info_for_puzzle_hash,
             consensus_constants,
             pool,
-            max_tx_klvm_cost=max_tx_klvm_cost,
+            max_tx_clvk_cost=max_tx_clvk_cost,
             validation_timeout=validation_timeout,
         )
         try:
@@ -505,14 +522,14 @@ class MempoolManager:
             flags = get_flags_for_height_and_constants(self.peak.height, self.constants)
             sbc: SpendBundleConditions
             sbc, new_cache_entries, duration = await self.pool.run_in_loop(
-                validate_klvm_and_signature,
+                validate_clvk_and_signature,
                 spend_bundle,
-                self.max_tx_klvm_cost,
+                self.max_tx_clvk_cost,
                 self.constants,
                 flags | MEMPOOL_MODE,
                 nice=(5, -fee_per_cost),
             )
-        # validate_klvm_and_signature raises a ValueError with an error code
+        # validate_clvk_and_signature raises a ValueError with an error code
         except ValueError as e:
             # Convert that to a ValidationError
             if len(e.args) > 1:
@@ -523,10 +540,10 @@ class MempoolManager:
         finally:
             self._worker_queue_size -= 1
 
-        if sbc.num_atoms > sbc.cost * 60_000_000 / self.constants.MAX_BLOCK_COST_KLVM:
+        if sbc.num_atoms > sbc.cost * 60_000_000 / self.constants.MAX_BLOCK_COST_CLVK:
             raise ValueError("too many atoms")
 
-        if sbc.num_pairs > sbc.cost * 60_000_000 / self.constants.MAX_BLOCK_COST_KLVM:
+        if sbc.num_pairs > sbc.cost * 60_000_000 / self.constants.MAX_BLOCK_COST_CLVK:
             raise ValueError("too many pairs")
 
         if duration > self.validation_timeout:
@@ -569,7 +586,7 @@ class MempoolManager:
 
         Args:
             new_spend: spend bundle to validate and add
-            conds: SpendBundleConditions resulting from running the klvm in the spend bundle's coin spends
+            conds: SpendBundleConditions resulting from running the clvk in the spend bundle's coin spends
             spend_name: hash of the spend bundle data, passed in as an optimization
 
         Returns:
@@ -636,7 +653,7 @@ class MempoolManager:
 
         Args:
             new_spend: spend bundle to validate
-            conds: result of running the klvm transaction
+            conds: result of running the clvk transaction
             spend_name: hash of the spend bundle data, passed in as an optimization
             first_added_height: The block height that `new_spend`  first entered this node's mempool.
                 Used to estimate how long a spend has taken to be included on the chain.
@@ -673,7 +690,9 @@ class MempoolManager:
             # SpendBundleConditions.
             spend_conds = spend_conditions.pop(coin_id)
 
-            if bool(spend_conds.flags & ELIGIBLE_FOR_DEDUP) and not is_klvm_canonical(bytes(coin_spend.solution)):
+            if not is_clvk_canonical(bytes(coin_spend.puzzle_reveal)) or not is_clvk_canonical(
+                bytes(coin_spend.solution)
+            ):
                 return Err.INVALID_COIN_SOLUTION, None, []
 
             lineage_info = None
@@ -687,6 +706,14 @@ class MempoolManager:
                 # spent_index will also fail this test, and such spends will
                 # fall back to be treated as non-FF spends.
                 lineage_info = await get_unspent_lineage_info_for_puzzle_hash(spend_conds.puzzle_hash)
+                if lineage_info is not None and not can_fast_forward_singleton(
+                    unspent_lineage_info=lineage_info, coin=coin_spend.coin
+                ):
+                    # The latest unspent version of this singleton has a
+                    # different amount than the coin we're spending, so this
+                    # spend can never be fast forwarded onto it. Fall back to
+                    # treating it as a normal spend.
+                    lineage_info = None
 
             spend_additions = []
             for puzzle_hash, amount, _ in spend_conds.create_coin:
@@ -701,12 +728,27 @@ class MempoolManager:
                 additions=spend_additions,
                 cost=uint64(spend_conds.condition_cost + spend_conds.execution_cost),
                 latest_singleton_lineage=lineage_info,
+                atom_count=spend_conds.atom_count,
+                pair_count=spend_conds.pair_count,
             )
 
-        # fast forward spends are only allowed when bundled with other, non-FF, spends
-        # in order to evict an FF spend, it must be associated with a normal
-        # spend that can be included in a block or invalidated some other way
-        if all([s.supports_fast_forward for s in bundle_coin_spends.values()]):
+        non_ff_spend_ids = set()
+        effective_spend_ids = set()
+        for coin_id, spend_data in bundle_coin_spends.items():
+            if spend_data.latest_singleton_lineage is None:
+                non_ff_spend_ids.add(coin_id)
+                effective_spend_id = coin_id
+            else:
+                effective_spend_id = spend_data.latest_singleton_lineage.coin_id
+            # Fast forward spends are only allowed to be spent once in a spend bundle
+            if effective_spend_id in effective_spend_ids:
+                return Err.INVALID_SPEND_BUNDLE, None, []
+            effective_spend_ids.add(effective_spend_id)
+        # Fast forward spends are only allowed when bundled with other, non-FF
+        # spends in order to evict an FF spend, it must be associated with a
+        # normal spend that can be included in a block or invalidated some
+        # other way.
+        if len(non_ff_spend_ids) == 0:
             return Err.INVALID_SPEND_BUNDLE, None, []
 
         removal_record_dict: dict[bytes32, CoinRecord] = {}
@@ -744,7 +786,7 @@ class MempoolManager:
         if cost == 0:
             return Err.UNKNOWN, None, []
 
-        if cost > self.max_tx_klvm_cost:
+        if cost > self.max_tx_clvk_cost:
             return Err.BLOCK_COST_EXCEEDS_MAX, None, []
 
         # this is not very likely to happen, but it's here to ensure SQLite
@@ -838,7 +880,7 @@ class MempoolManager:
         log.log(
             logging.DEBUG if duration < self.validation_timeout else logging.WARNING,
             f"add_spendbundle {spend_name} took {duration:0.2f} seconds. "
-            f"Cost: {cost} ({round(100.0 * cost / self.constants.MAX_BLOCK_COST_KLVM, 3)}% of max block cost)",
+            f"Cost: {cost} ({round(100.0 * cost / self.constants.MAX_BLOCK_COST_CLVK, 3)}% of max block cost)",
         )
 
         if duration > self.validation_timeout:

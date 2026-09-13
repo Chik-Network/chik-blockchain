@@ -5,7 +5,7 @@ from datetime import datetime
 
 from chik_rs.sized_ints import uint32, uint64
 
-from chik.types.klvm_cost import KLVMCost
+from chik.types.clvk_cost import CLVKCost
 from chik.types.fee_rate import FeeRate
 from chik.types.mojos import Mojos
 
@@ -32,14 +32,14 @@ class MempoolInfo:
     Information from the Mempool needed to estimate fees.
     This information is constant during the lifetime of the FullNode process
     Attributes:
-        max_size_in_cost (uint64): This is the maximum capacity of the mempool, measured in XCK per KLVM Cost
+        max_size_in_cost (uint64): This is the maximum capacity of the mempool, measured in XCK per CLVK Cost
         minimum_fee_per_cost_to_replace (uint64): Smallest FPC that  might be accepted to replace another SpendBundle
-        max_block_klvm_cost (uint64): Max allowed cost of a farmed block
+        max_block_clvk_cost (uint64): Max allowed cost of a farmed block
     """
 
-    max_size_in_cost: KLVMCost  # Mempool max allowed KLVM cost total
+    max_size_in_cost: CLVKCost  # Mempool max allowed CLVK cost total
     minimum_fee_per_cost_to_replace: FeeRate
-    max_block_klvm_cost: KLVMCost  # Max KLVMCost allowed in the Mempool
+    max_block_clvk_cost: CLVKCost  # Max CLVKCost allowed in the Mempool
 
 
 @dataclass(frozen=True)
@@ -51,7 +51,7 @@ class FeeMempoolInfo:
 
     Attributes:
         mempool_info (MempoolInfo): A `MempoolInfo`, defined above. Parameters of our mempool.
-        current_mempool_cost (uint64):This is the current capacity of the mempool, measured in XCK per KLVM Cost
+        current_mempool_cost (uint64):This is the current capacity of the mempool, measured in XCK per CLVK Cost
         current_mempool_fees (int): Sum of fees for all spends waiting in the Mempool
         time (datetime): Local time this sample was taken
 
@@ -59,19 +59,19 @@ class FeeMempoolInfo:
     """
 
     mempool_info: MempoolInfo
-    current_mempool_cost: KLVMCost  # Current sum of KLVM cost of all SpendBundles in mempool (mempool "size")
+    current_mempool_cost: CLVKCost  # Current sum of CLVK cost of all SpendBundles in mempool (mempool "size")
     current_mempool_fees: int  # Sum of fees for all spends waiting in the Mempool
     time: datetime  # Local time this sample was taken
 
 
 EmptyMempoolInfo = MempoolInfo(
-    KLVMCost(uint64(0)), FeeRate.create(Mojos(uint64(0)), KLVMCost(uint64(1))), KLVMCost(uint64(0))
+    CLVKCost(uint64(0)), FeeRate.create(Mojos(uint64(0)), CLVKCost(uint64(1))), CLVKCost(uint64(0))
 )
 
 
 EmptyFeeMempoolInfo = FeeMempoolInfo(
     EmptyMempoolInfo,
-    KLVMCost(uint64(0)),
+    CLVKCost(uint64(0)),
     0,
     datetime.min,
 )

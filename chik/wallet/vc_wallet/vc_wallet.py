@@ -24,13 +24,14 @@ from chik.wallet.conditions import (
     CreatePuzzleAnnouncement,
     UnknownCondition,
 )
+from chik.wallet.derivation_record import DerivationRecord
 from chik.wallet.did_wallet.did_wallet import DIDWallet
 from chik.wallet.puzzle_drivers import Solver
 from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import solution_for_delegated_puzzle
 from chik.wallet.trading.offer import Offer
 from chik.wallet.uncurried_puzzle import uncurry_puzzle
 from chik.wallet.util.wallet_sync_utils import fetch_coin_spend_for_coin_state
-from chik.wallet.util.wallet_types import WalletType
+from chik.wallet.util.wallet_types import WalletIdentifier, WalletType
 from chik.wallet.vc_wallet.cr_cat_drivers import CRCAT, CRCATSpend, ProofsChecker, construct_pending_approval_state
 from chik.wallet.vc_wallet.vc_drivers import VerifiedCredential
 from chik.wallet.vc_wallet.vc_store import VCProofs, VCRecord, VCStore
@@ -126,6 +127,28 @@ class VCWallet:
             "vc_coin_added", self.id(), dict(launcher_id=vc_record.vc.launcher_id.hex())
         )
         await self.store.add_or_replace_vc_record(vc_record)
+
+    @classmethod
+    async def identify(
+        cls, wallet_state_manager: WalletStateManager, vc: VerifiedCredential
+    ) -> WalletIdentifier | None:
+        # Check the ownership
+        derivation_record: (
+            DerivationRecord | None
+        ) = await wallet_state_manager.puzzle_store.get_derivation_record_for_puzzle_hash(vc.inner_puzzle_hash)
+        if derivation_record is None:
+            wallet_state_manager.log.warning(
+                f"Verified credential {vc.launcher_id.hex()} is not belong to the current wallet."
+            )  # pragma: no cover
+            return None  # pragma: no cover
+        wallet_state_manager.log.info(f"Found verified credential {vc.launcher_id.hex()}.")
+        for wallet_info in await wallet_state_manager.get_all_wallet_info_entries(wallet_type=WalletType.VC):
+            return WalletIdentifier(wallet_info.id, WalletType.VC)
+        # Create a new VC wallet
+        vc_wallet = await VCWallet.create_new_vc_wallet(
+            wallet_state_manager, wallet_state_manager.main_wallet
+        )  # pragma: no cover
+        return WalletIdentifier(vc_wallet.id(), WalletType.VC)  # pragma: no cover
 
     async def remove_coin(self, coin: Coin, height: uint32) -> None:
         """
@@ -436,7 +459,7 @@ class VCWallet:
         announcements_to_make: dict[bytes32, list[CreatePuzzleAnnouncement]] = {}
         announcements_to_assert: dict[bytes32, list[AssertCoinAnnouncement]] = {}
         vcs: dict[bytes32, VerifiedCredential] = {}
-        coin_args: dict[str, list[str]] = {}
+        coin_args: dict[str, tuple[Program, bytes32, bytes32, bytes32]] = {}
         for crcat_spend in crcat_spends:
             # Check first whether we can approve...
             available_vcs: list[VCRecord] = [
@@ -496,17 +519,16 @@ class VCWallet:
                 )
 
                 coin_name: str = crcat_spend.crcat.coin.name().hex()
-                coin_args[coin_name] = [
+                coin_args[coin_name] = (
                     await self.proof_of_inclusions_for_root_and_keys(
                         # It's on my TODO list to fix the below line -Quex
                         vc.proof_hash,  # type: ignore
                         ProofsChecker.from_program(uncurry_puzzle(crcat_spend.crcat.proofs_checker)).flags,
                     ),
-                    "()",  # not general
-                    "0x" + vc.proof_provider.hex(),
-                    "0x" + vc.launcher_id.hex(),
-                    "0x" + vc.wrap_inner_with_backdoor().get_tree_hash().hex(),
-                ]
+                    vc.proof_provider,
+                    vc.launcher_id,
+                    vc.wrap_inner_with_backdoor().get_tree_hash(),
+                )
                 if crcat_spend.crcat.coin.name() in spends_to_fix:
                     spend_to_fix: CoinSpend = spends_to_fix[crcat_spend.crcat.coin.name()]
                     other_spends.append(
@@ -515,9 +537,9 @@ class VCWallet:
                             .replace(
                                 ff=coin_args[coin_name][0],
                                 frf=Program.NIL,  # not general
-                                frrf=bytes32.from_hexstr(coin_args[coin_name][2]),
-                                frrrf=bytes32.from_hexstr(coin_args[coin_name][3]),
-                                frrrrf=bytes32.from_hexstr(coin_args[coin_name][4]),
+                                frrf=coin_args[coin_name][1],
+                                frrrf=coin_args[coin_name][2],
+                                frrrrf=coin_args[coin_name][3],
                             )
                             .to_serialized(),
                         )
@@ -564,7 +586,14 @@ class VCWallet:
                     ],
                 ]
             )
-        ), Solver({"vc_authorizations": coin_args})
+        ), Solver(
+            {
+                "vc_authorizations": {
+                    name: [proofs, "()", "0x" + provider.hex(), "0x" + id.hex(), "0x" + inner_hash.hex()]
+                    for name, (proofs, provider, id, inner_hash) in coin_args.items()
+                }
+            }
+        )
 
     async def get_vc_with_provider_in_and_proofs(
         self, authorized_providers: list[bytes32], proofs: list[str]
@@ -601,7 +630,7 @@ class VCWallet:
         """The VC wallet doesn't really have a balance."""
         return uint128(0)  # pragma: no cover
 
-    async def get_unconfirmed_balance(self, record_list: set[WalletCoinRecord] | None = None) -> uint128:
+    async def get_unconfirmed_balance(self, unspent_records: set[WalletCoinRecord] | None = None) -> uint128:
         """The VC wallet doesn't really have a balance."""
         return uint128(0)  # pragma: no cover
 
@@ -630,4 +659,4 @@ class VCWallet:
 
 
 if TYPE_CHECKING:
-    _dummy: WalletProtocol[VerifiedCredential] = VCWallet()  # pragma: no cover
+    _dummy: WalletProtocol = VCWallet()  # pragma: no cover

@@ -194,12 +194,13 @@ class Err(Enum):
     INVALID_COIN_ID = 146
     # message not sent/received
     MESSAGE_NOT_SENT_OR_RECEIVED = 147
-    # the transactions generator uses overlong encoding of KLVM atoms in its
+    # the transactions generator uses overlong encoding of CLVK atoms in its
     # serialization
     INVALID_TRANSACTIONS_GENERATOR_ENCODING = 148
     # block or spendbundle had too many spends
     TOO_MANY_SPENDS = 149
     INVALID_HEADER_MMR_ROOT = 150
+    INVALID_BLOCK_VERSION = 151
 
 
 class ValidationError(Exception):

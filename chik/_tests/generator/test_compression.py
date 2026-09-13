@@ -1,4 +1,4 @@
-# ruff: noqa: E501
+# ruff: file-ignore[line-too-long]
 from __future__ import annotations
 
 import io
@@ -14,13 +14,13 @@ from chik_puzzles_py.programs import (
 )
 from chik_rs import SpendBundle, serialized_length
 from chik_rs.sized_ints import uint32
-from klvm.serialize import sexp_from_stream
-from klvm.SExp import SExp
-from klvm_tools import binutils
+from clvk.serialize import sexp_from_stream
+from clvk.SExp import SExp
+from clvk_tools import binutils
 
 from chik.types.blockchain_format.program import INFINITE_COST, Program
 from chik.util.byte_types import hexstr_to_bytes
-from chik.wallet.puzzles.load_klvm import load_klvm
+from chik.wallet.puzzles.load_clvk import load_clvk
 
 DESERIALIZE_MOD = Program.from_bytes(CHIKLISP_DESERIALISATION)
 
@@ -33,10 +33,10 @@ DECOMPRESS_CSE = Program.from_bytes(DECOMPRESS_COIN_SPEND_ENTRY)
 DECOMPRESS_CSE_WITH_PREFIX = Program.from_bytes(DECOMPRESS_COIN_SPEND_ENTRY_WITH_PREFIX)
 DECOMPRESS_BLOCK = Program.from_bytes(BLOCK_PROGRAM_ZERO)
 
-TEST_GEN_DESERIALIZE = load_klvm(
+TEST_GEN_DESERIALIZE = load_clvk(
     "test_generator_deserialize.clsp", package_or_requirement="chik._tests.generator.puzzles"
 )
-TEST_MULTIPLE = load_klvm(
+TEST_MULTIPLE = load_clvk(
     "test_multiple_generator_input_arguments.clsp", package_or_requirement="chik._tests.generator.puzzles"
 )
 

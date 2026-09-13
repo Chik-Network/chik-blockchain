@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 from typing import Any, cast
@@ -16,12 +17,20 @@ from chik._tests.util.time_out_assert import time_out_assert
 from chik.full_node.full_node_api import FullNodeAPI
 from chik.full_node.sync_store import Peak
 from chik.protocols import full_node_protocol
+from chik.protocols.protocol_timing import CONSENSUS_ERROR_BAN_SECONDS
 from chik.protocols.shared_protocol import Capability
 from chik.server.server import ChikServer
 from chik.server.ws_connection import WSChikConnection
 from chik.simulator.block_tools import BlockTools
+from chik.types.blockchain_format.coin import Coin
+from chik.types.condition_opcodes import ConditionOpcode
+from chik.types.condition_with_args import ConditionWithArgs
 from chik.types.peer_info import PeerInfo
+from chik.util.casts import int_to_bytes
+from chik.util.errors import ConsensusError
 from chik.util.hash import std_hash
+from chik.util.recursive_replace import recursive_replace
+from chik.util.task_referencer import create_referenced_task
 
 log = logging.getLogger(__name__)
 
@@ -231,25 +240,334 @@ async def test_short_sync_batch_returns_false_on_disconnected_first_block(
     # docstring promises) rather than raising.
     _full_node_1, full_node_2, _server_1, _server_2, bt = two_nodes
     node = full_node_2.full_node
-    blocks = bt.get_consecutive_blocks(2)
-    disconnected_block = blocks[-1]  # height > 0 and its parent is not in node's database
+    blocks = bt.get_consecutive_blocks(4)
+    for block in blocks[:3]:
+        await node.add_block(block)
 
-    class _FakePeer:
+    # A fork diverging at height 2, so its height-3 block has a parent we never stored.
+    fork = bt.get_consecutive_blocks(3, block_list_input=blocks[:2], seed=b"fork")
+    assert fork[2].header_hash != blocks[2].header_hash
+    disconnected_blocks = fork[-2:]
+    assert [block.height for block in disconnected_blocks] == [3, 4]
+
+    class DummyPeer:
         peer_node_id = bytes32(b"\x01" * 32)
 
         def get_peer_logging(self) -> PeerInfo:
             return PeerInfo("127.0.0.1", uint16(0))
 
         async def call_api(
-            self, api_function: Any, request: full_node_protocol.RequestBlocks
-        ) -> full_node_protocol.RespondBlocks:
-            return full_node_protocol.RespondBlocks(request.start_height, request.end_height, [disconnected_block])
+            self, api_function: Any, request: object
+        ) -> full_node_protocol.RespondBlock | full_node_protocol.RespondBlocks:
+            # The fork-point probe gets a connected block, so the batch loop is reached;
+            # the batch itself then arrives on a fork we cannot connect.
+            if isinstance(request, full_node_protocol.RequestBlock):
+                return full_node_protocol.RespondBlock(blocks[3])
+            assert isinstance(request, full_node_protocol.RequestBlocks)
+            return full_node_protocol.RespondBlocks(request.start_height, request.end_height, disconnected_blocks)
 
-    peer = cast(WSChikConnection, _FakePeer())
-    # start_height == 0 skips the fork-point probe, exercising the batch loop's parent check directly.
-    result = await node.short_sync_batch(peer, uint32(0), uint32(1))
+    peer = cast(WSChikConnection, DummyPeer())
+    result = await node.short_sync_batch(peer, uint32(3), uint32(4))
     assert result is False
     assert peer.peer_node_id not in node.sync_store.batch_syncing
+
+
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.PLAIN], reason="save time")
+@pytest.mark.anyio
+async def test_short_sync_batch_post_processes_committed_prefix_before_failure(
+    two_nodes: tuple[FullNodeAPI, FullNodeAPI, ChikServer, ChikServer, BlockTools],
+    consensus_mode: ConsensusMode,
+) -> None:
+    # A RespondBlocks batch with a valid hinted TX block followed by an invalid
+    # successor must still persist hints for the committed prefix before raising.
+    _full_node_1, full_node_2, _server_1, _server_2, bt = two_nodes
+    node = full_node_2.full_node
+
+    blocks = bt.get_consecutive_blocks(
+        5,
+        guarantee_transaction_block=True,
+        farmer_reward_puzzle_hash=bt.pool_ph,
+    )
+    for block in blocks:
+        await node.add_block(block)
+
+    wt = bt.get_pool_wallet_tool()
+    puzzle_hash = bytes32(32 * b"\0")
+    hint = bytes32(32 * b"\5")
+    amount = int_to_bytes(1)
+    coin_spent = next(c for c in blocks[-1].get_included_reward_coins() if c.puzzle_hash == bt.pool_ph)
+    tx = wt.generate_signed_transaction(
+        uint64(10),
+        wt.get_new_puzzlehash(),
+        coin_spent,
+        condition_dic={
+            ConditionOpcode.CREATE_COIN: [ConditionWithArgs(ConditionOpcode.CREATE_COIN, [puzzle_hash, amount, hint])]
+        },
+    )
+    blocks = bt.get_consecutive_blocks(
+        1, block_list_input=blocks, guarantee_transaction_block=True, transaction_data=tx
+    )
+    tx_block = blocks[-1]
+    hinted_coin_id = Coin(coin_spent.name(), puzzle_hash, uint64(1)).name()
+
+    blocks = bt.get_consecutive_blocks(1, block_list_input=blocks)
+    bad_block = recursive_replace(
+        blocks[-1],
+        "reward_chain_block.proof_of_space.proof",
+        bytes([0] * 32),
+    )
+
+    class DummyPeer:
+        peer_node_id = bytes32(b"\x02" * 32)
+
+        def get_peer_logging(self) -> PeerInfo:
+            return PeerInfo("127.0.0.1", uint16(0))
+
+        async def call_api(
+            self, api_function: Any, request: object
+        ) -> full_node_protocol.RespondBlock | full_node_protocol.RespondBlocks:
+            if isinstance(request, full_node_protocol.RequestBlock):
+                return full_node_protocol.RespondBlock(tx_block)
+            assert isinstance(request, full_node_protocol.RequestBlocks)
+            return full_node_protocol.RespondBlocks(request.start_height, request.end_height, [tx_block, bad_block])
+
+    peer = cast(WSChikConnection, DummyPeer())
+    assert await node.hint_store.get_coin_ids(hint) == []
+
+    with pytest.raises(ValueError, match="failed to validate blocks after height"):
+        await node.short_sync_batch(peer, tx_block.height, bad_block.height)
+
+    assert await node.hint_store.get_coin_ids(hint) == [hinted_coin_id]
+    peak = node.blockchain.get_peak()
+    assert peak is not None
+    assert peak.header_hash == tx_block.header_hash
+    assert peer.peer_node_id not in node.sync_store.batch_syncing
+
+
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.PLAIN], reason="save time")
+@pytest.mark.anyio
+async def test_short_sync_batch_raises_when_no_blocks_committed(
+    two_nodes: tuple[FullNodeAPI, FullNodeAPI, ChikServer, ChikServer, BlockTools],
+    consensus_mode: ConsensusMode,
+) -> None:
+    # A batch whose first block is invalid commits nothing. short_sync_batch must
+    # still raise (without the "after height" prefix-failure wording) and leave the peak alone.
+    _full_node_1, full_node_2, _server_1, _server_2, bt = two_nodes
+    node = full_node_2.full_node
+
+    blocks = bt.get_consecutive_blocks(3)
+    for block in blocks:
+        await node.add_block(block)
+    peak_before = node.blockchain.get_peak()
+    assert peak_before is not None
+
+    blocks = bt.get_consecutive_blocks(1, block_list_input=blocks)
+    bad_block = recursive_replace(
+        blocks[-1],
+        "reward_chain_block.proof_of_space.proof",
+        bytes([0] * 32),
+    )
+    # short_sync_batch requests an inclusive range of at least two heights; keep
+    # the response length honest so this exercises validation failure, not the
+    # incomplete-RespondBlocks guard.
+    blocks = bt.get_consecutive_blocks(1, block_list_input=blocks)
+    trailing_block = blocks[-1]
+
+    class DummyPeer:
+        peer_node_id = bytes32(b"\x03" * 32)
+
+        def get_peer_logging(self) -> PeerInfo:
+            return PeerInfo("127.0.0.1", uint16(0))
+
+        async def call_api(
+            self, api_function: Any, request: object
+        ) -> full_node_protocol.RespondBlock | full_node_protocol.RespondBlocks:
+            if isinstance(request, full_node_protocol.RequestBlock):
+                return full_node_protocol.RespondBlock(bad_block)
+            assert isinstance(request, full_node_protocol.RequestBlocks)
+            return full_node_protocol.RespondBlocks(
+                request.start_height, request.end_height, [bad_block, trailing_block]
+            )
+
+    peer = cast(WSChikConnection, DummyPeer())
+    # target must be > start so the batch loop runs; end_height becomes start+1.
+    with pytest.raises(ValueError, match=rf"failed to validate blocks {bad_block.height}-{bad_block.height + 1}$"):
+        await node.short_sync_batch(peer, bad_block.height, uint32(bad_block.height + 1))
+
+    peak = node.blockchain.get_peak()
+    assert peak is not None
+    assert peak.header_hash == peak_before.header_hash
+    assert peer.peer_node_id not in node.sync_store.batch_syncing
+
+
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.PLAIN], reason="save time")
+@pytest.mark.anyio
+async def test_short_sync_batch_bans_peer_answering_wrong_block_range(
+    two_nodes: tuple[FullNodeAPI, FullNodeAPI, ChikServer, ChikServer, BlockTools],
+    consensus_mode: ConsensusMode,
+) -> None:
+    # Wiring check: an incomplete RespondBlocks is banned via respond_blocks_or_ban
+    # rather than treated as a successful short-sync fetch.
+    _full_node_1, full_node_2, _server_1, _server_2, bt = two_nodes
+    node = full_node_2.full_node
+
+    blocks = bt.get_consecutive_blocks(3)
+    for block in blocks:
+        await node.add_block(block)
+    peak_before = node.blockchain.get_peak()
+    assert peak_before is not None
+
+    blocks = bt.get_consecutive_blocks(2, block_list_input=blocks)
+    start_block, end_block = blocks[-2], blocks[-1]
+
+    class DummyPeer:
+        peer_node_id = bytes32(b"\x04" * 32)
+
+        def __init__(self) -> None:
+            self.closed = False
+            self.ban_seconds: int | None = None
+            self.peer_info = PeerInfo("127.0.0.1", uint16(0))
+
+        def get_peer_logging(self) -> PeerInfo:
+            return self.peer_info
+
+        async def call_api(
+            self, api_function: Any, request: object
+        ) -> full_node_protocol.RespondBlock | full_node_protocol.RespondBlocks:
+            if isinstance(request, full_node_protocol.RequestBlock):
+                return full_node_protocol.RespondBlock(start_block)
+            assert isinstance(request, full_node_protocol.RequestBlocks)
+            return full_node_protocol.RespondBlocks(request.start_height, request.end_height, [])
+
+        async def close(self, ban_seconds: int = 0, *args: object, **kwargs: object) -> None:
+            self.closed = True
+            self.ban_seconds = ban_seconds
+
+    peer = DummyPeer()
+    with pytest.raises(ConsensusError, match="incomplete/mismatched blocks"):
+        await node.short_sync_batch(cast(WSChikConnection, peer), start_block.height, end_block.height)
+
+    assert peer.closed
+    assert peer.ban_seconds == CONSENSUS_ERROR_BAN_SECONDS
+    peak = node.blockchain.get_peak()
+    assert peak is not None
+    assert peak.header_hash == peak_before.header_hash
+    assert peer.peer_node_id not in node.sync_store.batch_syncing
+
+
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.PLAIN], reason="save time")
+@pytest.mark.anyio
+@pytest.mark.parametrize("first_block", ["height_zero", "height_above_peak", "missing"])
+async def test_short_sync_batch_releases_slot_when_first_block_does_not_connect(
+    two_nodes: tuple[FullNodeAPI, FullNodeAPI, ChikServer, ChikServer, BlockTools],
+    consensus_mode: ConsensusMode,
+    first_block: str,
+) -> None:
+    # The first block's height comes from the peer's response, so it need not be the
+    # height we asked for. Only a height whose parent is in our height map can connect,
+    # so every other answer must return False and free the peer's batch_syncing slot.
+    _full_node_1, full_node_2, _server_1, _server_2, bt = two_nodes
+    node = full_node_2.full_node
+
+    blocks = bt.get_consecutive_blocks(3)
+    for block in blocks:
+        await node.add_block(block)
+
+    response: full_node_protocol.RespondBlock | None
+    if first_block == "height_zero":
+        assert blocks[0].height == 0
+        response = full_node_protocol.RespondBlock(blocks[0])
+    elif first_block == "height_above_peak":
+        above_peak = bt.get_consecutive_blocks(2, block_list_input=blocks)[-1]
+        assert node.blockchain.height_to_hash(uint32(above_peak.height - 1)) is None
+        response = full_node_protocol.RespondBlock(above_peak)
+    else:
+        response = None
+
+    class DummyPeer:
+        peer_node_id = bytes32(b"\x05" * 32)
+
+        async def call_api(self, api_function: Any, request: object) -> full_node_protocol.RespondBlock | None:
+            assert isinstance(request, full_node_protocol.RequestBlock)
+            return response
+
+    peer = cast(WSChikConnection, DummyPeer())
+    # start_height > 0 so the peer-controlled first-block fetch runs.
+    result = await node.short_sync_batch(peer, uint32(3), uint32(4))
+
+    assert result is False
+    assert peer.peer_node_id not in node.sync_store.batch_syncing
+
+
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.PLAIN], reason="save time")
+@pytest.mark.anyio
+async def test_short_sync_batch_releases_slot_when_first_block_request_raises(
+    two_nodes: tuple[FullNodeAPI, FullNodeAPI, ChikServer, ChikServer, BlockTools],
+    consensus_mode: ConsensusMode,
+) -> None:
+    # A failure fetching the first block must release the batch_syncing slot before the
+    # exception propagates, so a later attempt from the same peer is not skipped.
+    _full_node_1, full_node_2, _server_1, _server_2, _bt = two_nodes
+    node = full_node_2.full_node
+
+    class DummyPeer:
+        peer_node_id = bytes32(b"\x06" * 32)
+
+        async def call_api(self, api_function: Any, request: object) -> full_node_protocol.RespondBlock:
+            raise ValueError("request failed")
+
+    peer = cast(WSChikConnection, DummyPeer())
+    with pytest.raises(ValueError, match="request failed"):
+        await node.short_sync_batch(peer, uint32(3), uint32(4))
+
+    assert peer.peer_node_id not in node.sync_store.batch_syncing
+
+
+@pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.PLAIN], reason="save time")
+@pytest.mark.anyio
+async def test_short_sync_batch_reaps_segment_tasks(
+    two_nodes: tuple[FullNodeAPI, FullNodeAPI, ChikServer, ChikServer, BlockTools],
+    consensus_mode: ConsensusMode,
+) -> None:
+    # Once the first block connects, pending sub epoch segment tasks are reaped: finished
+    # ones are dropped from the list, unfinished ones are cancelled.
+    _full_node_1, full_node_2, _server_1, _server_2, bt = two_nodes
+    node = full_node_2.full_node
+
+    blocks = bt.get_consecutive_blocks(3)
+    for block in blocks:
+        await node.add_block(block)
+    connecting_block = bt.get_consecutive_blocks(1, block_list_input=blocks)[-1]
+
+    async def noop() -> None:
+        return None
+
+    done_task = create_referenced_task(noop())
+    await asyncio.sleep(0)
+    assert done_task.done()
+    running_task = create_referenced_task(asyncio.sleep(60))
+    node._segment_task_list.extend([done_task, running_task])
+
+    class DummyPeer:
+        peer_node_id = bytes32(b"\x07" * 32)
+
+        def get_peer_logging(self) -> PeerInfo:
+            return PeerInfo("127.0.0.1", uint16(0))
+
+        async def call_api(self, api_function: Any, request: object) -> full_node_protocol.RespondBlock:
+            return full_node_protocol.RespondBlock(connecting_block)
+
+    peer = cast(WSChikConnection, DummyPeer())
+    # start == target leaves the batch download loop empty, so the run stops after the reaping.
+    assert await node.short_sync_batch(peer, uint32(3), uint32(3)) is True
+
+    assert peer.peer_node_id not in node.sync_store.batch_syncing
+    assert done_task not in node._segment_task_list
+    assert running_task in node._segment_task_list
+    # wait_for keeps this from blocking for the task's full sleep if the cancel is dropped.
+    with contextlib.suppress(asyncio.CancelledError):
+        await asyncio.wait_for(running_task, timeout=5)
+    assert running_task.cancelled()
 
 
 @pytest.mark.anyio

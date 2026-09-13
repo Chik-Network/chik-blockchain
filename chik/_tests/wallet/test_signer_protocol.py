@@ -60,13 +60,13 @@ from chik.wallet.util.blind_signer_tl import (
     BSTLSumHint,
     BSTLUnsignedTransaction,
 )
-from chik.wallet.util.klvm_streamable import (
+from chik.wallet.util.clvk_streamable import (
     TranslationLayer,
     TranslationLayerMapping,
-    byte_serialize_klvm_streamable,
-    klvm_streamable,
-    json_deserialize_with_klvm_streamable,
-    json_serialize_with_klvm_streamable,
+    byte_serialize_clvk_streamable,
+    clvk_streamable,
+    json_deserialize_with_clvk_streamable,
+    json_serialize_with_clvk_streamable,
 )
 from chik.wallet.wallet import Wallet
 from chik.wallet.wallet_request_types import (
@@ -100,7 +100,7 @@ def test_unsigned_transaction_type() -> None:
         ),
     )
 
-    assert tx == json_deserialize_with_klvm_streamable(json_serialize_with_klvm_streamable(tx), UnsignedTransaction)
+    assert tx == json_deserialize_with_clvk_streamable(json_serialize_with_clvk_streamable(tx), UnsignedTransaction)
     as_json_dict = {
         "coin": {
             "parent_coin_id": "0x" + tx.transaction_info.spends[0].coin.parent_coin_id.hex(),
@@ -221,9 +221,9 @@ async def test_p2dohp_wallet_signer_protocol(wallet_environments: WalletTestFram
     assert not_our_utx.signing_instructions.targets[1].message == bytes(not_our_message)
     not_our_signing_instructions: SigningInstructions = not_our_utx.signing_instructions
     with pytest.raises(ValueError, match=r"not found \(or path/sum hinted to\)"):
-        await wallet_state_manager.execute_signing_instructions(not_our_signing_instructions)
+        await wallet_state_manager.signer.execute_signing_instructions(not_our_signing_instructions)
     with pytest.raises(ValueError, match=r"No pubkey found \(or path hinted to\) for fingerprint"):
-        await wallet_state_manager.execute_signing_instructions(
+        await wallet_state_manager.signer.execute_signing_instructions(
             dataclasses.replace(
                 not_our_signing_instructions,
                 key_hints=dataclasses.replace(
@@ -236,7 +236,7 @@ async def test_p2dohp_wallet_signer_protocol(wallet_environments: WalletTestFram
             )
         )
     with pytest.raises(ValueError, match="No root pubkey for fingerprint"):
-        await wallet_state_manager.execute_signing_instructions(
+        await wallet_state_manager.signer.execute_signing_instructions(
             dataclasses.replace(
                 not_our_signing_instructions,
                 key_hints=dataclasses.replace(
@@ -248,7 +248,7 @@ async def test_p2dohp_wallet_signer_protocol(wallet_environments: WalletTestFram
                 ),
             )
         )
-    signing_responses_2 = await wallet_state_manager.execute_signing_instructions(
+    signing_responses_2 = await wallet_state_manager.signer.execute_signing_instructions(
         not_our_signing_instructions, partial_allowed=True
     )
     assert len(signing_responses_2) == 2
@@ -263,14 +263,11 @@ async def test_p2dohp_wallet_signer_protocol(wallet_environments: WalletTestFram
         )
     ).signed_transactions
     await wallet_rpc.submit_transactions(SubmitTransactions(signed_transactions=signed_txs))
-    await wallet_environments.full_node.wait_bundle_ids_in_mempool(
-        [
-            WalletSpendBundle(
-                [spend.as_coin_spend() for tx in signed_txs for spend in tx.transaction_info.spends],
-                G2Element.from_bytes(signing_responses[0].signature),
-            ).name()
-        ]
+    bundle = WalletSpendBundle(
+        [spend.as_coin_spend() for tx in signed_txs for spend in tx.transaction_info.spends],
+        G2Element.from_bytes(signing_responses[0].signature),
     )
+    await wallet_environments.full_node.wait_bundle_ids_in_mempool([bundle.name()])
 
     await wallet_environments.process_pending_states(
         [
@@ -287,7 +284,8 @@ async def test_p2dohp_wallet_signer_protocol(wallet_environments: WalletTestFram
                     },
                 },
             ),
-        ]
+        ],
+        bundles_to_repush=[bundle],
     )
 
     # And test that we can get compressed versions if we want
@@ -295,7 +293,7 @@ async def test_p2dohp_wallet_signer_protocol(wallet_environments: WalletTestFram
         spends=[Spend.from_coin_spend(coin_spend), Spend.from_coin_spend(not_our_coin_spend)]
     ).to_json_dict()
     response_dict = await wallet_rpc.fetch("gather_signing_info", {"translation": "chip-0029", **request})
-    response: GatherSigningInfoResponse = json_deserialize_with_klvm_streamable(
+    response: GatherSigningInfoResponse = json_deserialize_with_clvk_streamable(
         response_dict, GatherSigningInfoResponse, translation_layer=BLIND_SIGNER_TRANSLATION
     )
     assert response.signing_instructions == not_our_utx.signing_instructions
@@ -324,7 +322,7 @@ async def test_p2blsdohp_execute_signing_instructions(wallet_environments: Walle
     # Test just a path hint
     test_name: bytes32 = std_hash(b"path hint only")
     child_sk: PrivateKey = _derive_path_unhardened(root_sk, [uint64(1), uint64(2), uint64(3), uint64(4)])
-    signing_responses: list[SigningResponse] = await wallet.execute_signing_instructions(
+    signing_responses: list[SigningResponse] = await wallet.wallet_state_manager.signer.execute_signing_instructions(
         SigningInstructions(
             KeyHints(
                 [],
@@ -347,7 +345,9 @@ async def test_p2blsdohp_execute_signing_instructions(wallet_environments: Walle
         [SigningTarget(sum_pk.get_fingerprint().to_bytes(4, "big"), test_name, test_name)],
     )
     for partial_allowed in (True, False):
-        signing_responses = await wallet.execute_signing_instructions(signing_instructions, partial_allowed)
+        signing_responses = await wallet.wallet_state_manager.signer.execute_signing_instructions(
+            signing_instructions, partial_allowed
+        )
         assert signing_responses == [
             SigningResponse(
                 bytes(
@@ -369,7 +369,9 @@ async def test_p2blsdohp_execute_signing_instructions(wallet_environments: Walle
             SigningTarget(b"random fingerprint", test_name, test_name),
         ],
     )
-    signing_responses = await wallet.execute_signing_instructions(signing_instructions, partial_allowed=True)
+    signing_responses = await wallet.wallet_state_manager.signer.execute_signing_instructions(
+        signing_instructions, partial_allowed=True
+    )
     assert signing_responses == [
         SigningResponse(
             bytes(
@@ -398,7 +400,9 @@ async def test_p2blsdohp_execute_signing_instructions(wallet_environments: Walle
         [SigningTarget(sum_pk.get_fingerprint().to_bytes(4, "big"), test_name, test_name)],
     )
     for partial_allowed in (True, False):
-        signing_responses = await wallet.execute_signing_instructions(signing_instructions, partial_allowed)
+        signing_responses = await wallet.wallet_state_manager.signer.execute_signing_instructions(
+            signing_instructions, partial_allowed
+        )
         assert signing_responses == [
             SigningResponse(
                 bytes(
@@ -423,7 +427,7 @@ async def test_p2blsdohp_execute_signing_instructions(wallet_environments: Walle
     other_sk_2 = PrivateKey.from_bytes(test_name_2)
     sum_pk = child_sk.get_g1() + other_sk.get_g1()
     sum_pk_2 = child_sk_2.get_g1() + other_sk_2.get_g1()
-    signing_responses = await wallet.execute_signing_instructions(
+    signing_responses = await wallet.wallet_state_manager.signer.execute_signing_instructions(
         SigningInstructions(
             KeyHints(
                 [
@@ -482,18 +486,18 @@ async def test_p2blsdohp_execute_signing_instructions(wallet_environments: Walle
         [SigningTarget(b"unknown fingerprint", b"", std_hash(b"some hook"))],
     )
     with pytest.raises(ValueError, match="No root pubkey for fingerprint"):
-        await wallet.execute_signing_instructions(unknown_path_hint)
+        await wallet.wallet_state_manager.signer.execute_signing_instructions(unknown_path_hint)
     with pytest.raises(ValueError, match="No pubkey found"):
-        await wallet.execute_signing_instructions(unknown_sum_hint)
+        await wallet.wallet_state_manager.signer.execute_signing_instructions(unknown_sum_hint)
     with pytest.raises(ValueError, match="not found"):
-        await wallet.execute_signing_instructions(unknown_target)
+        await wallet.wallet_state_manager.signer.execute_signing_instructions(unknown_target)
 
     # Test no private key partial sign sum hint
-    wallet.wallet_state_manager.private_key = None
+    wallet.wallet_state_manager.signer = dataclasses.replace(wallet.wallet_state_manager.signer, root_private_key=None)
     test_name = std_hash(b"sum hint partial no private key")
     other_sk = PrivateKey.from_bytes(test_name)
     sum_pk = other_sk.get_g1() + root_pk
-    signing_responses = await wallet.execute_signing_instructions(
+    signing_responses = await wallet.wallet_state_manager.signer.execute_signing_instructions(
         SigningInstructions(
             KeyHints(
                 [SumHint([root_fingerprint], test_name, bytes(sum_pk))],
@@ -560,33 +564,33 @@ def test_blind_signer_translation_layer() -> None:
         b"signature",
         bytes32([1] * 32),
     )
-    bstl_instructions_json = json_serialize_with_klvm_streamable(bstl_instructions)
-    bstl_transaction_json = json_serialize_with_klvm_streamable(bstl_transaction)
-    bstl_signing_response_json = json_serialize_with_klvm_streamable(bstl_signing_response)
-    assert bstl_instructions_json == json_serialize_with_klvm_streamable(
+    bstl_instructions_json = json_serialize_with_clvk_streamable(bstl_instructions)
+    bstl_transaction_json = json_serialize_with_clvk_streamable(bstl_transaction)
+    bstl_signing_response_json = json_serialize_with_clvk_streamable(bstl_signing_response)
+    assert bstl_instructions_json == json_serialize_with_clvk_streamable(
         instructions, translation_layer=BLIND_SIGNER_TRANSLATION
     )
-    assert bstl_transaction_json == json_serialize_with_klvm_streamable(
+    assert bstl_transaction_json == json_serialize_with_clvk_streamable(
         transaction, translation_layer=BLIND_SIGNER_TRANSLATION
     )
-    assert bstl_signing_response_json == json_serialize_with_klvm_streamable(
+    assert bstl_signing_response_json == json_serialize_with_clvk_streamable(
         signing_response, translation_layer=BLIND_SIGNER_TRANSLATION
     )
 
     assert (
-        json_deserialize_with_klvm_streamable(
+        json_deserialize_with_clvk_streamable(
             bstl_instructions_json, SigningInstructions, translation_layer=BLIND_SIGNER_TRANSLATION
         )
         == instructions
     )
     assert (
-        json_deserialize_with_klvm_streamable(
+        json_deserialize_with_clvk_streamable(
             bstl_transaction_json, UnsignedTransaction, translation_layer=BLIND_SIGNER_TRANSLATION
         )
         == transaction
     )
     assert (
-        json_deserialize_with_klvm_streamable(
+        json_deserialize_with_clvk_streamable(
             bstl_signing_response_json, SigningResponse, translation_layer=BLIND_SIGNER_TRANSLATION
         )
         == signing_response
@@ -791,7 +795,7 @@ def test_transactions_out() -> None:
             file.read() == bytes(TransactionBundle([STD_TX]))
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclasses.dataclass(frozen=True)
 class FooCoin(Streamable):
     amount: uint64
@@ -838,10 +842,10 @@ def test_signer_protocol_in(monkeypatch: pytest.MonkeyPatch) -> None:
     runner = CliRunner()
     with runner.isolated_filesystem():
         with open("some file", "wb") as file:
-            file.write(byte_serialize_klvm_streamable(coin))
+            file.write(byte_serialize_clvk_streamable(coin))
 
         with open("some file2", "wb") as file:
-            file.write(byte_serialize_klvm_streamable(coin))
+            file.write(byte_serialize_clvk_streamable(coin))
 
         result = runner.invoke(
             cmd,
@@ -852,10 +856,10 @@ def test_signer_protocol_in(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with runner.isolated_filesystem():
         with open("some file", "wb") as file:
-            file.write(byte_serialize_klvm_streamable(coin, translation_layer=FOO_COIN_TRANSLATION))
+            file.write(byte_serialize_clvk_streamable(coin, translation_layer=FOO_COIN_TRANSLATION))
 
             with open("some file2", "wb") as file2:
-                file2.write(byte_serialize_klvm_streamable(coin, translation_layer=FOO_COIN_TRANSLATION))
+                file2.write(byte_serialize_clvk_streamable(coin, translation_layer=FOO_COIN_TRANSLATION))
 
         result = runner.invoke(
             cmd, ["temp_cmd", "--signer-protocol-input", "some file", "--signer-protocol-input", "some file2"]
@@ -885,12 +889,12 @@ def test_signer_protocol_out(monkeypatch: pytest.MonkeyPatch) -> None:
         pass
 
     coin = Coin(bytes32.zeros, bytes32.zeros, uint64(0))
-    coin_bytes = byte_serialize_klvm_streamable(coin)
+    coin_bytes = byte_serialize_clvk_streamable(coin)
 
     @chik_command(group=cmd, name="temp_cmd", short_help="blah", help="n/a")
     class TempCMD(SPOut):
         def run(self) -> None:
-            self.handle_klvm_output([coin, coin])
+            self.handle_clvk_output([coin, coin])
 
     runner = CliRunner()
     with runner.isolated_filesystem():
@@ -925,7 +929,7 @@ def test_signer_protocol_out(monkeypatch: pytest.MonkeyPatch) -> None:
             cmd, ["temp_cmd", "--output-format", "hex", "--translation", "CHIP-0028"], catch_exceptions=False
         )
         assert result.output.strip() != coin_bytes.hex()
-        coin_hex = byte_serialize_klvm_streamable(coin, translation_layer=ALL_TRANSLATION_LAYERS["CHIP-0028"]).hex()
+        coin_hex = byte_serialize_clvk_streamable(coin, translation_layer=ALL_TRANSLATION_LAYERS["CHIP-0028"]).hex()
         assert result.output.strip() == coin_hex + "\n" + coin_hex
 
 

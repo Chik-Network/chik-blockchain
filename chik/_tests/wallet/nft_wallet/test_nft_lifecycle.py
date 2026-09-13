@@ -179,7 +179,7 @@ async def test_ownership_layer(cost_logger: CostLogger) -> None:
 
         result = await sim_client.push_tx(skip_tp_bundle)
         assert result == (MempoolInclusionStatus.FAILED, Err.GENERATOR_RUNTIME_ERROR)
-        with pytest.raises(ValueError, match="klvm raise"):
+        with pytest.raises(ValueError, match="clvk raise"):
             run(skip_tp_spend.puzzle_reveal, Program.from_serialized(skip_tp_spend.solution))
 
         make_bad_announcement_spend = make_spend(
@@ -199,7 +199,7 @@ async def test_ownership_layer(cost_logger: CostLogger) -> None:
 
         result = await sim_client.push_tx(make_bad_announcement_bundle)
         assert result == (MempoolInclusionStatus.FAILED, Err.GENERATOR_RUNTIME_ERROR)
-        with pytest.raises(ValueError, match="klvm raise"):
+        with pytest.raises(ValueError, match="clvk raise"):
             run(
                 make_bad_announcement_spend.puzzle_reveal, Program.from_serialized(make_bad_announcement_spend.solution)
             )

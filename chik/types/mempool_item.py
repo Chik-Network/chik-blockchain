@@ -10,8 +10,8 @@ from chik_rs.sized_ints import uint32, uint64
 from chik.types.blockchain_format.coin import Coin
 from chik.util.streamable import recurse_jsonify
 
-# Per-spend penalty added to KLVM cost when computing virtual cost.
-# Virtual cost = KLVM cost + num_spends * SPEND_PENALTY_COST
+# Per-spend penalty added to CLVK cost when computing virtual cost.
+# Virtual cost = CLVK cost + num_spends * SPEND_PENALTY_COST
 SPEND_PENALTY_COST = 500_000
 
 
@@ -36,6 +36,10 @@ class BundleCoinSpend:
     # this spend on top of if we were to make a block now
     # When finding MempoolItems by coin ID, we use Coin ID from it if it's set
     latest_singleton_lineage: UnspentLineageInfo | None
+
+    # Per-spend atom/pair counts from SpendConditions.
+    atom_count: int = 0
+    pair_count: int = 0
 
     @property
     def supports_fast_forward(self) -> bool:
@@ -82,11 +86,11 @@ class MempoolItem:
 
     @property
     def cost(self) -> uint64:
-        return uint64(0 if self.conds is None else self.conds.cost)
+        return uint64(self.conds.cost)
 
     @property
     def num_spends(self) -> int:
-        return 0 if self.conds is None else len(self.conds.spends)
+        return len(self.conds.spends)
 
     @property
     def virtual_cost(self) -> uint64:

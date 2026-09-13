@@ -10,7 +10,7 @@ from time import monotonic
 import aiosqlite
 import click
 from chik_rs.sized_bytes import bytes32
-from chik_rs.sized_ints import uint32
+from chik_rs.sized_ints import uint8, uint32
 
 from chik.consensus.block_height_map import BlockHeightMap
 from chik.consensus.blockchain import Blockchain
@@ -41,6 +41,8 @@ class BlockInfo:
     prev_header_hash: bytes32
     transactions_generator: SerializedProgram | None
     transactions_generator_ref_list: list[uint32]
+    transactions_generator_buffer: bytes | None = None
+    version: uint8 = uint8(0)
 
 
 def random_refs() -> list[uint32]:

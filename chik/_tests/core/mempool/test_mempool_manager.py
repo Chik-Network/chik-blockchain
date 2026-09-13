@@ -22,6 +22,7 @@ from chik_rs import (
     check_time_locks,
     get_conditions_from_spendbundle,
     run_block_generator2,
+    supports_fast_forward,
 )
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint8, uint32, uint64
@@ -47,7 +48,7 @@ from chik.full_node.mempool_manager import (
     check_removals,
     compute_assert_height,
     is_atom_canonical,
-    is_klvm_canonical,
+    is_clvk_canonical,
     optional_max,
     optional_min,
 )
@@ -61,7 +62,7 @@ from chik.simulator.wallet_tools import WalletTool
 from chik.types.blockchain_format.coin import Coin
 from chik.types.blockchain_format.program import DEFAULT_FLAGS, INFINITE_COST, Program
 from chik.types.blockchain_format.serialized_program import SerializedProgram
-from chik.types.klvm_cost import QUOTE_BYTES, QUOTE_EXECUTION_COST, KLVMCost
+from chik.types.clvk_cost import QUOTE_BYTES, QUOTE_EXECUTION_COST, CLVKCost
 from chik.types.coin_spend import make_spend
 from chik.types.condition_opcodes import ConditionOpcode
 from chik.types.condition_with_args import ConditionWithArgs
@@ -72,10 +73,12 @@ from chik.util.default_root import DEFAULT_ROOT_PATH
 from chik.util.errors import Err, ValidationError
 from chik.util.inline_executor import InlineExecutor
 from chik.wallet.conditions import AssertCoinAnnouncement
+from chik.wallet.lineage_proof import LineageProof, LineageProofField
 from chik.wallet.puzzles.p2_delegated_puzzle_or_hidden_puzzle import (
     DEFAULT_HIDDEN_PUZZLE_HASH,
     calculate_synthetic_secret_key,
 )
+from chik.wallet.puzzles.singleton_top_layer_v1_1 import MELT_CONDITION, puzzle_for_singleton, solution_for_singleton
 from chik.wallet.util.tx_config import DEFAULT_TX_CONFIG
 from chik.wallet.wallet import Wallet
 from chik.wallet.wallet_coin_record import WalletCoinRecord
@@ -122,14 +125,14 @@ def test_bundles_fixture() -> list[SpendBundle]:
     return ret
 
 
-@pytest.mark.parametrize("klvm_hex", ["80", "ff8080", "ff7f03", "ffff8080ff8080"])
-def test_klvm_canonical(klvm_hex: str) -> None:
-    klvm_buf = bytes.fromhex(klvm_hex)
-    assert is_klvm_canonical(klvm_buf)
+@pytest.mark.parametrize("clvk_hex", ["80", "ff8080", "ff7f03", "ffff8080ff8080"])
+def test_clvk_canonical(clvk_hex: str) -> None:
+    clvk_buf = bytes.fromhex(clvk_hex)
+    assert is_clvk_canonical(clvk_buf)
 
 
 @pytest.mark.parametrize(
-    "klvm_hex",
+    "clvk_hex",
     [
         "fffe80",
         "c000",
@@ -146,13 +149,13 @@ def test_klvm_canonical(klvm_hex: str) -> None:
         "ff808080",
     ],
 )
-def test_klvm_not_canonical(klvm_hex: str) -> None:
-    klvm_buf = bytes.fromhex(klvm_hex)
-    assert not is_klvm_canonical(klvm_buf)
+def test_clvk_not_canonical(clvk_hex: str) -> None:
+    clvk_buf = bytes.fromhex(clvk_hex)
+    assert not is_clvk_canonical(clvk_buf)
 
 
 @pytest.mark.parametrize(
-    "klvm_hex, expect",
+    "clvk_hex, expect",
     [
         ("c000", 2 + 0),
         ("c03f", 2 + 0x3F),
@@ -166,15 +169,15 @@ def test_klvm_not_canonical(klvm_hex: str) -> None:
         ("fc03ffffffff", 6 + 0x3FFFFFFFF),
     ],
 )
-def test_atom_not_canonical(klvm_hex: str, expect: int) -> None:
-    klvm_buf = bytes.fromhex(klvm_hex)
-    atom_len, is_canonical = is_atom_canonical(klvm_buf, 0)
+def test_atom_not_canonical(clvk_hex: str, expect: int) -> None:
+    clvk_buf = bytes.fromhex(clvk_hex)
+    atom_len, is_canonical = is_atom_canonical(clvk_buf, 0)
     assert atom_len == expect
     assert not is_canonical
 
 
 @pytest.mark.parametrize(
-    "klvm_hex, expect",
+    "clvk_hex, expect",
     [
         ("c040", 2 + 0x40),
         ("e02000", 3 + 0x2000),
@@ -183,9 +186,9 @@ def test_atom_not_canonical(klvm_hex: str, expect: int) -> None:
         ("fc0400000000", 6 + 0x400000000),
     ],
 )
-def test_atom_canonical(klvm_hex: str, expect: int) -> None:
-    klvm_buf = bytes.fromhex(klvm_hex)
-    atom_len, is_canonical = is_atom_canonical(klvm_buf, 0)
+def test_atom_canonical(clvk_hex: str, expect: int) -> None:
+    clvk_buf = bytes.fromhex(clvk_hex)
+    atom_len, is_canonical = is_atom_canonical(clvk_buf, 0)
     assert atom_len == expect
     assert is_canonical
 
@@ -194,8 +197,8 @@ def test_atom_canonical(klvm_hex: str, expect: int) -> None:
 async def test_bundles_are_canonical(test_bundles: list[SpendBundle]) -> None:
     for sb in test_bundles:
         for spend in sb.coin_spends:
-            assert is_klvm_canonical(bytes(spend.puzzle_reveal))
-            assert is_klvm_canonical(bytes(spend.solution))
+            assert is_clvk_canonical(bytes(spend.puzzle_reveal))
+            assert is_clvk_canonical(bytes(spend.solution))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -260,14 +263,14 @@ async def instantiate_mempool_manager(
     block_height: uint32 = TEST_HEIGHT,
     block_timestamp: uint64 = TEST_TIMESTAMP,
     constants: ConsensusConstants = DEFAULT_CONSTANTS,
-    max_tx_klvm_cost: uint64 | None = None,
+    max_tx_clvk_cost: uint64 | None = None,
 ) -> AsyncGenerator[MempoolManager, None]:
     async with MempoolManager.managed(
         get_coin_records,
         zero_calls_get_unspent_lineage_info_for_puzzle_hash,
         constants,
         InlineExecutor(),
-        max_tx_klvm_cost=max_tx_klvm_cost,
+        max_tx_clvk_cost=max_tx_clvk_cost,
         validation_timeout=10,
     ) as mempool_manager:
         test_block_record = create_test_block_record(height=block_height, timestamp=block_timestamp)
@@ -292,8 +295,8 @@ async def test_coins_mempool_manager_fixture() -> AsyncIterator[MempoolManager]:
 async def setup_mempool_with_coins(
     *,
     coin_amounts: list[int],
-    max_block_klvm_cost: int | None = None,
-    max_tx_klvm_cost: uint64 | None = None,
+    max_block_clvk_cost: int | None = None,
+    max_tx_clvk_cost: uint64 | None = None,
     mempool_block_buffer: int | None = None,
     puzzle_hash: bytes32 = IDENTITY_PUZZLE_HASH,
     height: uint32 = TEST_HEIGHT,
@@ -314,13 +317,13 @@ async def setup_mempool_with_coins(
         return ret
 
     constants = DEFAULT_CONSTANTS
-    if max_block_klvm_cost is not None:
-        constants = constants.replace(MAX_BLOCK_COST_KLVM=uint64(max_block_klvm_cost + TEST_BLOCK_OVERHEAD))
+    if max_block_clvk_cost is not None:
+        constants = constants.replace(MAX_BLOCK_COST_CLVK=uint64(max_block_clvk_cost + TEST_BLOCK_OVERHEAD))
     if mempool_block_buffer is not None:
         constants = constants.replace(MEMPOOL_BLOCK_BUFFER=uint8(mempool_block_buffer))
 
     async with instantiate_mempool_manager(
-        get_coin_records, block_height=height, constants=constants, max_tx_klvm_cost=max_tx_klvm_cost
+        get_coin_records, block_height=height, constants=constants, max_tx_clvk_cost=max_tx_clvk_cost
     ) as mempool_manager:
         yield (mempool_manager, coins)
 
@@ -341,19 +344,48 @@ def make_test_conds(
     before_seconds_relative: int | None = None,
     before_seconds_absolute: int | None = None,
     cost: int = 0,
+    num_atoms: int = 0,
+    num_pairs: int = 0,
     spend_ids: Sequence[tuple[bytes32 | Coin, int]] = [(TEST_COIN_ID, 0)],
     created_coins: list[list[CreateCoin]] | None = None,
+    spend_resource_counts: Sequence[tuple[int, int]] | None = None,
 ) -> SpendBundleConditions:
     if created_coins is None:
         created_coins = []
     if len(created_coins) < len(spend_ids):
         created_coins.extend([[] for _ in range(len(spend_ids) - len(created_coins))])
-    spend_info: list[tuple[bytes32, bytes32, bytes32, uint64, int, list[CreateCoin]]] = []
-    for (coin, flags), create_coin in zip(spend_ids, created_coins):
+    if spend_resource_counts is None:
+        spend_resource_counts = [(0, 0)] * len(spend_ids)
+    else:
+        assert len(spend_resource_counts) == len(spend_ids)
+    spend_info: list[tuple[bytes32, bytes32, bytes32, uint64, int, list[CreateCoin], int, int]] = []
+    for (coin, flags), create_coin, (atom_count, pair_count) in zip(spend_ids, created_coins, spend_resource_counts):
         if isinstance(coin, Coin):
-            spend_info.append((coin.name(), coin.parent_coin_info, coin.puzzle_hash, coin.amount, flags, create_coin))
+            spend_info.append(
+                (
+                    coin.name(),
+                    coin.parent_coin_info,
+                    coin.puzzle_hash,
+                    coin.amount,
+                    flags,
+                    create_coin,
+                    atom_count,
+                    pair_count,
+                )
+            )
         else:
-            spend_info.append((coin, IDENTITY_PUZZLE_HASH, IDENTITY_PUZZLE_HASH, TEST_COIN_AMOUNT, flags, create_coin))
+            spend_info.append(
+                (
+                    coin,
+                    IDENTITY_PUZZLE_HASH,
+                    IDENTITY_PUZZLE_HASH,
+                    TEST_COIN_AMOUNT,
+                    flags,
+                    create_coin,
+                    atom_count,
+                    pair_count,
+                )
+            )
 
     return SpendBundleConditions(
         [
@@ -379,9 +411,11 @@ def make_test_conds(
                 flags,
                 execution_cost=0,
                 condition_cost=0,
+                atom_count=atom_count,
+                pair_count=pair_count,
                 fingerprint=b"",
             )
-            for coin_id, parent_id, puzzle_hash, amount, flags, create_coin in spend_info
+            for coin_id, parent_id, puzzle_hash, amount, flags, create_coin, atom_count, pair_count in spend_info
         ],
         0,
         uint32(height_absolute),
@@ -395,8 +429,8 @@ def make_test_conds(
         False,
         0,
         0,
-        0,
-        0,
+        num_atoms,
+        num_pairs,
         0,
     )
 
@@ -607,6 +641,8 @@ def make_bundle_spends_map_and_fee(
             latest_singleton_lineage=UnspentLineageInfo(coin_id, coin_spend.coin.parent_coin_info, bytes32([0] * 32))
             if bool(spend_conds.flags & ELIGIBLE_FOR_FF)
             else None,
+            atom_count=spend_conds.atom_count,
+            pair_count=spend_conds.pair_count,
         )
     assert additions_amount == conds.addition_amount
     assert removals_amount == conds.removal_amount
@@ -733,9 +769,9 @@ async def test_validation_timeout() -> None:
 
 @pytest.mark.anyio
 async def test_too_many_atoms() -> None:
-    # a very large MAX_BLOCK_COST_KLVM makes the per-cost atom/pair threshold
+    # a very large MAX_BLOCK_COST_CLVK makes the per-cost atom/pair threshold
     # effectively 0, triggering the density check on any spend
-    constants = DEFAULT_CONSTANTS.replace(MAX_BLOCK_COST_KLVM=uint64(10**18))
+    constants = DEFAULT_CONSTANTS.replace(MAX_BLOCK_COST_CLVK=uint64(10**18))
     async with instantiate_mempool_manager(zero_calls_get_coin_records, constants=constants) as mempool_manager:
         conditions = [[ConditionOpcode.CREATE_COIN, IDENTITY_PUZZLE_HASH, 1]]
         sb = spend_bundle_from_conditions(conditions)
@@ -928,7 +964,7 @@ def mk_coin_spend(coin: Coin, solution: str | None = None) -> CoinSpend:
     )
 
 
-def mk_bcs(coin_spend: CoinSpend, flags: int = 0) -> BundleCoinSpend:
+def mk_bcs(coin_spend: CoinSpend, flags: int = 0, *, atom_count: int = 0, pair_count: int = 0) -> BundleCoinSpend:
     return BundleCoinSpend(
         coin_spend=coin_spend,
         eligible_for_dedup=bool(flags & ELIGIBLE_FOR_DEDUP),
@@ -939,6 +975,8 @@ def mk_bcs(coin_spend: CoinSpend, flags: int = 0) -> BundleCoinSpend:
         )
         if flags & ELIGIBLE_FOR_FF
         else None,
+        atom_count=atom_count,
+        pair_count=pair_count,
     )
 
 
@@ -947,6 +985,8 @@ def mk_item(
     *,
     cost: int = 1,
     fee: int = 0,
+    atom_counts: Sequence[int] | None = None,
+    pair_counts: Sequence[int] | None = None,
     assert_height: int | None = None,
     assert_before_height: int | None = None,
     assert_before_seconds: int | None = None,
@@ -960,15 +1000,29 @@ def mk_item(
     bundle_coin_spends = {}
     if len(flags) < len(coins):
         flags.extend([0] * (len(coins) - len(flags)))
-    for c, f in zip(coins, flags):
+    if atom_counts is None:
+        atom_counts = [0] * len(coins)
+    if pair_counts is None:
+        pair_counts = [0] * len(coins)
+    assert len(atom_counts) == len(coins)
+    assert len(pair_counts) == len(coins)
+    spend_resource_counts: list[tuple[int, int]] = []
+    for c, f, atom_count, pair_count in zip(coins, flags, atom_counts, pair_counts):
         coin_id = c.name()
         spend_ids.append((coin_id, f))
         coin_spend = mk_coin_spend(c, solution=solution)
         solution = None
         coin_spends.append(coin_spend)
-        bundle_coin_spends[coin_id] = mk_bcs(coin_spend, f)
+        spend_resource_counts.append((atom_count, pair_count))
+        bundle_coin_spends[coin_id] = mk_bcs(coin_spend, f, atom_count=atom_count, pair_count=pair_count)
     spend_bundle = SpendBundle(coin_spends, G2Element())
-    conds = make_test_conds(cost=cost, spend_ids=spend_ids)
+    conds = make_test_conds(
+        cost=cost,
+        num_atoms=sum(atom_counts),
+        num_pairs=sum(pair_counts),
+        spend_ids=spend_ids,
+        spend_resource_counts=spend_resource_counts,
+    )
     return MempoolItem(
         aggregated_signature=spend_bundle.aggregated_signature,
         fee=uint64(fee),
@@ -1338,26 +1392,26 @@ async def test_create_bundle_from_mempool_on_max_cost(num_skipped_items: int, ca
       2. After skipping MAX_SKIPPED_ITEMS, we stop processing further items.
     """
 
-    MAX_BLOCK_KLVM_COST = 550_000_000
+    MAX_BLOCK_CLVK_COST = 550_000_000
 
     async with setup_mempool_with_coins(
         coin_amounts=list(range(1_000_000_000, 1_000_000_030)),
-        max_block_klvm_cost=MAX_BLOCK_KLVM_COST,
-        max_tx_klvm_cost=uint64(MAX_BLOCK_KLVM_COST),
+        max_block_clvk_cost=MAX_BLOCK_CLVK_COST,
+        max_tx_clvk_cost=uint64(MAX_BLOCK_CLVK_COST),
         mempool_block_buffer=20,
     ) as (mempool_manager, coins):
 
         async def make_and_send_big_cost_sb(coin: Coin) -> None:
             """
             Creates a spend bundle with a big enough cost that gets it close to the
-            maximum block klvm cost limit.
+            maximum block clvk cost limit.
             """
             conditions = []
             sk = AugSchemeMPL.key_gen(b"7" * 32)
             g1 = sk.get_g1()
             sig = AugSchemeMPL.sign(sk, IDENTITY_PUZZLE_HASH, g1)
             aggsig = G2Element()
-            # Let's get as close to `MAX_BLOCK_KLVM_COST` (550_000_000) as possible.
+            # Let's get as close to `MAX_BLOCK_CLVK_COST` (550_000_000) as possible.
             # We start by accounting for execution cost
             spend_bundle_cost = 44
             # And then the created coin
@@ -1373,7 +1427,7 @@ async def test_create_bundle_from_mempool_on_max_cost(num_skipped_items: int, ca
             TEST_AGGSIG_CONDITION_COST = (
                 ConditionCost.AGG_SIG.value + TEST_AGG_SIG_SPEND_BYTESIZE * DEFAULT_CONSTANTS.COST_PER_BYTE
             )
-            while spend_bundle_cost + TEST_AGGSIG_CONDITION_COST < MAX_BLOCK_KLVM_COST:
+            while spend_bundle_cost + TEST_AGGSIG_CONDITION_COST < MAX_BLOCK_CLVK_COST:
                 conditions.append([ConditionOpcode.AGG_SIG_UNSAFE, g1, IDENTITY_PUZZLE_HASH])
                 aggsig += sig
                 spend_bundle_cost += TEST_AGGSIG_CONDITION_COST
@@ -1388,7 +1442,7 @@ async def test_create_bundle_from_mempool_on_max_cost(num_skipped_items: int, ca
             await make_and_send_big_cost_sb(coins[i])
 
         # Create a spend bundle with a relatively smaller cost.
-        # Combined with a big cost spend bundle, we'd exceed the maximum block klvm cost
+        # Combined with a big cost spend bundle, we'd exceed the maximum block clvk cost
         sb2_coin = coins[num_skipped_items]
         conditions = [[ConditionOpcode.CREATE_COIN, IDENTITY_PUZZLE_HASH, sb2_coin.amount - 200_000]]
         sb2, _, res = await generate_and_add_spendbundle(mempool_manager, conditions, sb2_coin)
@@ -1684,12 +1738,18 @@ def test_dedup_info_nothing_to_do() -> None:
     sb = spend_bundle_from_conditions(conditions, TEST_COIN, sig)
     mempool_item = mempool_item_from_spendbundle(sb)
     dedup_coin_spends = IdenticalSpendDedup()
-    unique_coin_spends, cost_saving, unique_additions = dedup_coin_spends.get_deduplication_info(
-        bundle_coin_spends=mempool_item.bundle_coin_spends
+    unique_coin_spends, cost_saving, atoms_saving, pairs_saving, unique_additions, dedup_state_update = (
+        dedup_coin_spends.get_deduplication_info(bundle_coin_spends=mempool_item.bundle_coin_spends)
     )
     assert unique_coin_spends == sb.coin_spends
     assert cost_saving == 0
+    assert atoms_saving == 0
+    assert pairs_saving == 0
     assert unique_additions == [Coin(TEST_COIN_ID, IDENTITY_PUZZLE_HASH, uint64(1))]
+    assert dedup_state_update == {}
+    # get_deduplication_info must not mutate the dedup state on its own
+    assert dedup_coin_spends == IdenticalSpendDedup()
+    dedup_coin_spends.update_deduplication_spends(dedup_state_update)
     assert dedup_coin_spends == IdenticalSpendDedup()
 
 
@@ -1704,18 +1764,34 @@ def test_dedup_info_eligible_1st_time() -> None:
     assert mempool_item.conds is not None
     dedup_coin_spends = IdenticalSpendDedup()
     solution = SerializedProgram.to(conditions)
-    unique_coin_spends, cost_saving, unique_additions = dedup_coin_spends.get_deduplication_info(
-        bundle_coin_spends=mempool_item.bundle_coin_spends
+    unique_coin_spends, cost_saving, atoms_saving, pairs_saving, unique_additions, dedup_state_update = (
+        dedup_coin_spends.get_deduplication_info(bundle_coin_spends=mempool_item.bundle_coin_spends)
     )
     assert unique_coin_spends == sb.coin_spends
     assert cost_saving == 0
+    assert atoms_saving == 0
+    assert pairs_saving == 0
     assert set(unique_additions) == {
         Coin(TEST_COIN_ID, IDENTITY_PUZZLE_HASH, uint64(1)),
         Coin(TEST_COIN_ID, IDENTITY_PUZZLE_HASH, uint64(TEST_COIN_AMOUNT - 1)),
     }
     expected_cost = mempool_item.bundle_coin_spends[TEST_COIN_ID].cost
+    expected_atoms = mempool_item.bundle_coin_spends[TEST_COIN_ID].atom_count
+    expected_pairs = mempool_item.bundle_coin_spends[TEST_COIN_ID].pair_count
+    # The update is returned but not applied until explicitly committed
+    assert dedup_coin_spends == IdenticalSpendDedup()
+    assert dedup_state_update == {
+        TEST_COIN_ID: DedupCoinSpend(
+            solution=solution, cost=expected_cost, atom_count=expected_atoms, pair_count=expected_pairs
+        )
+    }
+    dedup_coin_spends.update_deduplication_spends(dedup_state_update)
     assert dedup_coin_spends == IdenticalSpendDedup(
-        {TEST_COIN_ID: DedupCoinSpend(solution=solution, cost=expected_cost)}
+        {
+            TEST_COIN_ID: DedupCoinSpend(
+                solution=solution, cost=expected_cost, atom_count=expected_atoms, pair_count=expected_pairs
+            )
+        }
     )
 
 
@@ -1752,20 +1828,33 @@ def test_dedup_info_eligible_2nd_time_and_another_1st_time() -> None:
     sb = SpendBundle.aggregate([sb1, sb2])
     mempool_item = mempool_item_from_spendbundle(sb)
     assert mempool_item.conds is not None
-    unique_coin_spends, cost_saving, unique_additions = dedup_coin_spends.get_deduplication_info(
-        bundle_coin_spends=mempool_item.bundle_coin_spends
+    unique_coin_spends, cost_saving, atoms_saving, pairs_saving, unique_additions, dedup_state_update = (
+        dedup_coin_spends.get_deduplication_info(bundle_coin_spends=mempool_item.bundle_coin_spends)
     )
     # Only the eligible one that we encountered more than once gets deduplicated
     assert unique_coin_spends == sb2.coin_spends
     assert cost_saving == test_coin_cost
+    assert atoms_saving == mempool_item.bundle_coin_spends[TEST_COIN_ID].atom_count
+    assert pairs_saving == mempool_item.bundle_coin_spends[TEST_COIN_ID].pair_count
     assert unique_additions == [Coin(TEST_COIN_ID2, IDENTITY_PUZZLE_HASH, TEST_COIN_AMOUNT2)]
     # The coin we encountered a second time is already in the map
-    # The coin we encountered for the first time gets added with its solution and cost
+    # The coin we encountered for the first time is only reported in the update,
+    # not committed until we explicitly do so
     test_coin2_cost = mempool_item.bundle_coin_spends[TEST_COIN_ID2].cost
+    test_coin2_atoms = mempool_item.bundle_coin_spends[TEST_COIN_ID2].atom_count
+    test_coin2_pairs = mempool_item.bundle_coin_spends[TEST_COIN_ID2].pair_count
+    assert dedup_state_update == {
+        TEST_COIN_ID2: DedupCoinSpend(
+            solution=second_solution, cost=test_coin2_cost, atom_count=test_coin2_atoms, pair_count=test_coin2_pairs
+        )
+    }
+    dedup_coin_spends.update_deduplication_spends(dedup_state_update)
     expected_dedup_coin_spends = IdenticalSpendDedup(
         {
             TEST_COIN_ID: DedupCoinSpend(solution=initial_solution, cost=test_coin_cost),
-            TEST_COIN_ID2: DedupCoinSpend(solution=second_solution, cost=test_coin2_cost),
+            TEST_COIN_ID2: DedupCoinSpend(
+                solution=second_solution, cost=test_coin2_cost, atom_count=test_coin2_atoms, pair_count=test_coin2_pairs
+            ),
         }
     )
     assert dedup_coin_spends == expected_dedup_coin_spends
@@ -1801,13 +1890,24 @@ def test_dedup_info_eligible_3rd_time_another_2nd_time_and_one_non_eligible() ->
     sb = SpendBundle.aggregate([sb1, sb2, sb3])
     mempool_item = mempool_item_from_spendbundle(sb)
     assert mempool_item.conds is not None
-    unique_coin_spends, cost_saving, unique_additions = dedup_coin_spends.get_deduplication_info(
-        bundle_coin_spends=mempool_item.bundle_coin_spends
+    unique_coin_spends, cost_saving, atoms_saving, pairs_saving, unique_additions, dedup_state_update = (
+        dedup_coin_spends.get_deduplication_info(bundle_coin_spends=mempool_item.bundle_coin_spends)
     )
     assert unique_coin_spends == sb3.coin_spends
     assert cost_saving == test_coin_cost + test_coin2_cost
+    assert atoms_saving == (
+        mempool_item.bundle_coin_spends[TEST_COIN_ID].atom_count
+        + mempool_item.bundle_coin_spends[TEST_COIN_ID2].atom_count
+    )
+    assert pairs_saving == (
+        mempool_item.bundle_coin_spends[TEST_COIN_ID].pair_count
+        + mempool_item.bundle_coin_spends[TEST_COIN_ID2].pair_count
+    )
     assert unique_additions == [Coin(TEST_COIN_ID3, IDENTITY_PUZZLE_HASH, TEST_COIN_AMOUNT3)]
-    # TEST_COIN_ID3 is non-eligible, so it doesn't end up in this map
+    # Both eligible coins were already known, so there's nothing new to commit
+    # (TEST_COIN_ID3 is non-eligible, so it never ends up in the map)
+    assert dedup_state_update == {}
+    dedup_coin_spends.update_deduplication_spends(dedup_state_update)
     expected_dedup_coin_spends = IdenticalSpendDedup(
         {
             TEST_COIN_ID: DedupCoinSpend(initial_solution, test_coin_cost),
@@ -1883,20 +1983,34 @@ async def test_bundle_coin_spends() -> None:
         assert mi123e is not None
         execution_cost = 44
         for i in range(3):
-            assert mi123e.bundle_coin_spends[coins[i].name()] == BundleCoinSpend(
+            bcs = mi123e.bundle_coin_spends[coins[i].name()]
+            assert bcs == BundleCoinSpend(
                 coin_spend=sb123.coin_spends[i],
                 eligible_for_dedup=False,
                 additions=[Coin(coins[i].name(), IDENTITY_PUZZLE_HASH, coins[i].amount)],
                 cost=uint64(ConditionCost.CREATE_COIN.value + ConditionCost.AGG_SIG.value + execution_cost),
                 latest_singleton_lineage=None,
+                atom_count=mi123e.conds.spends[i].atom_count,
+                pair_count=mi123e.conds.spends[i].pair_count,
             )
-        assert mi123e.bundle_coin_spends[coins[3].name()] == BundleCoinSpend(
+            assert bcs.atom_count >= 0
+            assert bcs.pair_count >= 0
+        eligible_bcs = mi123e.bundle_coin_spends[coins[3].name()]
+        assert eligible_bcs == BundleCoinSpend(
             coin_spend=eligible_sb.coin_spends[0],
             eligible_for_dedup=True,
             additions=[Coin(coins[3].name(), IDENTITY_PUZZLE_HASH, coins[3].amount)],
             cost=uint64(ConditionCost.CREATE_COIN.value + execution_cost),
             latest_singleton_lineage=None,
+            atom_count=mi123e.conds.spends[3].atom_count,
+            pair_count=mi123e.conds.spends[3].pair_count,
         )
+        assert eligible_bcs.atom_count >= 0
+        assert eligible_bcs.pair_count >= 0
+        total_atoms = sum(b.atom_count for b in mi123e.bundle_coin_spends.values())
+        total_pairs = sum(b.pair_count for b in mi123e.bundle_coin_spends.values())
+        assert total_atoms <= mi123e.conds.num_atoms
+        assert total_pairs <= mi123e.conds.num_pairs
 
 
 @pytest.mark.anyio
@@ -2266,7 +2380,7 @@ TEST_BLOCK_OVERHEAD = QUOTE_BYTES * TEST_COST_PER_BYTE + QUOTE_EXECUTION_COST
 @pytest.mark.anyio
 @pytest.mark.limit_consensus_modes(allowed=[ConsensusMode.HARD_FORK_2_0])
 @pytest.mark.parametrize(
-    "max_block_klvm_cost, expected_block_items, expected_block_cost",
+    "max_block_clvk_cost, expected_block_items, expected_block_cost",
     [
         # Here we set the block cost limit to twice the test items' cost, so we
         # expect both test items to get included in the block.
@@ -2284,7 +2398,7 @@ TEST_BLOCK_OVERHEAD = QUOTE_BYTES * TEST_COST_PER_BYTE + QUOTE_EXECUTION_COST
 )
 async def test_fill_rate_block_validation(
     blockchain_constants: ConsensusConstants,
-    max_block_klvm_cost: uint64,
+    max_block_clvk_cost: uint64,
     expected_block_items: int,
     expected_block_cost: uint64,
     self_hostname: str,
@@ -2330,18 +2444,18 @@ async def test_fill_rate_block_validation(
             sbs_info.append((coin.name(), puzzle, sb.name()))
         return sbs_info
 
-    constants = blockchain_constants.replace(MAX_BLOCK_COST_KLVM=max_block_klvm_cost)
+    constants = blockchain_constants.replace(MAX_BLOCK_COST_CLVK=max_block_clvk_cost)
     async with setup_simulators_and_wallets(1, 0, constants) as setup:
         full_node_api = setup.simulators[0].peer_api
         assert full_node_api.full_node._mempool_manager is not None
         # We have to alter the following values here as they're not exposed elsewhere
         # and without them we won't be able to get the test bundle in.
-        # This defaults to `MAX_BLOCK_COST_KLVM // 2`
-        full_node_api.full_node._mempool_manager.max_tx_klvm_cost = max_block_klvm_cost
-        # This defaults to `MAX_BLOCK_COST_KLVM - BLOCK_OVERHEAD`
+        # This defaults to `MAX_BLOCK_COST_CLVK // 2`
+        full_node_api.full_node._mempool_manager.max_tx_clvk_cost = max_block_clvk_cost
+        # This defaults to `MAX_BLOCK_COST_CLVK - BLOCK_OVERHEAD`
         full_node_api.full_node._mempool_manager.mempool.mempool_info = dataclasses.replace(
             full_node_api.full_node._mempool_manager.mempool.mempool_info,
-            max_block_klvm_cost=KLVMCost(max_block_klvm_cost),
+            max_block_clvk_cost=CLVKCost(max_block_clvk_cost),
         )
         sbs_info = await fill_mempool_with_test_sbs(full_node_api)
         # This check is here just to make sure our bundles have the expected cost
@@ -2423,30 +2537,49 @@ async def test_height_added_to_mempool(optimized_path: bool, test_coins_mempool_
     assert mempool_item.height_added_to_mempool == original_height
 
 
+# Builds the UnspentLineageInfo the coin store would report for the latest
+# unspent version of a singleton. The grandparent id (parent_parent_id) must be
+# the real one, otherwise reconstructing the parent coin id fails; both
+# can_fast_forward_singleton (at admission) and perform_the_fast_forward (at
+# block building) verify that. We recover it from the lineage proof embedded in
+# the singleton solution rather than fabricating a placeholder.
+def singleton_lineage_info(coin_spend: CoinSpend) -> UnspentLineageInfo:
+    solution = Program.from_bytes(bytes(coin_spend.solution))
+    lineage_proof = LineageProof.from_program(
+        solution.first(),
+        [LineageProofField.PARENT_NAME, LineageProofField.INNER_PUZZLE_HASH, LineageProofField.AMOUNT],
+    )
+    assert lineage_proof.parent_name is not None
+    coin = coin_spend.coin
+    return UnspentLineageInfo(coin.name(), coin.parent_coin_info, lineage_proof.parent_name)
+
+
 # This is a test utility to provide a simple view of the coin table for the
 # mempool manager.
 class TestCoins:
     coin_records: dict[bytes32, CoinRecord]
     lineage_info: dict[bytes32, UnspentLineageInfo]
 
-    def __init__(self, coins: list[Coin], lineage: dict[bytes32, Coin]) -> None:
+    def __init__(self, coins: list[Coin], lineage: dict[bytes32, CoinSpend]) -> None:
         self.coin_records = {}
         for c in coins:
             self.coin_records[c.name()] = CoinRecord(c, uint32(0), uint32(0), False, TEST_TIMESTAMP)
         self.lineage_info = {}
-        for ph, c in lineage.items():
-            self.lineage_info[ph] = UnspentLineageInfo(c.name(), c.parent_coin_info, bytes32([42] * 32))
+        for ph, coin_spend in lineage.items():
+            self.lineage_info[ph] = singleton_lineage_info(coin_spend)
 
     def spend_coin(self, coin_id: bytes32, height: uint32 = uint32(10)) -> None:
         self.coin_records[coin_id] = self.coin_records[coin_id].replace(spent_block_index=height)
 
-    def update_lineage(self, puzzle_hash: bytes32, coin: Coin | None) -> None:
-        if coin is None:
+    def update_lineage(self, puzzle_hash: bytes32, coin_spend: CoinSpend | None) -> None:
+        if coin_spend is None:
             self.lineage_info.pop(puzzle_hash)
         else:
-            assert coin.puzzle_hash == puzzle_hash
-            prev = self.lineage_info[puzzle_hash]
-            self.lineage_info[puzzle_hash] = UnspentLineageInfo(coin.name(), coin.parent_coin_info, prev.coin_id)
+            assert coin_spend.coin.puzzle_hash == puzzle_hash
+            # Derive the lineage info from the singleton spend itself, so the
+            # grandparent id (parent_parent_id) is the real one. can_fast_forward_singleton
+            # and perform_the_fast_forward reconstruct the parent coin id from it.
+            self.lineage_info[puzzle_hash] = singleton_lineage_info(coin_spend)
 
     async def get_coin_records(self, coin_ids: Collection[bytes32]) -> list[CoinRecord]:
         ret = []
@@ -2463,13 +2596,8 @@ class TestCoins:
 
 # creates a CoinSpend of a made up
 def make_singleton_spend(
-    launcher_id: bytes32, parent_parent_id: bytes32 = bytes32([3] * 32), child_amount: int = 1
+    launcher_id: bytes32, parent_parent_id: bytes32 = bytes32([3] * 32), child_amount: int = 1, *, melt: bool = False
 ) -> CoinSpend:
-    from chik_rs import supports_fast_forward
-
-    from chik.wallet.lineage_proof import LineageProof
-    from chik.wallet.puzzles.singleton_top_layer_v1_1 import puzzle_for_singleton, solution_for_singleton
-
     singleton_puzzle = puzzle_for_singleton(launcher_id, Program.to(1)).to_serialized()
 
     PARENT_COIN = Coin(parent_parent_id, singleton_puzzle.get_tree_hash(), uint64(1))
@@ -2477,7 +2605,9 @@ def make_singleton_spend(
 
     lineage_proof = LineageProof(parent_parent_id, IDENTITY_PUZZLE_HASH, uint64(1))
 
-    inner_solution = Program.to([[ConditionOpcode.CREATE_COIN, IDENTITY_PUZZLE_HASH, uint64(child_amount)]])
+    inner_solution = Program.to(
+        [MELT_CONDITION] if melt else [[ConditionOpcode.CREATE_COIN, IDENTITY_PUZZLE_HASH, uint64(child_amount)]]
+    )
     singleton_solution = solution_for_singleton(lineage_proof, uint64(1), inner_solution).to_serialized()
 
     ret = CoinSpend(COIN, singleton_puzzle, singleton_solution)
@@ -2545,7 +2675,7 @@ async def test_new_peak_ff_eviction(
     )
     bundle = SpendBundle([singleton_spend, coin_spend], G2Element())
 
-    coins = TestCoins([singleton_spend.coin, TEST_COIN], {singleton_spend.coin.puzzle_hash: singleton_spend.coin})
+    coins = TestCoins([singleton_spend.coin, TEST_COIN], {singleton_spend.coin.puzzle_hash: singleton_spend})
 
     async with setup_mempool(coins) as mempool_manager:
         bundle_add_info = await mempool_manager.add_spend_bundle(
@@ -2615,57 +2745,53 @@ async def test_multiple_ff(use_optimization: bool) -> None:
 
     # in the next block, this will be the latest singleton coin
     singleton_spend3 = make_singleton_spend(LAUNCHER_ID, PARENT_PARENT3)
-
-    coin_spend = make_spend(
-        TEST_COIN,
-        IDENTITY_PUZZLE,
-        Program.to([[ConditionOpcode.CREATE_COIN, IDENTITY_PUZZLE_HASH, 1336]]),
-    )
-    bundle = SpendBundle([singleton_spend1, singleton_spend2, coin_spend], G2Element())
-
     # the singleton puzzle hash resulves to the most recent singleton coin, number 2
     # pretend that coin1 is spent
     singleton_ph = singleton_spend2.coin.puzzle_hash
-    coins = TestCoins([singleton_spend1.coin, singleton_spend2.coin, TEST_COIN], {singleton_ph: singleton_spend2.coin})
+    coins = TestCoins(
+        [singleton_spend1.coin, singleton_spend2.coin, TEST_COIN, TEST_COIN2], {singleton_ph: singleton_spend2}
+    )
 
     async with setup_mempool(coins) as mempool_manager:
-        bundle_add_info = await mempool_manager.add_spend_bundle(
-            bundle,
-            make_test_conds(
-                spend_ids=[
-                    (singleton_spend1.coin, ELIGIBLE_FOR_FF),
-                    (singleton_spend2.coin, ELIGIBLE_FOR_FF),
-                    (TEST_COIN, 0),
-                ],
-                cost=1000000,
-            ),
-            bundle.name(),
-            first_added_height=uint32(1),
-        )
-        assert bundle_add_info.status == MempoolInclusionStatus.SUCCESS
-        invariant_check_mempool(mempool_manager.mempool)
+        bundles_names = []
+        for singleton_spend, regular_coin in [(singleton_spend1, TEST_COIN), (singleton_spend2, TEST_COIN2)]:
+            bundle = SpendBundle([singleton_spend, mk_coin_spend(regular_coin)], G2Element())
+            bundle_add_info = await mempool_manager.add_spend_bundle(
+                bundle,
+                make_test_conds(
+                    spend_ids=[
+                        (singleton_spend.coin, ELIGIBLE_FOR_FF),
+                        (regular_coin, 0),
+                    ],
+                    cost=1000000,
+                ),
+                bundle.name(),
+                first_added_height=uint32(1),
+            )
+            assert bundle_add_info.status == MempoolInclusionStatus.SUCCESS
+            invariant_check_mempool(mempool_manager.mempool)
 
-        item = mempool_manager.get_mempool_item(bundle.name())
-        assert item is not None
-        assert item.bundle_coin_spends[singleton_spend1.coin.name()].supports_fast_forward
-        assert item.bundle_coin_spends[singleton_spend2.coin.name()].supports_fast_forward
-        assert not item.bundle_coin_spends[coin_spend.coin.name()].supports_fast_forward
-
+            item = mempool_manager.get_mempool_item(bundle.name())
+            assert item is not None
+            assert item.bundle_coin_spends[singleton_spend.coin.name()].supports_fast_forward
+            assert not item.bundle_coin_spends[regular_coin.name()].supports_fast_forward
+            latest_singleton_lineage = item.bundle_coin_spends[singleton_spend.coin.name()].latest_singleton_lineage
+            assert latest_singleton_lineage is not None
+            assert latest_singleton_lineage.coin_id == singleton_spend2.coin.name()
+            bundles_names.append(bundle.name())
         # spend the singleton coin2 and make coin3 the latest version
-        coins.update_lineage(singleton_ph, singleton_spend3.coin)
+        coins.update_lineage(singleton_ph, singleton_spend3)
         coins.spend_coin(singleton_spend2.coin.name(), uint32(11))
 
         await advance_mempool(mempool_manager, [singleton_spend2.coin.name()], use_optimization=use_optimization)
 
         # we can still fast-forward the singleton spends, the bundle should still be valid
-        item = mempool_manager.get_mempool_item(bundle.name())
-        assert item is not None
-        spend = item.bundle_coin_spends[singleton_spend1.coin.name()]
-        assert spend.latest_singleton_lineage is not None
-        assert spend.latest_singleton_lineage.coin_id == singleton_spend3.coin.name()
-        spend = item.bundle_coin_spends[singleton_spend2.coin.name()]
-        assert spend.latest_singleton_lineage is not None
-        assert spend.latest_singleton_lineage.coin_id == singleton_spend3.coin.name()
+        for bundle_name, singleton_spend in zip(bundles_names, [singleton_spend1, singleton_spend2]):
+            item = mempool_manager.get_mempool_item(bundle_name)
+            assert item is not None
+            spend = item.bundle_coin_spends[singleton_spend.coin.name()]
+            assert spend.latest_singleton_lineage is not None
+            assert spend.latest_singleton_lineage.coin_id == singleton_spend3.coin.name()
 
 
 @pytest.mark.anyio
@@ -2695,7 +2821,7 @@ async def test_advancing_ff(use_optimization: bool) -> None:
     # the singleton puzzle hash resulves to the most recent singleton coin, number 2
     # pretend that coin1 is spent
     singleton_ph = spend_a.coin.puzzle_hash
-    coins = TestCoins([spend_a.coin, spend_b.coin, spend_c.coin, TEST_COIN], {singleton_ph: spend_a.coin})
+    coins = TestCoins([spend_a.coin, spend_b.coin, spend_c.coin, TEST_COIN], {singleton_ph: spend_a})
 
     async with setup_mempool(coins) as mempool_manager:
         bundle_add_info = await mempool_manager.add_spend_bundle(
@@ -2714,7 +2840,7 @@ async def test_advancing_ff(use_optimization: bool) -> None:
         assert spend.latest_singleton_lineage is not None
         assert spend.latest_singleton_lineage.coin_id == spend_a.coin.name()
 
-        coins.update_lineage(singleton_ph, spend_b.coin)
+        coins.update_lineage(singleton_ph, spend_b)
         coins.spend_coin(spend_a.coin.name(), uint32(11))
 
         await advance_mempool(mempool_manager, [spend_a.coin.name()])
@@ -2726,7 +2852,7 @@ async def test_advancing_ff(use_optimization: bool) -> None:
         assert spend.latest_singleton_lineage is not None
         assert spend.latest_singleton_lineage.coin_id == spend_b.coin.name()
 
-        coins.update_lineage(singleton_ph, spend_c.coin)
+        coins.update_lineage(singleton_ph, spend_c)
         coins.spend_coin(spend_b.coin.name(), uint32(12))
 
         await advance_mempool(mempool_manager, [spend_b.coin.name()], use_optimization=use_optimization)
@@ -2904,7 +3030,7 @@ async def test_create_block_generator(
         err, _err_msg, conds = run_block_generator2(
             bytes(new_block_gen.program),
             new_block_gen.generator_refs,
-            DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM,
+            DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK,
             DEFAULT_FLAGS,
             new_block_gen.signature,
             None,
@@ -2918,7 +3044,7 @@ async def test_create_block_generator(
             assert len(conds.spends) != len(expected_removals)
         else:
             assert len(conds.spends) == len(expected_removals)
-        assert conds.cost < DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM
+        assert conds.cost < DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK
         assert new_block_gen.cost == conds.cost
 
         num_additions = 0
@@ -2971,7 +3097,7 @@ async def test_create_block_generator_real_bundles(seed: int, old: bool, test_bu
         err, _err_msg, conds = run_block_generator2(
             bytes(new_block_gen.program),
             new_block_gen.generator_refs,
-            DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM,
+            DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK,
             DEFAULT_FLAGS,
             new_block_gen.signature,
             None,
@@ -3009,7 +3135,7 @@ async def test_spending_singleton_to_invalidate_existing_ff_spends() -> None:
     singleton_spend2 = make_singleton_spend(LAUNCHER_ID, PARENT_PARENT, child_amount=3)
     coins = TestCoins(
         coins=[singleton_spend1.coin, singleton_spend2.coin, TEST_COIN, TEST_COIN2],
-        lineage={singleton_spend2.coin.puzzle_hash: singleton_spend2.coin},
+        lineage={singleton_spend2.coin.puzzle_hash: singleton_spend2},
     )
 
     async with setup_mempool(coins) as mempool_manager:
@@ -3048,7 +3174,7 @@ async def test_check_removals_with_block_creation(flags: int, old: bool) -> None
     PARENT_PARENT = bytes32([2] * 32)
     singleton_spend = make_singleton_spend(LAUNCHER_ID, PARENT_PARENT)
     coins = TestCoins(
-        coins=[singleton_spend.coin, TEST_COIN], lineage={singleton_spend.coin.puzzle_hash: singleton_spend.coin}
+        coins=[singleton_spend.coin, TEST_COIN], lineage={singleton_spend.coin.puzzle_hash: singleton_spend}
     )
 
     async with setup_mempool(coins) as mempool_manager:
@@ -3085,13 +3211,26 @@ async def test_check_removals_with_block_creation(flags: int, old: bool) -> None
 
 
 @pytest.mark.anyio
-async def test_dedup_not_canonical() -> None:
-    # this is ((1)), but with a non-canonical encoding
-    coin_spend = mk_coin_spend(TEST_COIN, solution="ffffc001018080")
+@pytest.mark.parametrize("flags", [0, ELIGIBLE_FOR_DEDUP, ELIGIBLE_FOR_FF, ELIGIBLE_FOR_FF | ELIGIBLE_FOR_DEDUP])
+@pytest.mark.parametrize(
+    "puzzle_hex,solution_hex",
+    [
+        # ((1)) with a non-canonical atom length prefix in the solution
+        (None, "ffffc001018080"),
+        # atom 1 with a non-canonical length prefix in the puzzle
+        ("c00101", "80"),
+    ],
+)
+async def test_mempool_requires_canonical_clvk(flags: int, puzzle_hex: str | None, solution_hex: str) -> None:
+    coin_spend = make_spend(
+        TEST_COIN,
+        SerializedProgram.fromhex(puzzle_hex) if puzzle_hex is not None else IDENTITY_PUZZLE,
+        SerializedProgram.fromhex(solution_hex),
+    )
     coins = TestCoins([TEST_COIN], lineage={})
     async with setup_mempool(coins) as mempool_manager:
         sb = SpendBundle([coin_spend], G2Element())
-        sb_conds = make_test_conds(spend_ids=[(TEST_COIN, ELIGIBLE_FOR_DEDUP)])
+        sb_conds = make_test_conds(spend_ids=[(TEST_COIN, flags)])
         bundle_add_info = await mempool_manager.add_spend_bundle(sb, sb_conds, sb.name(), uint32(1))
         assert bundle_add_info.status == MempoolInclusionStatus.FAILED
         assert bundle_add_info.error == Err.INVALID_COIN_SOLUTION
@@ -3349,7 +3488,7 @@ async def test_create_block_generator_custom_spend(
             err, _err_msg, conds = run_block_generator2(
                 bytes(generator.program),
                 generator.generator_refs,
-                DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM,
+                DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK,
                 0,
                 generator.signature,
                 None,
@@ -3382,8 +3521,8 @@ async def test_new_peak_deferred_ff_items() -> None:
     coins = TestCoins(
         [singleton_spend1.coin, singleton_spend2.coin, TEST_COIN, TEST_COIN2],
         {
-            singleton_spend1.coin.puzzle_hash: singleton_spend1.coin,
-            singleton_spend2.coin.puzzle_hash: singleton_spend2.coin,
+            singleton_spend1.coin.puzzle_hash: singleton_spend1,
+            singleton_spend2.coin.puzzle_hash: singleton_spend2,
         },
     )
     async with setup_mempool(coins) as mempool_manager:
@@ -3400,10 +3539,11 @@ async def test_new_peak_deferred_ff_items() -> None:
             )
             assert mempool_manager.get_mempool_item(sb_name) is not None
             sb_names.append(sb_name)
-        # Let's advance the mempool by spending these singletons into new lineages
-        singleton1_new_latest = Coin(singleton1_id, singleton_spend1.coin.puzzle_hash, singleton_spend1.coin.amount)
+        # Let's advance the mempool by spending these singletons into new lineages.
+        # The new latest coin is a real child of the previous singleton coin.
+        singleton1_new_latest = make_singleton_spend(bytes32([1] * 32), singleton_spend1.coin.parent_coin_info)
         coins.update_lineage(singleton_spend1.coin.puzzle_hash, singleton1_new_latest)
-        singleton2_new_latest = Coin(singleton2_id, singleton_spend2.coin.puzzle_hash, singleton_spend2.coin.amount)
+        singleton2_new_latest = make_singleton_spend(bytes32([2] * 32), singleton_spend2.coin.parent_coin_info)
         coins.update_lineage(singleton_spend2.coin.puzzle_hash, singleton2_new_latest)
         await advance_mempool(mempool_manager, [singleton1_id, singleton2_id], use_optimization=True)
         # Both items should get updated with their related latest lineages
@@ -3411,12 +3551,12 @@ async def test_new_peak_deferred_ff_items() -> None:
         assert mi1 is not None
         latest_singleton_lineage1 = mi1.bundle_coin_spends[singleton1_id].latest_singleton_lineage
         assert latest_singleton_lineage1 is not None
-        assert latest_singleton_lineage1.coin_id == singleton1_new_latest.name()
+        assert latest_singleton_lineage1.coin_id == singleton1_new_latest.coin.name()
         mi2 = mempool_manager.get_mempool_item(sb_names[1])
         assert mi2 is not None
         latest_singleton_lineage2 = mi2.bundle_coin_spends[singleton2_id].latest_singleton_lineage
         assert latest_singleton_lineage2 is not None
-        assert latest_singleton_lineage2.coin_id == singleton2_new_latest.name()
+        assert latest_singleton_lineage2.coin_id == singleton2_new_latest.coin.name()
 
 
 @pytest.mark.anyio
@@ -3432,7 +3572,7 @@ async def test_different_ff_versions() -> None:
     version2_id = singleton_spend2.coin.name()
     singleton_ph = singleton_spend2.coin.puzzle_hash
     coins = TestCoins(
-        [singleton_spend1.coin, singleton_spend2.coin, TEST_COIN, TEST_COIN2], {singleton_ph: singleton_spend2.coin}
+        [singleton_spend1.coin, singleton_spend2.coin, TEST_COIN, TEST_COIN2], {singleton_ph: singleton_spend2}
     )
     async with setup_mempool(coins) as mempool_manager:
         mempool_items: list[MempoolItem] = []
@@ -3459,9 +3599,10 @@ async def test_different_ff_versions() -> None:
         latest_singleton_lineage2 = mi2.bundle_coin_spends[version2_id].latest_singleton_lineage
         assert latest_singleton_lineage2 is not None
         assert latest_singleton_lineage2.coin_id == latest_lineage_id
-        # Let's update the lineage with a new version of the singleton
-        new_latest_lineage = Coin(version2_id, singleton_ph, singleton_spend2.coin.amount)
-        new_latest_lineage_id = new_latest_lineage.name()
+        # Let's update the lineage with a new version of the singleton, a real
+        # child of version 2.
+        new_latest_lineage = make_singleton_spend(launcher_id, singleton_spend2.coin.parent_coin_info)
+        new_latest_lineage_id = new_latest_lineage.coin.name()
         coins.update_lineage(singleton_ph, new_latest_lineage)
         await advance_mempool(mempool_manager, [version1_id, version2_id], use_optimization=True)
         # Both items should get updated with the latest lineage
@@ -3538,3 +3679,28 @@ async def test_mempool_item_to_spend_bundle() -> None:
         result = mi.to_spend_bundle()
         assert result == sb
         assert result.name() == sb_name
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("melt", [True, False])
+async def test_multiple_ff_same_sb(melt: bool) -> None:
+    """
+    Covers the scenario where a spend bundle has multiple spends of the same
+    fast forward singleton to make sure we reject that spend bundle.
+    """
+    launcher_id = bytes32([1] * 32)
+    version_1_spend = make_singleton_spend(launcher_id, bytes32([2] * 32))
+    version_2_spend = make_singleton_spend(launcher_id, bytes32([3] * 32))
+    version_3_spend = make_singleton_spend(launcher_id, bytes32([4] * 32), melt=melt)
+    coins = TestCoins(
+        [version_1_spend.coin, version_2_spend.coin, version_3_spend.coin],
+        {version_3_spend.coin.puzzle_hash: version_3_spend},
+    )
+    coins.spend_coin(version_1_spend.coin.name())
+    coins.spend_coin(version_2_spend.coin.name())
+    sb = SpendBundle([version_1_spend, version_3_spend], G2Element())
+    async with setup_mempool(coins) as mempool_manager:
+        _, status, error = await add_spendbundle(mempool_manager, sb, sb.name())
+        assert status == MempoolInclusionStatus.FAILED
+        assert error == Err.INVALID_SPEND_BUNDLE
+        assert_sb_not_in_pool(mempool_manager, sb)

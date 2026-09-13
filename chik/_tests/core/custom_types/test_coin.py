@@ -8,9 +8,9 @@ from chik.types.blockchain_format.coin import Coin
 from chik.util.hash import std_hash
 
 
-def coin_serialize(amount: uint64, klvm_serialize: bytes, full_serialize: bytes) -> None:
+def coin_serialize(amount: uint64, clvk_serialize: bytes, full_serialize: bytes) -> None:
     c = Coin(bytes32(b"a" * 32), bytes32(b"b" * 32), amount)
-    expected_hash = (b"a" * 32) + (b"b" * 32) + klvm_serialize
+    expected_hash = (b"a" * 32) + (b"b" * 32) + clvk_serialize
 
     expected_serialization = (b"a" * 32) + (b"b" * 32) + full_serialize
 
@@ -41,7 +41,7 @@ def test_serialization() -> None:
 
 
 @pytest.mark.parametrize(
-    "amount, klvm",
+    "amount, clvk",
     [
         (0, []),
         (1, [1]),
@@ -63,11 +63,11 @@ def test_serialization() -> None:
         (0x7FFFFFFFFFFFFFFF, [0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]),
     ],
 )
-def test_name(amount: int, klvm: list[int]) -> None:
+def test_name(amount: int, clvk: list[int]) -> None:
     H1 = bytes32(b"a" * 32)
     H2 = bytes32(b"b" * 32)
 
-    assert Coin(H1, H2, uint64(amount)).name() == std_hash(H1 + H2 + bytes(klvm))
+    assert Coin(H1, H2, uint64(amount)).name() == std_hash(H1 + H2 + bytes(clvk))
 
 
 def test_construction() -> None:

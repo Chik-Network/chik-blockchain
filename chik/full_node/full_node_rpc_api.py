@@ -21,6 +21,7 @@ from chik_rs import get_puzzle_and_solution_for_coin2 as get_puzzle_and_solution
 from chik_rs.sized_bytes import bytes32
 from chik_rs.sized_ints import uint32, uint64, uint128
 
+from chik.consensus.block_generator_info import block_has_transactions_generator
 from chik.consensus.blockchain import Blockchain, BlockchainMutexPriority
 from chik.consensus.get_block_generator import get_block_generator
 from chik.consensus.pos_quality import UI_ACTUAL_SPACE_CONSTANT_FACTOR
@@ -285,7 +286,7 @@ class FullNodeRpcApi:
                     "cost_5000000": mempool_min_fee_5m,
                 },
                 "mempool_max_total_cost": mempool_max_total_cost,
-                "block_max_cost": self.service.constants.MAX_BLOCK_COST_KLVM,
+                "block_max_cost": self.service.constants.MAX_BLOCK_COST_CLVK,
                 "node_id": node_id,
             },
         }
@@ -705,7 +706,7 @@ class FullNodeRpcApi:
         if "include_spent_coins" in request:
             kwargs["include_spent_coins"] = request["include_spent_coins"]
 
-        coin_records = await self.service.blockchain.coin_store.get_coin_records_by_puzzle_hash(**kwargs)
+        coin_records = await self.service.coin_store.get_coin_records_by_puzzle_hash(**kwargs)
 
         return {"coin_records": [coin_record_dict_backwards_compat(cr.to_json_dict()) for cr in coin_records]}
 
@@ -727,7 +728,7 @@ class FullNodeRpcApi:
         if "include_spent_coins" in request:
             kwargs["include_spent_coins"] = request["include_spent_coins"]
 
-        coin_records = await self.service.blockchain.coin_store.get_coin_records_by_puzzle_hashes(**kwargs)
+        coin_records = await self.service.coin_store.get_coin_records_by_puzzle_hashes(**kwargs)
 
         return {"coin_records": [coin_record_dict_backwards_compat(cr.to_json_dict()) for cr in coin_records]}
 
@@ -739,7 +740,7 @@ class FullNodeRpcApi:
             raise RpcError.simple(RpcErrorCodes.NAME_NOT_IN_REQUEST, "Name not in request")
         name = bytes32.from_hexstr(request["name"])
 
-        coin_record: CoinRecord | None = await self.service.blockchain.coin_store.get_coin_record(name)
+        coin_record: CoinRecord | None = await self.service.coin_store.get_coin_record(name)
         if coin_record is None:
             raise RpcError(
                 RpcErrorCodes.COIN_RECORD_NOT_FOUND,
@@ -768,7 +769,7 @@ class FullNodeRpcApi:
         if "include_spent_coins" in request:
             kwargs["include_spent_coins"] = request["include_spent_coins"]
 
-        coin_records = await self.service.blockchain.coin_store.get_coin_records_by_names(**kwargs)
+        coin_records = await self.service.coin_store.get_coin_records_by_names(**kwargs)
 
         return {"coin_records": [coin_record_dict_backwards_compat(cr.to_json_dict()) for cr in coin_records]}
 
@@ -790,7 +791,7 @@ class FullNodeRpcApi:
         if "include_spent_coins" in request:
             kwargs["include_spent_coins"] = request["include_spent_coins"]
 
-        coin_records = await self.service.blockchain.coin_store.get_coin_records_by_parent_ids(**kwargs)
+        coin_records = await self.service.coin_store.get_coin_records_by_parent_ids(**kwargs)
 
         return {"coin_records": [coin_record_dict_backwards_compat(cr.to_json_dict()) for cr in coin_records]}
 
@@ -819,7 +820,7 @@ class FullNodeRpcApi:
         if "include_spent_coins" in request:
             kwargs["include_spent_coins"] = request["include_spent_coins"]
 
-        coin_records = await self.service.blockchain.coin_store.get_coin_records_by_names(**kwargs)
+        coin_records = await self.service.coin_store.get_coin_records_by_names(**kwargs)
 
         return {"coin_records": [coin_record_dict_backwards_compat(cr.to_json_dict()) for cr in coin_records]}
 
@@ -869,7 +870,7 @@ class FullNodeRpcApi:
         assert header_hash is not None
         block: FullBlock | None = await self.service.block_store.get_full_block(header_hash)
 
-        if block is None or block.transactions_generator is None:
+        if block is None or not block_has_transactions_generator(block):
             raise RpcError.simple(RpcErrorCodes.INVALID_BLOCK_OR_GENERATOR, "Invalid block or block generator")
 
         block_generator: BlockGenerator | None = await get_block_generator(
@@ -882,7 +883,7 @@ class FullNodeRpcApi:
             puzzle, solution = get_puzzle_and_solution_for_coin(
                 block_generator.program,
                 block_generator.generator_refs,
-                self.service.constants.MAX_BLOCK_COST_KLVM,
+                self.service.constants.MAX_BLOCK_COST_CLVK,
                 coin_record.coin,
                 flags,
             )
@@ -1005,7 +1006,7 @@ class FullNodeRpcApi:
                     run_block_generator2,
                     bytes(gen.program),
                     gen.generator_refs,
-                    self.service.constants.MAX_BLOCK_COST_KLVM,
+                    self.service.constants.MAX_BLOCK_COST_CLVK,
                     MEMPOOL_MODE,
                     gen.signature,
                     None,
@@ -1102,7 +1103,7 @@ class FullNodeRpcApi:
         estimator: FeeEstimatorInterface = self.service.mempool_manager.mempool.fee_estimator
         target_times.sort()
         estimates = [
-            estimator.estimate_fee_rate(time_offset_seconds=time).mojos_per_klvm_cost * spend_cost
+            estimator.estimate_fee_rate(time_offset_seconds=time).mojos_per_clvk_cost * spend_cost
             for time in target_times
         ]
         # The Bitcoin Fee Estimator works by observing the most common fee rates that appear
@@ -1131,7 +1132,7 @@ class FullNodeRpcApi:
             last_peak_timestamp = peak.timestamp
             peak_with_timestamp = peak_height  # Last transaction block height
             last_tx_block = self.service.blockchain.height_to_block_record(peak_with_timestamp)
-            while last_tx_block is None or last_peak_timestamp is None:
+            while last_peak_timestamp is None:
                 peak_with_timestamp -= 1
                 last_tx_block = self.service.blockchain.height_to_block_record(peak_with_timestamp)
                 last_peak_timestamp = last_tx_block.timestamp
@@ -1157,7 +1158,7 @@ class FullNodeRpcApi:
         return {
             "estimates": estimates,
             "target_times": target_times,
-            "current_fee_rate": current_fee_rate.mojos_per_klvm_cost,
+            "current_fee_rate": current_fee_rate.mojos_per_clvk_cost,
             "mempool_size": mempool_size,
             "mempool_fees": mempool_fees,
             "num_spends": num_mempool_spends,

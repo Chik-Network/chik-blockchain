@@ -7,7 +7,7 @@ from chik.full_node.fee_estimation import EmptyFeeMempoolInfo, FeeBlockInfo, Fee
 from chik.full_node.fee_estimator import SmartFeeEstimator
 from chik.full_node.fee_estimator_interface import FeeEstimatorInterface
 from chik.full_node.fee_tracker import FeeTracker
-from chik.types.klvm_cost import KLVMCost
+from chik.types.clvk_cost import CLVKCost
 from chik.types.fee_rate import FeeRateV2
 
 
@@ -58,11 +58,11 @@ class BitcoinFeeEstimator(FeeEstimatorInterface):
             return FeeRateV2(0)
         return fee_estimate.estimated_fee_rate
 
-    def mempool_size(self) -> KLVMCost:
+    def mempool_size(self) -> CLVKCost:
         """Report last seen mempool size"""
         return self.last_mempool_info.current_mempool_cost
 
-    def mempool_max_size(self) -> KLVMCost:
+    def mempool_max_size(self) -> CLVKCost:
         """Report current mempool max size (cost)"""
         return self.last_mempool_info.mempool_info.max_size_in_cost
 
@@ -77,10 +77,10 @@ class BitcoinFeeEstimator(FeeEstimatorInterface):
         return self.last_mempool_info
 
 
-def create_bitcoin_fee_estimator(max_block_cost_klvm: uint64) -> BitcoinFeeEstimator:
+def create_bitcoin_fee_estimator(max_block_cost_clvk: uint64) -> BitcoinFeeEstimator:
     # fee_store and fee_tracker are particular to the BitcoinFeeEstimator, and
     # are not necessary if a different fee estimator is used.
     fee_store = FeeStore()
     fee_tracker = FeeTracker(fee_store)
-    smart_fee_estimator = SmartFeeEstimator(fee_tracker, max_block_cost_klvm)
+    smart_fee_estimator = SmartFeeEstimator(fee_tracker, max_block_cost_clvk)
     return BitcoinFeeEstimator(fee_tracker, smart_fee_estimator)

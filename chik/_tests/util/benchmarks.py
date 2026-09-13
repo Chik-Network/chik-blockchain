@@ -30,8 +30,8 @@ from chik.types.blockchain_format.serialized_program import SerializedProgram
 # farmer puzzle hash
 ph = bytes32(b"a" * 32)
 
-klvm_generator_bin_path = importlib_resources.files(__name__.rpartition(".")[0]).joinpath("klvm_generator.bin")
-klvm_generator = klvm_generator_bin_path.read_bytes()
+clvk_generator_bin_path = importlib_resources.files(__name__.rpartition(".")[0]).joinpath("clvk_generator.bin")
+clvk_generator = clvk_generator_bin_path.read_bytes()
 
 
 def rewards(height: uint32) -> tuple[Coin, Coin]:
@@ -173,8 +173,10 @@ def rand_full_block() -> FullBlock:
         foliage,
         foliage_transaction_block,
         transactions_info,
-        SerializedProgram.from_bytes(klvm_generator),
+        SerializedProgram.from_bytes(clvk_generator),
         [],
+        None,
+        uint8(0),
     )
 
     return full_block

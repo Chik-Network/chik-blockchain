@@ -23,10 +23,10 @@ from chik.util.file_keyring import FileKeyring
 # WARNING: Changing the default passphrase will prevent passphrase-less users from accessing
 # their existing keys. Using a new default passphrase requires migrating existing users to
 # the new passphrase.
-DEFAULT_PASSPHRASE_IF_NO_MASTER_PASSPHRASE = "$ chik passphrase set # all the cool kids are doing it!"  # noqa: S105
+DEFAULT_PASSPHRASE_IF_NO_MASTER_PASSPHRASE = "$ chik passphrase set # all the cool kids are doing it!"  # ruff: ignore[hardcoded-password-string]
 
-MASTER_PASSPHRASE_SERVICE_NAME = "Chik Passphrase"  # noqa: S105
-MASTER_PASSPHRASE_USER_NAME = "Chik Passphrase"  # noqa: S105
+MASTER_PASSPHRASE_SERVICE_NAME = "Chik Passphrase"  # ruff: ignore[hardcoded-password-string]
+MASTER_PASSPHRASE_USER_NAME = "Chik Passphrase"  # ruff: ignore[hardcoded-password-string]
 
 
 OSPassphraseStore = MacKeyring | WinKeyring

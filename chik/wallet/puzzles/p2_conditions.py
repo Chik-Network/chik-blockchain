@@ -13,7 +13,7 @@ the doctor ordered.
 from __future__ import annotations
 
 from chik_puzzles_py.programs import P2_CONDITIONS
-from klvm.SExp import CastableType
+from clvk.SExp import CastableType
 
 from chik.types.blockchain_format.program import Program
 

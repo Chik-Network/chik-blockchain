@@ -20,7 +20,7 @@
     "icon": "src/assets/img/chik.ico",
     "executableName": "Chik",
     "signtoolOptions": {
-      "timeStampServer": "http://timestamp.comodoca.com"
+      "sign": null
     }
   },
   "nsis": {

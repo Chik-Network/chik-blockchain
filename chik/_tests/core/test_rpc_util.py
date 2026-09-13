@@ -7,7 +7,7 @@ from chik_rs.sized_ints import uint32
 
 from chik.rpc.util import marshal
 from chik.util.streamable import Streamable, streamable
-from chik.wallet.util.klvm_streamable import klvm_streamable
+from chik.wallet.util.clvk_streamable import clvk_streamable
 
 
 @streamable
@@ -53,29 +53,29 @@ async def test_rpc_marshalling() -> None:
     ) == {"qat": ["foofoo", "1", "ff", "qux"], "sub": {"qux": "qux"}}
 
 
-@klvm_streamable
+@clvk_streamable
 @dataclass(frozen=True)
-class KlvmSubObject(Streamable):
+class ClvkSubObject(Streamable):
     qux: bytes
 
 
 @streamable
 @dataclass(frozen=True)
-class TestKlvmRequestType(Streamable):
-    sub: KlvmSubObject
+class TestClvkRequestType(Streamable):
+    sub: ClvkSubObject
 
 
 @streamable
 @dataclass(frozen=True)
-class TestKlvmResponseObject(Streamable):
-    sub: KlvmSubObject
+class TestClvkResponseObject(Streamable):
+    sub: ClvkSubObject
 
 
 @pytest.mark.anyio
-async def test_klvm_streamable_marshalling() -> None:
+async def test_clvk_streamable_marshalling() -> None:
     @marshal
-    async def test_rpc_endpoint(self: None, request: TestKlvmRequestType) -> TestKlvmResponseObject:
-        return TestKlvmResponseObject(request.sub)
+    async def test_rpc_endpoint(self: None, request: TestClvkRequestType) -> TestClvkResponseObject:
+        return TestClvkResponseObject(request.sub)
 
     assert await test_rpc_endpoint(
         None,

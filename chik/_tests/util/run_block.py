@@ -145,7 +145,7 @@ def run_generator_with_args(
         return []
     generator_program = SerializedProgram.fromhex(generator_program_hex)
     block_generator = BlockGenerator(generator_program, generator_args)
-    return run_generator(block_generator, constants, min(constants.MAX_BLOCK_COST_KLVM, cost))
+    return run_generator(block_generator, constants, min(constants.MAX_BLOCK_COST_CLVK, cost))
 
 
 def run_json_block(full_block: dict[str, Any], parent: Path, constants: ConsensusConstants) -> list[CAT]:

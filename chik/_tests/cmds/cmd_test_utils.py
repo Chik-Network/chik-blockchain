@@ -47,6 +47,8 @@ from chik.wallet.wallet_request_types import (
     GetTransactionResponse,
     GetWallets,
     GetWalletsResponse,
+    LogIn,
+    LogInResponse,
     NFTCalculateRoyalties,
     NFTCalculateRoyaltiesResponse,
     NFTGetInfo,
@@ -104,6 +106,10 @@ class TestWalletRpcClient(TestRpcClient):
     client_type: type[WalletRpcClient] = field(init=False, default=WalletRpcClient)
     fingerprint: int = field(init=False, default=0)
     wallet_index: int = field(init=False, default=0)
+
+    async def log_in(self, request: LogIn) -> LogInResponse:
+        self.fingerprint = request.fingerprint
+        return LogInResponse(fingerprint=request.fingerprint)
 
     async def get_sync_status(self) -> GetSyncStatusResponse:
         self.add_to_log("get_sync_status", ())
@@ -295,7 +301,7 @@ class TestFullNodeRpcClient(TestRpcClient):
                 "cost_5000000": 0,
             },
             "mempool_max_total_cost": 550000000000,
-            "block_max_cost": DEFAULT_CONSTANTS.MAX_BLOCK_COST_KLVM,
+            "block_max_cost": DEFAULT_CONSTANTS.MAX_BLOCK_COST_CLVK,
             "node_id": "7991a584ae4784ab7525bda352ea9b155ce2ac108d361afc13d5964a0f33fa6d",
         }
         self.add_to_log("get_blockchain_state", ())
