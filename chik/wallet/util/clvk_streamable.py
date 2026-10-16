@@ -6,7 +6,7 @@ from collections.abc import Callable
 from types import MappingProxyType
 from typing import Any, Generic, TypeGuard, TypeVar, cast, get_type_hints
 
-from clvk_rs import Program as CLVKRSProgram  # type: ignore[import-untyped]
+from clvk_rs import Program as CLVKRSProgram
 from hsmk.clvk_serde import from_program_for_type, to_program_for_type
 
 from chik.types.blockchain_format.program import Program
